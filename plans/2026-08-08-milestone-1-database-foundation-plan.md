@@ -495,8 +495,8 @@ Exact secret names will be documented in `docs/environment-variables.md` without
 
 - [x] Run offline lint, typecheck, unit/contract tests, migration static checks, format check, and build.
 - [x] Review migration SQL before hosted execution. (4 migration direview saat implementasi)
-- [ ] Approve and run development migration workflow.
-- [ ] Record workflow URL, exact commit SHA, and migration version.
+- [x] Approve and run development migration workflow.
+- [x] Record workflow URL, exact commit SHA, and migration version. (run `31252455316`, commit `dba67ce`, 6 migrations)
 - [x] Re-run development migration command and prove no pending duplicate migration. (CLI: migration list Local==Remote semua)
 - [x] Record schema assertion output.
 - [x] Record RLS/grant test output.
@@ -529,9 +529,9 @@ Hosted commands run only inside approved development workflow. Production databa
 
 ## Acceptance Criteria
 
-- [ ] Hosted development migration succeeds through approved GitHub workflow. (local CLI apply selesai; workflow belum dijalankan)
+- [x] Hosted development migration succeeds through approved GitHub workflow. (run `31252455316` conclusion success)
 - [x] Re-running migration reports no pending duplicate migration. (CLI: Local==Remote semua migration)
-- [ ] Applied migration version and commit SHA are recorded. (menunggu workflow run)
+- [x] Applied migration version and commit SHA are recorded. (commit `dba67ce`, 6 migrations)
 - [x] All required tables, columns, constraints, foreign keys, triggers, functions, and indexes match assertions.
 - [x] RLS is enabled on every exposed core table.
 - [x] `anon` and browser-authenticated roles cannot read internal fixture rows.

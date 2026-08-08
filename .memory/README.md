@@ -1,13 +1,13 @@
 # Project Memory
 
-Last updated: 2026-08-08 15:44:04
+Last updated: 2026-08-08 17:30:07
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: Milestone 1 (Database Foundation) — implementasi committed (`bb0f2b0`), remediation committed-belum (implementasi inti selesai, menunggu commit + run `migrate-development.yml`)
+- Active milestone: Milestone 1 (Database Foundation) — implementasi + remediation committed (`bb0f2b0`, `dba67ce`); dev migration workflow sukses (run 31252455316)
 - Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (6 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
-- Remediation M1 (plan `2026-08-08-milestone-1-review-remediation-plan.md`): composite FK ownership, authenticated security, exact schema assertions, REQUIRE_HOSTED_TESTS, type-drift tanpa overwrite, dev attestation prod, pinned CLI via npx — implementasi inti selesai, 40 hosted tests hijau
+- Remediation M1 (plan `2026-08-08-milestone-1-review-remediation-plan.md`): composite FK ownership, authenticated security, exact schema assertions, REQUIRE_HOSTED_TESTS, type-drift tanpa overwrite, dev attestation prod, pinned CLI via npx — inti selesai, 40 hosted tests hijau, workflow dev sukses
 - GitHub Environments `development` + `Production` created with required reviewer `@alamaby` and per-environment secrets
 - Health endpoint acts as readiness probe: HTTP 200 `status:ok` when DB reachable, HTTP 503 `status:degraded` otherwise, `Cache-Control: no-store`
 
@@ -26,7 +26,7 @@ Last updated: 2026-08-08 15:44:04
 
 ## Open Blockers
 
-- (none) — remediation M1 inti selesai; menunggu commit + run `migrate-development.yml` (manual approval) + capture evidence
+- (none) — M1 + remediation selesai dengan evidence (dev workflow sukses, dashboard drift bersih)
 - Vercel Preview alias not configured
 - Telegram bot tokens not set
 - Pixazo API documentation pending

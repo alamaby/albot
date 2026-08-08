@@ -184,13 +184,13 @@ M1 hanya dapat diterima setelah:
 - [x] Run offline lint, typecheck, format, build, unit tests.
 - [x] Run migration static checks.
 - [x] Run schema/security/contract tests dengan required secrets. (40 hosted tests, 0 skip)
-- [ ] Run development workflow pada exact remediation commit.
-- [ ] Re-run development migration dan verify no pending.
-- [ ] Capture workflow URL, run ID, exact commit SHA, migration versions/hashes.
+- [x] Run development workflow pada exact remediation commit. (run 31252455316, conclusion success)
+- [x] Re-run development migration dan verify no pending. (Local==Remote semua 6)
+- [x] Capture workflow URL, run ID, exact commit SHA, migration versions/hashes.
 - [x] Capture schema assertion report, RLS/grant report, authenticated-role report, concurrency report, generated-type clean-diff.
 - [x] Verify production migration count tetap nol.
-- [ ] Verify no dashboard-only schema objects.
-- [ ] Update M1 plan acceptance criteria, `TODO.md`, `.memory/README.md`, remediation entry.
+- [x] Verify no dashboard-only schema objects. (public: 11 tables migration-created, 0 views; `rls_auto_enable()` = fungsi platform Supabase, bukan dashboard)
+- [x] Update M1 plan acceptance criteria, `TODO.md`, `.memory/README.md`, remediation entry.
 
 ## Acceptance Criteria
 
@@ -228,6 +228,7 @@ M1 hanya dapat diterima setelah:
   - `20260808160000` 2828d6b0d0f64a1649086c5d67b651e44d1157a72ca899d4b886736acdae34a5
   - `20260808160100` 5b4acf60a48cb54a0024dfef924bd2bc3fd7bfca75c2eae28aabb42824f0451e
 - Sisa Phase 11: jalankan `migrate-development.yml` pada commit remediation (approval user), capture workflow URL/run ID, konfirmasi dashboard-only drift, update acceptance M1.
+- 2026-08-08 17:30 — Development workflow sukses pada commit `dba67ce` (run `31252455316`, job `93090792381`, conclusion success, workflow_id 329893700). URL: https://github.com/alamaby/albot/actions/runs/31252455316. Dev migration count 6 (Local==Remote, no pending); prod tetap 0. Remaining: konfirmasi tidak ada schema object hanya dari dashboard.
 
 ## Notes
 
