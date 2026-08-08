@@ -4,15 +4,15 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 1: Database Foundation
+Milestone 2: Provider Abstraction and Configuration
 
 ## In Progress
 
-- M1 + remediation selesai; `migrate-development.yml` sukses (run 31252455316, commit dba67ce) — evidence tercatat
+- M2 implementation sedang berjalan — encryption, provider contracts, registry, selector, repository, adapters, tests selesai
 
 ## Pending
 
-- [ ] Implement Milestone 2 dan record verification evidence
+- [ ] Complete M2: apply migration, regenerate types, run migration workflow, capture evidence
 - [ ] Implement Milestone 3 dan record verification evidence
 - [ ] Implement Milestone 4 dan record verification evidence
 - [ ] Implement Milestone 5 dan record verification evidence
@@ -88,17 +88,17 @@ Milestone 1: Database Foundation
 - [x] Migration RLS + grants (RLS enable+force, revoke anon/authenticated, grant service_role) — `20260808145600`
 - [x] Migration atomic functions (`claim_job` SKIP LOCKED + `transition_prompt_session` compare-and-set) — `20260808145700`
 - [x] Migration hardening (revoke EXECUTE API roles dari functions) — `20260808145800`
-- [x] Applied ke development via CLI: dev migration count 4, prod count 0
+- [x] Migration cross-entity ownership + function hardening (composite FK + least-privilege) — `20260808160000` / `20260808160100`
+- [x] Applied ke development via CLI + workflow: dev migration count 6, prod count 0
 - [x] Generated `database.types.ts` dari dev; `getSupabaseAdmin()` typed `SupabaseClient<Database>`; regen idempotent
-- [x] Test harness hosted (skip tanpa kredensial): schema integration 10, service-role 2 (di dalam integration), RLS security 2, contract 7
+- [x] Test harness hosted (skip tanpa kredensial): schema integration 15, service-role 2, RLS security 7, contract 18
 - [x] Workflows: `validate.yml` + db:lint/db:check-migrations; `migrate-development.yml`; `migrate-production.yml` (belum dijalankan)
-- [x] Verifikasi lokal: lint, typecheck, build, format:check, 46/46 tests, db:check-migrations, db:lint, db:types:check
+- [x] Verifikasi lokal: lint, typecheck, build, format:check, 67/67 tests, db:check-migrations, db:lint, db:types:check
+- [x] M1 + remediation workflow development sukses (run 31252455316)
 
 ## Decisions Needed
 
-- [ ] Reasoning provider dan model awal (sebelum Milestone 2 selesai)
-- [ ] Pixazo documentation URL dan model (sebelum adapter Pixazo)
-- [ ] Admin approach: CLI/API atau web UI
+- (none)
 
 ## Enhancement Backlog
 
