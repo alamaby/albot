@@ -159,6 +159,13 @@ export type Database = {
             referencedRelation: "prompt_sessions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "generation_attempts_session_revision_fkey"
+            columns: ["session_id", "revision_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_revisions"
+            referencedColumns: ["session_id", "id"]
+          },
         ]
       }
       job_events: {
@@ -286,6 +293,31 @@ export type Database = {
             referencedRelation: "prompt_sessions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "jobs_session_generation_attempt_fkey"
+            columns: ["prompt_session_id", "generation_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "generation_attempts"
+            referencedColumns: ["session_id", "id"]
+          },
+          {
+            foreignKeyName: "jobs_session_revision_attempt_fkey"
+            columns: [
+              "prompt_session_id",
+              "prompt_revision_id",
+              "generation_attempt_id",
+            ]
+            isOneToOne: false
+            referencedRelation: "generation_attempts"
+            referencedColumns: ["session_id", "revision_id", "id"]
+          },
+          {
+            foreignKeyName: "jobs_session_revision_fkey"
+            columns: ["prompt_session_id", "prompt_revision_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_revisions"
+            referencedColumns: ["session_id", "id"]
+          },
         ]
       }
       prompt_revisions: {
@@ -393,6 +425,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "prompt_sessions_active_attempt_session_fkey"
+            columns: ["id", "active_generation_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "generation_attempts"
+            referencedColumns: ["session_id", "id"]
+          },
+          {
             foreignKeyName: "prompt_sessions_active_generation_attempt_fkey"
             columns: ["active_generation_attempt_id"]
             isOneToOne: false
@@ -405,6 +444,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "prompt_revisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompt_sessions_active_revision_session_fkey"
+            columns: ["id", "active_revision_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_revisions"
+            referencedColumns: ["session_id", "id"]
           },
         ]
       }
@@ -574,6 +620,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "provider_configs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_requests_config_key_fkey"
+            columns: ["provider_config_id", "provider_key_id"]
+            isOneToOne: false
+            referencedRelation: "provider_keys"
+            referencedColumns: ["provider_config_id", "id"]
           },
           {
             foreignKeyName: "provider_requests_job_fkey"

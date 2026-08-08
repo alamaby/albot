@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       confirm_project_ref:
-        description: "Expected production project ref (must match secrets.SUPABASE_PROJECT_REF suffix)"
+        description: "Expected production project ref (must match the repository-reviewed ref)"
+        type: string
+        required: true
+      development_run_id:
+        description: "GitHub Actions run ID of a successful migrate-development run on this exact commit"
         type: string
         required: true
 
@@ -14,6 +18,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   migrate-production:
@@ -24,24 +29,59 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout exact commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Validate production target confirmation
+      - name: Verify production target (independent repository-reviewed ref)
         env:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           CONFIRM_REF: ${{ inputs.confirm_project_ref }}
         run: |
-          echo "Configured production ref: ${SUPABASE_PROJECT_REF}"
-          if [ "${SUPABASE_PROJECT_REF}" != "${CONFIRM_REF}" ]; then
-            echo "::error::confirmation does not match configured production project ref"
+          # Non-secret, repository-reviewed production project ref (documented in
+          # docs/environment-variables.md). Independent of the secret value so a
+          # misconfigured secret cannot silently retarget the workflow.
+          EXPECTED_REF="pcexxtckvwmiquseznaz"
+          echo "configured=$SUPABASE_PROJECT_REF expected=$EXPECTED_REF"
+          if [ "$SUPABASE_PROJECT_REF" != "$EXPECTED_REF" ] || [ "$CONFIRM_REF" != "$EXPECTED_REF" ]; then
+            echo "::error::production project ref does not match repository-reviewed ref"
             exit 1
           fi
 
+      - name: Verify development attestation for this exact commit
+        id: attestation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID="${{ inputs.development_run_id }}"
+          echo "checking development run $RUN_ID"
+          RESP="$(curl -s -f -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID")" || {
+              echo "::error::cannot query development run $RUN_ID"
+              exit 1
+          }
+          NAME="$(echo "$RESP" | jq -r '.name')"
+          CONCLUSION="$(echo "$RESP" | jq -r '.conclusion')"
+          HEAD_SHA="$(echo "$RESP" | jq -r '.head_sha')"
+          echo "name=$NAME conclusion=$CONCLUSION head_sha=$HEAD_SHA"
+          if [ "$NAME" != "migrate-development" ]; then
+            echo "::error::run $RUN_ID is not a migrate-development run"
+            exit 1
+          fi
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::development run $RUN_ID did not succeed"
+            exit 1
+          fi
+          if [ "$HEAD_SHA" != "${{ github.sha }}" ]; then
+            echo "::error::development run $RUN_ID did not run on this commit"
+            exit 1
+          fi
+          echo "verified=true" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -49,8 +89,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install pinned Supabase CLI
-        run: npm install --global supabase@2.108.0
+      - name: Verify pinned Supabase CLI
+        run: npx --no-install supabase --version
 
       - name: Link production project
         env:
@@ -58,29 +98,27 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+          npx --no-install supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
       - name: Capture preflight migration metadata
-        id: preflight
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx --no-install supabase migration list
+
+      - name: Apply pending migrations (attestation required)
+        if: steps.attestation.outputs.verified == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: echo "y" | npx --no-install supabase db push --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Read-only post-migration checks
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase migration list
-          echo "applied-to-production=false" >> "$GITHUB_OUTPUT"
-
-      - name: Apply pending migrations
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: echo "y" | supabase db push --password "$SUPABASE_DB_PASSWORD"
-
-      - name: Read-only post-migration smoke checks
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: |
-          LIST="$(supabase migration list 2>&1)"
+          LIST="$(npx --no-install supabase migration list 2>&1)"
           echo "$LIST"
           if echo "$LIST" | grep -E '^\s*[0-9]{14}\s*\|\s*\|'; then
             echo "::error::pending migrations remain after production push"
@@ -89,7 +127,7 @@ jobs:
 
       - name: Upload sanitized evidence artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: production-migration-evidence
           path: |

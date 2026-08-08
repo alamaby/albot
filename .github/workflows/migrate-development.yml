@@ -3,14 +3,10 @@ name: migrate-development
 on:
   workflow_dispatch:
     inputs:
-      ref:
-        description: Branch or tag to check out (default main)
-        type: string
-        default: main
       commit_sha:
-        description: Exact commit SHA to check out (overrides ref)
+        description: "Exact 40-character commit SHA to review and migrate (must be an ancestor of main)"
         type: string
-        required: false
+        required: true
 
 concurrency:
   group: migrate-development
@@ -27,13 +23,27 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout exact commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.commit_sha || inputs.ref }}
+          ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
 
+      - name: Verify checked-out commit
+        run: |
+          HEAD="$(git rev-parse HEAD)"
+          echo "HEAD=$HEAD"
+          if [ "$HEAD" != "${{ inputs.commit_sha }}" ]; then
+            echo "::error::checked out SHA does not match requested SHA"
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$HEAD" origin/main; then
+            echo "::error::requested SHA is not an ancestor of main"
+            exit 1
+          fi
+
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -41,8 +51,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install pinned Supabase CLI
-        run: npm install --global supabase@2.108.0
+      - name: Verify pinned Supabase CLI
+        run: npx --no-install supabase --version
 
       - name: Link development project
         env:
@@ -50,77 +60,75 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+          npx --no-install supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
       - name: Show pending migrations (before)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: supabase migration list
+        run: npx --no-install supabase migration list
 
       - name: Apply pending migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: echo "y" | supabase db push --password "$SUPABASE_DB_PASSWORD"
+        run: echo "y" | npx --no-install supabase db push --password "$SUPABASE_DB_PASSWORD"
 
       - name: Prove no pending migrations remain
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          LIST="$(supabase migration list 2>&1)"
+          LIST="$(npx --no-install supabase migration list 2>&1)"
           echo "$LIST"
           if echo "$LIST" | grep -E '^\s*[0-9]{14}\s*\|\s*\|'; then
             echo "::error::pending migrations remain after db push"
             exit 1
           fi
 
-      - name: Generate database types from development
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: npm run db:types
-
-      - name: Fail on generated type drift
+      - name: Fail on generated type drift (no tracked-file mutation)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: npm run db:types:check
 
-      - name: Run integration tests
+      - name: Run hosted tests (required)
         env:
+          REQUIRE_HOSTED_TESTS: "true"
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: npm run test:integration
+        run: |
+          npm run test:hosted -- --reporter=json --outputFile="$RUNNER_TEMP/hosted-tests.json"
+          node scripts/assert-hosted-tests.mjs "$RUNNER_TEMP/hosted-tests.json"
 
-      - name: Run RLS security tests
+      - name: Collect sanitized evidence
         env:
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: npm run test:security
-
-      - name: Run database function contract tests
-        env:
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: npm run test:contract
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          {
+            echo "workflow=migrate-development"
+            echo "run_id=${{ github.run_id }}"
+            echo "run_number=${{ github.run_number }}"
+            echo "commit_sha=${{ inputs.commit_sha }}"
+            echo "project_ref=$SUPABASE_PROJECT_REF"
+            echo "generated_types=clean"
+          } > "$RUNNER_TEMP/evidence/manifest.txt"
+          sha256sum supabase/migrations/*.sql > "$RUNNER_TEMP/evidence/migration-hashes.txt"
+          npx --no-install supabase migration list > "$RUNNER_TEMP/evidence/migration-list.txt" 2>&1 || true
+          cp "$RUNNER_TEMP/hosted-tests.json" "$RUNNER_TEMP/evidence/hosted-tests.json"
 
       - name: Upload sanitized evidence artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: development-migration-evidence
           path: |
+            ${{ runner.temp }}/evidence/**/*
             supabase/migrations/*.sql
           retention-days: 30

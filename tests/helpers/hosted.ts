@@ -33,6 +33,20 @@ export function isHostedConfigured(): boolean {
   return getHostedEnv() !== null;
 }
 
+// Gate for hosted suites. In offline/local runs a missing configuration means
+// the suite should skip. When REQUIRE_HOSTED_TESTS=true (the migration workflow),
+// a missing configuration is a hard failure so the workflow can never report
+// green with zero hosted tests.
+export function assertHostedOrSkip(): boolean {
+  if (isHostedConfigured()) return false;
+  if (process.env.REQUIRE_HOSTED_TESTS === "true") {
+    throw new Error(
+      "hosted tests required (REQUIRE_HOSTED_TESTS=true) but hosted credentials are missing",
+    );
+  }
+  return true;
+}
+
 export function getAdminClient(): SupabaseClient<Database> {
   const env = getHostedEnv();
   if (!env) throw new Error("hosted credentials not configured");
@@ -46,6 +60,16 @@ export function getAnonClient(): SupabaseClient<Database> {
   if (!env) throw new Error("hosted credentials not configured");
   return createClient<Database>(env.url, env.publishableKey, {
     auth: { persistSession: false },
+  });
+}
+
+// Client acting as an authenticated end-user (valid user JWT + publishable key).
+export function getAuthenticatedClient(accessToken: string): SupabaseClient<Database> {
+  const env = getHostedEnv();
+  if (!env) throw new Error("hosted credentials not configured");
+  return createClient<Database>(env.url, env.publishableKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });
 }
 

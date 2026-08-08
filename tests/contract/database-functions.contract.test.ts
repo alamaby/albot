@@ -1,10 +1,19 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { getAdminClient, isHostedConfigured } from "../helpers/hosted";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { getAdminClient, assertHostedOrSkip } from "../helpers/hosted";
 import type { Json } from "@/server/supabase/database.types";
 
-const skip = !isHostedConfigured();
+const skip = assertHostedOrSkip();
 
 const cleanup: { table: "jobs" | "prompt_sessions"; id: string }[] = [];
+
+// Remove leftover test-tagged jobs from interrupted runs so claim_job's global
+// ordering cannot pick up unrelated fixtures.
+beforeAll(async () => {
+  if (skip) return;
+  const admin = getAdminClient();
+  await admin.from("jobs").delete().like("payload->>test_tag", "ct_%");
+  await admin.from("jobs").delete().like("payload->>test_tag", "sr_%");
+});
 
 afterEach(async () => {
   const admin = getAdminClient();
@@ -123,6 +132,66 @@ describe.skipIf(skip)("claim_job contract", () => {
     const rows = (data as { id: string; locked_by: string }[]) ?? [];
     expect(rows.map((r) => r.id)).toContain(expiredId);
     expect(rows.find((r) => r.id === expiredId)?.locked_by).toBe("worker-recovery");
+  });
+
+  it("recovers a job whose lease expired even when available_at is in the future", async () => {
+    const t = tag();
+    const expiredId = await insertJob(
+      { test_tag: t },
+      {
+        status: "processing",
+        attempt_count: 1,
+        max_attempts: 3,
+        available_at: "2099-01-01T00:00:00.000Z",
+        locked_at: "2000-01-01T00:00:00.000Z",
+        locked_by: "dead-worker",
+        lease_expires_at: "2000-01-01T00:00:00.000Z",
+      },
+    );
+
+    const { data, error } = await getAdminClient().rpc("claim_job", {
+      p_worker_id: "worker-recovery",
+      p_lease_seconds: 300,
+    });
+    expect(error).toBeNull();
+    const rows = (data as { id: string; locked_by: string }[]) ?? [];
+    expect(rows.map((r) => r.id)).toContain(expiredId);
+    expect(rows.find((r) => r.id === expiredId)?.locked_by).toBe("worker-recovery");
+  });
+
+  it("does not claim a retry_scheduled job whose available_at is in the future", async () => {
+    const t = tag();
+    const futureRetryId = await insertJob(
+      { test_tag: t },
+      { status: "retry_scheduled", available_at: "2099-01-01T00:00:00.000Z" },
+    );
+    const dueId = await insertJob(
+      { test_tag: t },
+      { status: "retry_scheduled", available_at: "2000-01-01T00:00:00.000Z" },
+    );
+    const { data, error } = await getAdminClient().rpc("claim_job", {
+      p_worker_id: "worker-order",
+      p_lease_seconds: 300,
+    });
+    expect(error).toBeNull();
+    const ids = ((data as { id: string }[]) ?? []).map((r) => r.id);
+    expect(ids).toContain(dueId);
+    expect(ids).not.toContain(futureRetryId);
+  });
+
+  it("claims the globally earliest due job deterministically", async () => {
+    const t = tag();
+    const lateId = await insertJob({ test_tag: t }, { available_at: "2000-01-01T00:00:01.000Z" });
+    const earlyId = await insertJob({ test_tag: t }, { available_at: "2000-01-01T00:00:00.000Z" });
+    const { data, error } = await getAdminClient().rpc("claim_job", {
+      p_worker_id: "worker-earliest",
+      p_lease_seconds: 300,
+    });
+    expect(error).toBeNull();
+    const rows = (data as { id: string }[]) ?? [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(earlyId);
+    expect(rows[0].id).not.toBe(lateId);
   });
 
   it("validates worker id and lease bounds", async () => {

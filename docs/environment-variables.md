@@ -17,7 +17,7 @@ Status nilai: `empty` = harus diisi, `reserved` = belum dipakai pada milestone s
 | Development | `ceqcitzbosqzxpbtlpfn` | Dedicated hosted Supabase development project |
 | Production  | `pcexxtckvwmiquseznaz` | Dedicated hosted Supabase production project  |
 
-Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb`). Milestone 1 hanya boleh mengeksekusi migration ke development.
+Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb`). Milestone 1 hanya boleh mengeksekusi migration ke development. Workflow production memverifikasi target terhadap ref repository-reviewed di atas (`pcexxtckvwmiquseznaz`), terlepas dari nilai secret, agar secret yang salah tidak bisa mengalihkan target.
 
 ## Variables
 
@@ -73,6 +73,9 @@ Nama secret sama di kedua environment; nilainya berbeda.
 - GitHub Environments `development` dan `production` dengan required reviewer.
 - Secret migration/CLI per environment seperti di atas.
 - Migration hanya dieksekusi ke development selama Milestone 1.
+- Supabase CLI dipin via `devDependencies` (`supabase@2.108.0`); workflow memakai `npx --no-install supabase`.
+- Workflow dev menetapkan `REQUIRE_HOSTED_TESTS=true` sehingga hosted tests gagal (bukan skip) jika credential hilang.
+- Production workflow wajib input `development_run_id`; attestation dev (conclusion + head_sha) diverifikasi sebelum apply.
 
 ### Milestone 2
 

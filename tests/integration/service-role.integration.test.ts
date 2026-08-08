@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getAdminClient, isHostedConfigured } from "../helpers/hosted";
+import { getAdminClient, assertHostedOrSkip } from "../helpers/hosted";
 
-const skip = !isHostedConfigured();
+const skip = assertHostedOrSkip();
 
 let cleanupIds: { table: string; id: string }[] = [];
 
@@ -19,9 +19,10 @@ afterEach(async () => {
 describe.skipIf(skip)("service role smoke", () => {
   it("can write and read a bot_user fixture", async () => {
     const admin = getAdminClient();
+    const telegramUserId = 600000000 + Math.floor(Math.random() * 1000000);
     const { data: inserted, error: insertError } = await admin
       .from("bot_users")
-      .insert({ telegram_user_id: 999000111, username: "m1-service-role-smoke" })
+      .insert({ telegram_user_id: telegramUserId, username: "m1-service-role-smoke" })
       .select("id")
       .single();
     expect(insertError).toBeNull();
@@ -34,7 +35,10 @@ describe.skipIf(skip)("service role smoke", () => {
       .eq("id", inserted!.id)
       .single();
     expect(readError).toBeNull();
-    expect(read).toMatchObject({ telegram_user_id: 999000111, username: "m1-service-role-smoke" });
+    expect(read).toMatchObject({
+      telegram_user_id: telegramUserId,
+      username: "m1-service-role-smoke",
+    });
   });
 
   it("can claim and persist a job via RPC (service role)", async () => {

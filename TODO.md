@@ -8,11 +8,13 @@ Milestone 1: Database Foundation
 
 ## In Progress
 
+- Remediation Milestone 1 inti selesai & terverifikasi lokal (40 hosted tests) — menunggu commit + run `migrate-development.yml`
 - Implementasi Milestone 1 selesai (lokal); menunggu run `migrate-development.yml` + capture evidence (Phase 9)
 
 ## Pending
 
-- [ ] Run `migrate-development.yml` via GitHub (manual approval) + record workflow URL/evidence
+- [ ] Commit remediation M1 (belum di-commit)
+- [ ] Run `migrate-development.yml` pada commit remediation via GitHub (manual approval) + record workflow URL/evidence
 - [ ] Review no schema object exists only in dashboard
 - [ ] Implement Milestone 2 dan record verification evidence
 - [ ] Implement Milestone 3 dan record verification evidence
