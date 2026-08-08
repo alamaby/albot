@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseServerEnv } from "@/env";
+import { parseServerEnv, resolveAppEnv } from "@/env";
 
 const validSource: Record<string, string> = {
   NODE_ENV: "development",
@@ -42,5 +42,31 @@ describe("parseServerEnv", () => {
 
   it("rejects an invalid NODE_ENV", () => {
     expect(() => parseServerEnv({ ...validSource, NODE_ENV: "staging" })).toThrow();
+  });
+
+  it("rejects an invalid APP_ENV", () => {
+    expect(() => parseServerEnv({ ...validSource, APP_ENV: "staging" })).toThrow();
+  });
+});
+
+describe("resolveAppEnv", () => {
+  it("uses APP_ENV development when set", () => {
+    expect(resolveAppEnv({ APP_ENV: "development" })).toBe("development");
+  });
+
+  it("uses APP_ENV production when set", () => {
+    expect(resolveAppEnv({ APP_ENV: "production" })).toBe("production");
+  });
+
+  it("derives production from VERCEL_ENV when APP_ENV is missing", () => {
+    expect(resolveAppEnv({ VERCEL_ENV: "production" })).toBe("production");
+  });
+
+  it("defaults to development for preview deployments", () => {
+    expect(resolveAppEnv({ VERCEL_ENV: "preview" })).toBe("development");
+  });
+
+  it("defaults to development when nothing is set", () => {
+    expect(resolveAppEnv({})).toBe("development");
   });
 });
