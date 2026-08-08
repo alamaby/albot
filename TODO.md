@@ -53,15 +53,15 @@ Milestone 1: Database Foundation
 ### Belum terverifikasi (butuh platform)
 
 - [x] CI passes from clean checkout (commit `b38f410`, validate green)
-- [ ] Vercel Preview deployment succeeds
-- [ ] Health endpoint reaches hosted Supabase development (butuh project Supabase)
+- [x] Vercel Preview/Production deployment succeeds
+- [x] Health endpoint reaches hosted Supabase (production reachable on https://albot-ten.vercel.app/api/health)
 
 ### Evidence M0
 
-- [x] Commit SHA: `bd9d67a` (foundation), `b38f410` (CI fix) — committed
+- [x] Commit SHA: `bd9d67a` (foundation), `b38f410` (CI fix), `13c0a55` (probe fix) — committed
 - [x] CI run URL: https://github.com/alamaby/albot/actions/runs/31156751229 (validate green)
-- [ ] Vercel Preview URL: menunggu input user
-- [ ] Health response (`GET /api/health` di preview): menunggu input user
+- [x] Vercel URL: https://albot-ten.vercel.app/
+- [x] Health response (`GET /api/health`): `{"status":"ok","environment":"production","database":"reachable"}` (terverifikasi live)
 - [x] Secret scan result: gitleaks ada di workflow validate (terverifikasi via run CI di atas)
 
 ## Decisions Needed

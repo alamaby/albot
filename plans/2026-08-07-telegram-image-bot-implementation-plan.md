@@ -1764,6 +1764,7 @@ Open questions tidak menghalangi Milestone 0-1. Pixazo contract menghalangi comp
 - 2026-08-07 14:11:00 — CI `validate.yml` gagal di typecheck: `tsc --noEmit` dijalankan sebelum route types dibuat, sehingga helper global `LayoutProps` (Next.js 16, dibuat oleh `next typegen`) tidak ditemukan. Fix: script `typecheck` menjadi `next typegen && tsc --noEmit` (commit `b38f410`). Verifikasi lokal typecheck/lint/test/build lolos.
 - 2026-08-07 14:20:00 — CI validate hijau pada commit `b38f410` (run URL belum dicatat, menunggu user). Evidence M0 lain (Vercel Preview URL, health response ke Supabase development) masih menunggu provisioning Supabase dan Vercel.
 - 2026-08-07 14:35:00 — CI validate green tercatat: https://github.com/alamaby/albot/actions/runs/31156751229 (commit `b38f410`). Gitleaks secret scan termasuk dalam run tersebut. Evidence Vercel Preview URL dan health response masih menunggu provisioning Supabase/Vercel oleh user.
+- 2026-08-07 15:00:00 — Milestone 0 gate terpenuhi penuh. Vercel deployment sukses di https://albot-ten.vercel.app/. Health response `GET /api/health` mengonfirmasi `{"status":"ok","environment":"production","database":"reachable"}`. Ini membuktikan: 1) Sensitive env variables di Vercel terbaca benar; 2) `SUPABASE_URL` trailing slash normalization berfungsi; 3) Database probe menangani `PGRST205` sebagai reachable. Milestone 1 dapat dimulai.
 
 ## Notes
 
