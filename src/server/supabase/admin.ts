@@ -42,7 +42,7 @@ export async function checkDatabaseReachability(): Promise<DatabaseReachability>
   if (response.status === 404) {
     try {
       const body = (await response.json()) as { code?: string };
-      if (body.code === "42P01") {
+      if (body.code === "42P01" || body.code === "PGRST205") {
         return "reachable";
       }
     } catch {
