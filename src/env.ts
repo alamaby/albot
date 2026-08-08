@@ -4,7 +4,7 @@ const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_ENV: z.enum(["development", "production"]).optional(),
   VERCEL_ENV: z.string().optional(),
-  SUPABASE_URL: z.string().url(),
+  SUPABASE_URL: z.string().url().transform((url) => url.replace(/\/+$/, "")),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 });
 

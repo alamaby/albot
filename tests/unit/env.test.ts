@@ -47,6 +47,14 @@ describe("parseServerEnv", () => {
   it("rejects an invalid APP_ENV", () => {
     expect(() => parseServerEnv({ ...validSource, APP_ENV: "staging" })).toThrow();
   });
+
+  it("normalizes a trailing slash on SUPABASE_URL", () => {
+    const parsed = parseServerEnv({
+      ...validSource,
+      SUPABASE_URL: "https://example.supabase.co/",
+    });
+    expect(parsed.SUPABASE_URL).toBe("https://example.supabase.co");
+  });
 });
 
 describe("resolveAppEnv", () => {
