@@ -12,7 +12,6 @@ Milestone 1: Database Foundation
 
 ## Pending
 
-- [ ] Provision hosted Supabase development dan production projects
 - [ ] Implement Milestone 1 dan record verification evidence
 - [ ] Implement Milestone 2 dan record verification evidence
 - [ ] Implement Milestone 3 dan record verification evidence
@@ -76,11 +75,16 @@ Milestone 1: Database Foundation
 - [x] Health response (`GET /api/health`): `{"status":"ok","environment":"production","database":"reachable"}` (terverifikasi live)
 - [x] Secret scan result: gitleaks ada di workflow validate (terverifikasi via run CI di atas)
 
+### Supabase projects + GitHub Environments (provisioned & verified 2026-08-08)
+
+- [x] Development project ada dan distinct: ref `ceqcitzbosqzxpbtlpfn` (bukan BagiStruk), migration history kosong
+- [x] Production project ada dan distinct: ref `pcexxtckvwmiquseznaz`, migration history kosong
+- [x] `supabase init` (config.toml) + `supabase link` ke dev; `supabase migration list` dev kosong
+- [x] Ref non-secret direkam di `docs/environment-variables.md`; `.env` lokal (gitignored) berisi secret
+- [x] GitHub Environments `development` dan `Production` dibuat dengan required reviewer `@alamaby` (verified via API) + secrets per environment
+
 ## Decisions Needed
 
-- [ ] Supabase development project dibuat / reference
-- [ ] Supabase production project dibuat / reference
-- [ ] Vercel team/account dan domain alias development
 - [ ] Reasoning provider dan model awal (sebelum Milestone 2 selesai)
 - [ ] Pixazo documentation URL dan model (sebelum adapter Pixazo)
 - [ ] Admin approach: CLI/API atau web UI
