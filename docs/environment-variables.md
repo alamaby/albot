@@ -12,30 +12,30 @@ Status nilai: `empty` = harus diisi, `reserved` = belum dipakai pada milestone s
 
 ## Project References (non-secret)
 
-| Environment | Project ref | Notes |
-| ----------- | ----------- | ----- |
+| Environment | Project ref            | Notes                                         |
+| ----------- | ---------------------- | --------------------------------------------- |
 | Development | `ceqcitzbosqzxpbtlpfn` | Dedicated hosted Supabase development project |
-| Production | `pcexxtckvwmiquseznaz` | Dedicated hosted Supabase production project |
+| Production  | `pcexxtckvwmiquseznaz` | Dedicated hosted Supabase production project  |
 
 Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb`). Milestone 1 hanya boleh mengeksekusi migration ke development.
 
 ## Variables
 
-| Variable                        | Scope                   | Status                                             | Dipakai mulai |
-| ------------------------------- | ----------------------- | -------------------------------------------------- | ------------- |
-| `NODE_ENV`                      | Semua                   | `development` / `test` / `production`              | Milestone 0   |
-| `APP_ENV`                       | Opsional                | `development` / `production`; override manual      | Milestone 0   |
-| `VERCEL_ENV`                    | Otomatis oleh Vercel    | `production` / `preview` / `development`           | Milestone 0   |
-| `SUPABASE_URL`                  | Development, Production | `empty` (nilai `https://<ref>.supabase.co` di env) | Milestone 0   |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Development, Production | `empty` (secret)                                   | Milestone 0   |
-| `SUPABASE_PROJECT_REF`          | GitHub Environment      | `recorded` di dokumen ini; secret tersimpan per env | Milestone 1   |
-| `SUPABASE_ACCESS_TOKEN`         | GitHub Environment      | `empty` (secret personal access token CLI)         | Milestone 1   |
-| `SUPABASE_DB_PASSWORD`          | GitHub Environment      | `empty` (secret)                                   | Milestone 1   |
-| `SUPABASE_PUBLISHABLE_KEY`      | Development, Production | `empty` (publishable/anon key untuk RLS test)      | Milestone 1   |
-| `PROVIDER_KEY_ENCRYPTION_KEY`   | Development, Production | `reserved`                                         | Milestone 2   |
-| `TELEGRAM_BOT_TOKEN`            | Development, Production | `reserved`                                         | Milestone 3   |
-| `TELEGRAM_WEBHOOK_SECRET`       | Development, Production | `reserved`                                         | Milestone 3   |
-| `JOB_PROCESSOR_SECRET`          | Development, Production | `reserved`                                         | Milestone 3   |
+| Variable                      | Scope                   | Status                                              | Dipakai mulai |
+| ----------------------------- | ----------------------- | --------------------------------------------------- | ------------- |
+| `NODE_ENV`                    | Semua                   | `development` / `test` / `production`               | Milestone 0   |
+| `APP_ENV`                     | Opsional                | `development` / `production`; override manual       | Milestone 0   |
+| `VERCEL_ENV`                  | Otomatis oleh Vercel    | `production` / `preview` / `development`            | Milestone 0   |
+| `SUPABASE_URL`                | Development, Production | `empty` (nilai `https://<ref>.supabase.co` di env)  | Milestone 0   |
+| `SUPABASE_SERVICE_ROLE_KEY`   | Development, Production | `empty` (secret)                                    | Milestone 0   |
+| `SUPABASE_PROJECT_REF`        | GitHub Environment      | `recorded` di dokumen ini; secret tersimpan per env | Milestone 1   |
+| `SUPABASE_ACCESS_TOKEN`       | GitHub Environment      | `empty` (secret personal access token CLI)          | Milestone 1   |
+| `SUPABASE_DB_PASSWORD`        | GitHub Environment      | `empty` (secret)                                    | Milestone 1   |
+| `SUPABASE_PUBLISHABLE_KEY`    | Development, Production | `empty` (publishable/anon key untuk RLS test)       | Milestone 1   |
+| `PROVIDER_KEY_ENCRYPTION_KEY` | Development, Production | `reserved`                                          | Milestone 2   |
+| `TELEGRAM_BOT_TOKEN`          | Development, Production | `reserved`                                          | Milestone 3   |
+| `TELEGRAM_WEBHOOK_SECRET`     | Development, Production | `reserved`                                          | Milestone 3   |
+| `JOB_PROCESSOR_SECRET`        | Development, Production | `reserved`                                          | Milestone 3   |
 
 ## GitHub Environment Secrets
 

@@ -1,0 +1,97 @@
+name: migrate-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_project_ref:
+        description: "Expected production project ref (must match secrets.SUPABASE_PROJECT_REF suffix)"
+        type: string
+        required: true
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate-production:
+    name: Apply migrations to hosted production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Validate production target confirmation
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          CONFIRM_REF: ${{ inputs.confirm_project_ref }}
+        run: |
+          echo "Configured production ref: ${SUPABASE_PROJECT_REF}"
+          if [ "${SUPABASE_PROJECT_REF}" != "${CONFIRM_REF}" ]; then
+            echo "::error::confirmation does not match configured production project ref"
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install pinned Supabase CLI
+        run: npm install --global supabase@2.108.0
+
+      - name: Link production project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Capture preflight migration metadata
+        id: preflight
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase migration list
+          echo "applied-to-production=false" >> "$GITHUB_OUTPUT"
+
+      - name: Apply pending migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: echo "y" | supabase db push --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Read-only post-migration smoke checks
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          LIST="$(supabase migration list 2>&1)"
+          echo "$LIST"
+          if echo "$LIST" | grep -E '^\s*[0-9]{14}\s*\|\s*\|'; then
+            echo "::error::pending migrations remain after production push"
+            exit 1
+          fi
+
+      - name: Upload sanitized evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-migration-evidence
+          path: |
+            supabase/migrations/*.sql
+          retention-days: 30

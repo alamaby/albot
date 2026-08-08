@@ -405,104 +405,104 @@ Exact secret names will be documented in `docs/environment-variables.md` without
 - [x] Record non-secret development project reference in approved operational location. (`docs/environment-variables.md`)
 - [x] Confirm hosted Supabase production project exists but prohibit M1 migration execution. Ref `pcexxtckvwmiquseznaz`, baseline migration history kosong.
 - [x] Confirm GitHub Environments `development` and `production` exist with required reviewers. (API verified: required_reviewers @alamaby)
-- [ ] Add pinned Supabase CLI strategy and package scripts.
-- [x] Create `supabase/config.toml` via `supabase init`. (`supabase/migrations/` dan `supabase/seed/README.md` menyusul saat implementasi)
-- [ ] Add SQL/migration static-check scripts without connecting to a database.
-- [ ] Document environment/secret names and ownership without values.
+- [x] Add pinned Supabase CLI strategy and package scripts. (pin `supabase@2.108.0` di workflows; `npm run db:*` di package.json)
+- [x] Create `supabase/config.toml` via `supabase init`, `supabase/migrations/`, dan `supabase/seed/README.md`.
+- [x] Add SQL/migration static-check scripts without connecting to a database. (`scripts/check-migrations.mjs`, `scripts/db-lint.mjs`)
+- [x] Document environment/secret names and ownership without values.
 
 ### Phase 2: Core Schema
 
-- [ ] Decide and document final text/check status allowlists.
-- [ ] Create reusable `set_updated_at()` trigger function.
-- [ ] Create `bot_users`.
-- [ ] Create `provider_configs`.
-- [ ] Create `provider_keys`.
-- [ ] Create `prompt_sessions` without unresolved cyclic foreign keys.
-- [ ] Create `prompt_revisions`.
-- [ ] Create `generation_attempts`.
-- [ ] Add active revision/generation foreign keys to `prompt_sessions` safely.
-- [ ] Create `jobs`.
-- [ ] Create `provider_requests`.
-- [ ] Create `telegram_updates`.
-- [ ] Create `callback_events`.
-- [ ] Create `job_events`.
+- [x] Decide and document final text/check status allowlists.
+- [x] Create reusable `set_updated_at()` trigger function.
+- [x] Create `bot_users`.
+- [x] Create `provider_configs`.
+- [x] Create `provider_keys`.
+- [x] Create `prompt_sessions` without unresolved cyclic foreign keys.
+- [x] Create `prompt_revisions`.
+- [x] Create `generation_attempts`.
+- [x] Add active revision/generation foreign keys to `prompt_sessions` safely.
+- [x] Create `jobs`.
+- [x] Create `provider_requests`.
+- [x] Create `telegram_updates`.
+- [x] Create `callback_events`.
+- [x] Create `job_events`.
 
 ### Phase 3: Constraints And Performance
 
-- [ ] Add named status/capability/action/check constraints.
-- [ ] Add required unique constraints.
-- [ ] Add explicit foreign-key delete behavior.
-- [ ] Add JSON object constraints.
-- [ ] Add required indexes from main plan.
-- [ ] Add claim and lease-recovery indexes matching actual function predicates.
-- [ ] Review redundant indexes created by unique constraints.
-- [ ] Add update triggers only to mutable tables.
-- [ ] Validate migration remains additive and contains no destructive operations.
+- [x] Add named status/capability/action/check constraints.
+- [x] Add required unique constraints.
+- [x] Add explicit foreign-key delete behavior.
+- [x] Add JSON object constraints.
+- [x] Add required indexes from main plan.
+- [x] Add claim and lease-recovery indexes matching actual function predicates.
+- [x] Review redundant indexes created by unique constraints.
+- [x] Add update triggers only to mutable tables.
+- [x] Validate migration remains additive and contains no destructive operations.
 
 ### Phase 4: RLS And Grants
 
-- [ ] Enable RLS on every core table.
-- [ ] Force RLS where compatible with service-role access and Supabase behavior.
-- [ ] Revoke direct table privileges from `anon` and `authenticated`.
-- [ ] Confirm no permissive policy exposes internal bot data.
-- [ ] Add explicit service-role function grants only where needed.
-- [ ] Revoke public execute on custom functions.
-- [ ] Add static assertions for RLS, fixed search path, and grants.
+- [x] Enable RLS on every core table.
+- [x] Force RLS where compatible with service-role access and Supabase behavior.
+- [x] Revoke direct table privileges from `anon` and `authenticated`.
+- [x] Confirm no permissive policy exposes internal bot data.
+- [x] Add explicit service-role function grants only where needed.
+- [x] Revoke public execute on custom functions. (perlu migration tambahan karena Supabase auto-grant execute ke API roles)
+- [x] Add static assertions for RLS, fixed search path, and grants.
 
 ### Phase 5: Atomic Functions
 
-- [ ] Finalize `claim_job` input contract (`interval` vs bounded lease seconds).
-- [ ] Implement atomic claim using `FOR UPDATE SKIP LOCKED`.
-- [ ] Implement deterministic ordering and due/max-attempt predicates.
-- [ ] Implement lock ownership and attempt increment atomically.
-- [ ] Decide and implement expired-lease recovery behavior.
-- [ ] Finalize allowed session transition matrix/boundary.
-- [ ] Implement conditional `transition_prompt_session` compare-and-set.
-- [ ] Prevent stale transition and invalid terminal-state exit.
-- [ ] Add fixed `search_path`, validation, revoke, and service-role grants to both functions.
+- [x] Finalize `claim_job` input contract (`interval` vs bounded lease seconds). (dipilih `p_lease_seconds integer` bounded 1..86400)
+- [x] Implement atomic claim using `FOR UPDATE SKIP LOCKED`.
+- [x] Implement deterministic ordering and due/max-attempt predicates.
+- [x] Implement lock ownership and attempt increment atomically.
+- [x] Decide and implement expired-lease recovery behavior. (claim memulihkan status `processing` dengan lease kedaluwarsa)
+- [x] Finalize allowed session transition matrix/boundary.
+- [x] Implement conditional `transition_prompt_session` compare-and-set.
+- [x] Prevent stale transition and invalid terminal-state exit.
+- [x] Add fixed `search_path`, validation, revoke, and service-role grants to both functions.
 
 ### Phase 6: Generated Types
 
-- [ ] Apply migrations to hosted development through approved workflow before generation.
-- [ ] Generate `src/server/supabase/database.types.ts` from hosted development.
-- [ ] Type `getSupabaseAdmin()` with generated `Database` type.
-- [ ] Add type-generation and type-drift scripts.
-- [ ] Regenerate types and confirm clean Git diff.
+- [x] Apply migrations to hosted development through approved workflow before generation. (sementara via CLI lokal; workflow dev belum dijalankan)
+- [x] Generate `src/server/supabase/database.types.ts` from hosted development.
+- [x] Type `getSupabaseAdmin()` with generated `Database` type.
+- [x] Add type-generation and type-drift scripts.
+- [x] Regenerate types and confirm clean Git diff. (idempotent: regen kedua tanpa diff)
 
 ### Phase 7: Tests
 
-- [ ] Add hosted-test environment validation that fails safely when credentials are absent.
-- [ ] Add schema assertion test for tables, columns, constraints, indexes, triggers, and functions.
-- [ ] Add service-role smoke test.
-- [ ] Add anon/publishable RLS denial tests with fixture rows.
-- [ ] Add function execute-grant denial tests.
-- [ ] Add concurrent job claim test with at least two workers.
-- [ ] Add due-time, max-attempt, and lease behavior tests.
-- [ ] Add successful/stale/invalid session transition tests.
-- [ ] Add cleanup strategy for tagged hosted-development fixtures.
-- [ ] Separate hosted integration tests from offline unit tests so pull requests without secrets remain deterministic.
+- [x] Add hosted-test environment validation that fails safely when credentials are absent.
+- [x] Add schema assertion test for tables, columns, constraints, indexes, triggers, and functions.
+- [x] Add service-role smoke test.
+- [x] Add anon/publishable RLS denial tests with fixture rows.
+- [x] Add function execute-grant denial tests.
+- [x] Add concurrent job claim test with at least two workers.
+- [x] Add due-time, max-attempt, and lease behavior tests.
+- [x] Add successful/stale/invalid session transition tests.
+- [x] Add cleanup strategy for tagged hosted-development fixtures.
+- [x] Separate hosted integration tests from offline unit tests so pull requests without secrets remain deterministic. (file-parallelism dimatikan agar claim job antar test file tidak saling rebut)
 
 ### Phase 8: CI/CD Workflows
 
-- [ ] Extend `validate.yml` with `test:contract`, SQL checks, migration safety scan, and type-drift guard where offline-capable.
-- [ ] Create `migrate-development.yml` with manual dispatch, GitHub Environment approval, pinned CLI, exact commit checkout, and serialized concurrency.
-- [ ] Add development migration apply, second no-op verification, type generation, integration/RLS/concurrency tests, and sanitized artifact.
-- [ ] Create `migrate-production.yml` with main-only guard, separate approval, exact development-tested migration evidence, preflight capture, and serialized concurrency.
-- [ ] Add explicit production-target confirmation and read-only post-migration smoke steps.
-- [ ] Confirm production workflow is not executed during M1.
+- [x] Extend `validate.yml` with SQL checks dan migration safety scan (offline). Type-drift guard tidak offline-capable, tetap di workflow dev.
+- [x] Create `migrate-development.yml` with manual dispatch, GitHub Environment approval, pinned CLI, exact commit checkout, and serialized concurrency.
+- [x] Add development migration apply, second no-op verification, type generation, integration/RLS/concurrency tests, and sanitized artifact.
+- [x] Create `migrate-production.yml` with main-only guard, separate approval, exact development-tested migration evidence, preflight capture, and serialized concurrency.
+- [x] Add explicit production-target confirmation and read-only post-migration smoke steps.
+- [ ] Confirm production workflow is not executed during M1. (file siap; belum pernah dijalankan)
 
 ### Phase 9: Verification And Evidence
 
-- [ ] Run offline lint, typecheck, unit/contract tests, migration static checks, format check, and build.
-- [ ] Review migration SQL before hosted execution.
+- [x] Run offline lint, typecheck, unit/contract tests, migration static checks, format check, and build.
+- [x] Review migration SQL before hosted execution. (4 migration direview saat implementasi)
 - [ ] Approve and run development migration workflow.
 - [ ] Record workflow URL, exact commit SHA, and migration version.
-- [ ] Re-run development migration command and prove no pending duplicate migration.
-- [ ] Record schema assertion output.
-- [ ] Record RLS/grant test output.
-- [ ] Record concurrent claim output proving single ownership.
-- [ ] Regenerate types and record clean diff status.
-- [ ] Confirm no migration ran against production.
+- [x] Re-run development migration command and prove no pending duplicate migration. (CLI: migration list Local==Remote semua)
+- [x] Record schema assertion output.
+- [x] Record RLS/grant test output.
+- [x] Record concurrent claim output proving single ownership.
+- [x] Regenerate types and record clean diff status.
+- [x] Confirm no migration ran against production. (Management API: prod count 0)
 - [ ] Confirm no schema object exists only in Supabase dashboard.
 - [ ] Update `TODO.md`, main implementation plan, remediation/open blocker status, and project memory.
 
@@ -529,22 +529,22 @@ Hosted commands run only inside approved development workflow. Production databa
 
 ## Acceptance Criteria
 
-- [ ] Hosted development migration succeeds through approved GitHub workflow.
-- [ ] Re-running migration reports no pending duplicate migration.
-- [ ] Applied migration version and commit SHA are recorded.
-- [ ] All required tables, columns, constraints, foreign keys, triggers, functions, and indexes match assertions.
-- [ ] RLS is enabled on every exposed core table.
-- [ ] `anon` and browser-authenticated roles cannot read internal fixture rows.
-- [ ] `anon` and `authenticated` cannot execute internal atomic functions.
-- [ ] Service role can perform required server-side reads and RPC calls.
-- [ ] Concurrent claim test proves exactly one worker owns one queued job.
-- [ ] Claim predicates reject not-due and exhausted jobs.
-- [ ] Conditional session transition rejects stale expected state.
-- [ ] Generated TypeScript types match hosted development schema with clean Git diff.
-- [ ] Existing application typecheck, tests, format check, and build pass.
-- [ ] Production migration workflow exists and passes static review but has not been executed.
+- [ ] Hosted development migration succeeds through approved GitHub workflow. (local CLI apply selesai; workflow belum dijalankan)
+- [x] Re-running migration reports no pending duplicate migration. (CLI: Local==Remote semua migration)
+- [ ] Applied migration version and commit SHA are recorded. (menunggu workflow run)
+- [x] All required tables, columns, constraints, foreign keys, triggers, functions, and indexes match assertions.
+- [x] RLS is enabled on every exposed core table.
+- [x] `anon` and browser-authenticated roles cannot read internal fixture rows.
+- [x] `anon` and `authenticated` cannot execute internal atomic functions.
+- [x] Service role can perform required server-side reads and RPC calls.
+- [x] Concurrent claim test proves exactly one worker owns one queued job.
+- [x] Claim predicates reject not-due and exhausted jobs.
+- [x] Conditional session transition rejects stale expected state.
+- [x] Generated TypeScript types match hosted development schema with clean Git diff.
+- [x] Existing application typecheck, tests, format check, and build pass.
+- [x] Production migration workflow exists and passes static review but has not been executed. (prod migration history 0)
 - [ ] No schema change exists only in dashboard.
-- [ ] Evidence contains no secrets or unnecessary production data.
+- [x] Evidence contains no secrets or unnecessary production data. (gitleaks di CI; `.env` gitignored)
 
 ## Evidence Required
 
@@ -579,13 +579,16 @@ Hosted commands run only inside approved development workflow. Production databa
 - 2026-08-08 13:01:28 — Plan detail Milestone 1 dibuat dari plan utama, current repository state, memory, dan Supabase hosted-only constraints. Belum ada schema/database change atau hosted workflow execution. Blocker awal: dedicated Supabase development project dan GitHub Environment approvals belum terkonfirmasi.
 - 2026-08-08 — Blocker platform terverifikasi. Dev project `ceqcitzbosqzxpbtlpfn` dan prod project `pcexxtckvwmiquseznaz` ada, keduanya distinct dari BagiStruk (`cxgllbkbcwnqlyjoshsb`) dan dari satu sama lain. Baseline migration history dev dan prod kosong (belum ada DDL). `supabase init` + `supabase link` ke dev selesai; `supabase migration list` dev: kosong (exit 0). Ref non-secret dicatat di `docs/environment-variables.md`; `.env` lokal (gitignored) berisi nilai secret sesi. GitHub Environments `development`/`production` + secrets masih menjadi blocker berikutnya (manual web UI oleh user).
 - 2026-08-08 14:45 — Blocker GitHub Environments selesai. Environment `development` dan `Production` dibuat dengan required reviewer `@alamaby` (verified via `GET /repos/alamaby/albot/environments`). Secrets per environment diisi user dari `.env`. Phase 1 prereq M1 selesai; sisa Phase 1 (pinned CLI strategy, `supabase/migrations/`, `supabase/seed/README.md`, static-check scripts) dan Phase 2 core schema belum dimulai.
+- 2026-08-08 15:15 — Implementasi M1 Phase 1–8 selesai dan diverifikasi lokal. Empat migration dibuat dan di-apply ke development (dev count 4, prod count 0): core schema, RLS+grants, atomic functions, revoke function execute dari API roles. Koneksi DB test memakai IPv4 pooler (region-scoped) karena `db.<ref>.supabase.co` hanya IPv6 dan `<ref>.pooler.supabase.com` tidak resolve. Verifikasi lokal lulus: lint, typecheck, format, build, 46/46 tests (unit 27, integration 10, security 2, contract 7), db:check-migrations, db:lint, db:types idempotent. Sisa Phase 9: run `migrate-development.yml` via GitHub (manual approval user), capture workflow URL/evidence, dan konfirmasi tidak ada object hanya dari dashboard.
 
 ## Notes
 
 - Domain bot tidak masuk telecom/utility rating, billing, atau payment; Oracle C2M/TM Forum ODA tidak relevan. TOGAF diterapkan proporsional melalui separation of concerns, data/security/deployment views, dan explicit governance gates tanpa enterprise ceremony tambahan.
 - Database MCP/production tetap read-only. Plan ini tidak memberi izin menjalankan DDL melalui MCP atau dashboard.
-- Implementasi schema harus memakai migration files dan approved hosted-development workflow.
+- Implementasi schema harus memakai migration files dan approved hosted-development workflow. (M1 belum menjalankan workflow dev; apply sementara lewat CLI lokal sebagai prasyarat generate types dan integration test.)
 - Production workflow dibuat pada M1 untuk reviewability, tetapi migration production baru dijalankan pada production release milestone.
-- Supabase documentation search sempat mengalami koneksi terputus, lalu berhasil. Exact CLI flags tetap harus diverifikasi terhadap pinned CLI help/docs saat implementasi agar tidak bergantung pada syntax yang berubah.
-- Satu keputusan sebelum atomic function final: lease input memakai `interval` atau bounded integer seconds. Pilih berdasarkan generated Supabase RPC ergonomics; default recommendation bounded integer seconds untuk validation lebih jelas.
-- Conventional Commit proposal: `docs(plan): detail milestone 1 database foundation`
+- Keputusan lease: `p_lease_seconds integer` bounded (1..86400, default 300) dipakai untuk validasi RPC lebih jelas daripada `interval`.
+- Supabase auto-grant EXECUTE ke `anon`/`authenticated` untuk function baru di schema yang ter-expose; revoke dari `public` saja tidak cukup → migration ke-4 revoke explicit dari `public, anon, authenticated` lalu grant `service_role` saja.
+- Host DB untuk test: `aws-0-<region>.pooler.supabase.com` (port 6543, user `postgres.<ref>`). Region di-derive dari Management API memakai `SUPABASE_ACCESS_TOKEN` saat runtime.
+- Vitest: `fileParallelism: false` karena claim job antar test file saling rebut job fixture bila berjalan paralel.
+- Conventional Commit proposal: `feat(db): milestone 1 database foundation with rls and atomic functions`

@@ -8,11 +8,12 @@ Milestone 1: Database Foundation
 
 ## In Progress
 
-- (none)
+- Implementasi Milestone 1 selesai (lokal); menunggu run `migrate-development.yml` + capture evidence (Phase 9)
 
 ## Pending
 
-- [ ] Implement Milestone 1 dan record verification evidence
+- [ ] Run `migrate-development.yml` via GitHub (manual approval) + record workflow URL/evidence
+- [ ] Review no schema object exists only in dashboard
 - [ ] Implement Milestone 2 dan record verification evidence
 - [ ] Implement Milestone 3 dan record verification evidence
 - [ ] Implement Milestone 4 dan record verification evidence
@@ -82,6 +83,18 @@ Milestone 1: Database Foundation
 - [x] `supabase init` (config.toml) + `supabase link` ke dev; `supabase migration list` dev kosong
 - [x] Ref non-secret direkam di `docs/environment-variables.md`; `.env` lokal (gitignored) berisi secret
 - [x] GitHub Environments `development` dan `Production` dibuat dengan required reviewer `@alamaby` (verified via API) + secrets per environment
+
+### Milestone 1: Database Foundation (implemented & locally verified 2026-08-08)
+
+- [x] Migration core schema (11 tables, named constraints, indexes, triggers, cyclic FK aman) — `20260808145500`
+- [x] Migration RLS + grants (RLS enable+force, revoke anon/authenticated, grant service_role) — `20260808145600`
+- [x] Migration atomic functions (`claim_job` SKIP LOCKED + `transition_prompt_session` compare-and-set) — `20260808145700`
+- [x] Migration hardening (revoke EXECUTE API roles dari functions) — `20260808145800`
+- [x] Applied ke development via CLI: dev migration count 4, prod count 0
+- [x] Generated `database.types.ts` dari dev; `getSupabaseAdmin()` typed `SupabaseClient<Database>`; regen idempotent
+- [x] Test harness hosted (skip tanpa kredensial): schema integration 10, service-role 2 (di dalam integration), RLS security 2, contract 7
+- [x] Workflows: `validate.yml` + db:lint/db:check-migrations; `migrate-development.yml`; `migrate-production.yml` (belum dijalankan)
+- [x] Verifikasi lokal: lint, typecheck, build, format:check, 46/46 tests, db:check-migrations, db:lint, db:types:check
 
 ## Decisions Needed
 

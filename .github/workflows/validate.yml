@@ -35,6 +35,12 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Migration static checks
+        run: npm run db:check-migrations
+
+      - name: Migration SQL scan
+        run: npm run db:lint
+
       - name: Build
         run: npm run build
 

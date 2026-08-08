@@ -11,7 +11,13 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
-    "test:contract": "vitest run tests/contract --passWithNoTests",
+    "test:contract": "vitest run tests/contract",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "db:lint": "node scripts/db-lint.mjs",
+    "db:check-migrations": "node scripts/check-migrations.mjs",
+    "db:types": "supabase gen types typescript --linked --schema public > src/server/supabase/database.types.ts",
+    "db:types:check": "node scripts/verify-generated-types.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -24,10 +30,12 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/pg": "^8.21.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "pg": "^8.22.0",
     "prettier": "^3.9.6",
     "typescript": "^5",
     "vitest": "^4.1.10"

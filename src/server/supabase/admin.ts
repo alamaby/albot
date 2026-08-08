@@ -1,14 +1,15 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getServerEnv } from "@/env";
+import type { Database } from "./database.types";
 
 export type DatabaseReachability = "reachable" | "unreachable" | "unauthorized";
 
-let cachedClient: SupabaseClient | undefined;
+let cachedClient: SupabaseClient<Database> | undefined;
 
-export function getSupabaseAdmin(): SupabaseClient {
+export function getSupabaseAdmin(): SupabaseClient<Database> {
   if (!cachedClient) {
     const env = getServerEnv();
-    cachedClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    cachedClient = createClient<Database>(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
