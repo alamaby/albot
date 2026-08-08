@@ -23,7 +23,8 @@ export async function checkDatabaseReachability(): Promise<DatabaseReachability>
 
   let response: Response;
   try {
-    response = await fetch(`${env.SUPABASE_URL}/rest/v1/_health_probe?select=*&limit=1`, {
+    const url = `${env.SUPABASE_URL}/rest/v1/_health_probe?select=*&limit=1`;
+    response = await fetch(url, {
       headers: {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
         Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
@@ -46,7 +47,7 @@ export async function checkDatabaseReachability(): Promise<DatabaseReachability>
         return "reachable";
       }
     } catch {
-      // non-JSON 404 body: not a PostgREST table-missing response
+      // non-JSON 404 body
     }
   }
   return "unreachable";

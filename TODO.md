@@ -50,6 +50,18 @@ Milestone 1: Database Foundation
 - [x] `npm run format:check`
 - [x] Health endpoint smoke test: HTTP 200 `{"status":"ok","environment":"production","database":"unconfigured"}` (tanpa env Supabase, tidak membocorkan detail)
 
+### Remediation (Milestone 0)
+
+- [x] Fix typecheck by generating route types before tsc (commit `b38f410`)
+- [x] Normalize trailing slash on SUPABASE_URL (src/env.ts)
+- [x] Health endpoint returns HTTP 503 on DB failure (`status: "degraded"`), HTTP 200 only when reachable (src/app/api/health/route.ts)
+- [x] Health endpoint sends `Cache-Control: no-store`
+- [x] Add health endpoint unit tests covering all states (reachable, unreachable, unauthorized, unconfigured, 404 codes, 401/403, 500, network failure) — tests/unit/health.test.ts
+- [ ] Verify Vercel Preview deployment succeeds
+- [ ] Verify Preview health returns `environment: "development"` and `database: "reachable"`
+- [ ] Verify Production health returns `environment: "production"` and `database: "reachable"`
+- [ ] Update evidence in plan Progress Log
+
 ### Belum terverifikasi (butuh platform)
 
 - [x] CI passes from clean checkout (commit `b38f410`, validate green)

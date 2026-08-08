@@ -2,7 +2,7 @@
 
 Telegram image bot. Spesifikasi lengkap ada di `plans/2026-08-07-telegram-image-bot-implementation-plan.md`. Tracking progress ada di `TODO.md`.
 
-Status: **Milestone 0 — Repository Foundation**.
+Status: **Milestone 0 — Repository Foundation** (lulus dengan evidence).
 
 ## Stack
 

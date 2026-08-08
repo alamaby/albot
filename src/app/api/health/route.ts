@@ -14,9 +14,17 @@ export async function GET(): Promise<NextResponse> {
     database = "unconfigured";
   }
 
-  return NextResponse.json({
-    status: "ok",
-    environment,
-    database,
-  });
+  const isHealthy = database === "reachable";
+
+  return NextResponse.json(
+    {
+      status: isHealthy ? "ok" : "degraded",
+      environment,
+      database,
+    },
+    {
+      status: isHealthy ? 200 : 503,
+      headers: { "Cache-Control": "no-store" },
+    },
+  );
 }
