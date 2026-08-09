@@ -6,8 +6,8 @@
 import { randomBytes, createCipheriv, createDecipheriv, createHash } from "node:crypto";
 
 export type EncryptedProviderKey = {
-  version: 1;
-  algorithm: "aes-256-gcm";
+  version: number;
+  algorithm: string;
   ciphertextBase64: string;
   ivBase64: string;
   authTagBase64: string;
@@ -27,11 +27,23 @@ const KEY_LENGTH_BYTES = 32;
 
 // Validates and decodes `PROVIDER_KEY_ENCRYPTION_KEY` from environment.
 // The key must be a valid base64 string that decodes to exactly 32 bytes.
+// Base64 validation is strict: invalid characters are rejected instead of
+// silently ignored by Node's base64 decoder.
 export function parseEncryptionKey(raw: string): Buffer {
+  if (typeof raw !== "string" || raw.length === 0) {
+    throw new Error("provider encryption key must be a non-empty base64 string");
+  }
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(raw) || raw.length % 4 === 1) {
+    throw new Error("provider encryption key must be a valid base64 string");
+  }
   const decoded = Buffer.from(raw, "base64");
+  // Reject strings that only "look" like base64 but do not round-trip cleanly.
+  if (decoded.toString("base64").replace(/=+$/, "") !== raw.replace(/=+$/, "")) {
+    throw new Error("provider encryption key must be a valid base64 string");
+  }
   if (decoded.length !== KEY_LENGTH_BYTES) {
     throw new Error(
-      `provider encryption key must decode to ${KEY_LENGTH_BYTES} bytes, got ${decoded.length}`,
+      `provider encryption key must decode to exactly ${KEY_LENGTH_BYTES} bytes, got ${decoded.length}`,
     );
   }
   // Reject keys that are all-zero or empty content.
@@ -70,13 +82,28 @@ export function encryptProviderKey(
 
 // Decrypts a provider key envelope. Returns null if authentication fails
 // (wrong root key, tampered ciphertext, wrong associated data, etc.).
+// Decryption is dispatched by envelope version so future versions can be added
+// without touching the v1 path; unknown versions fail closed.
 export function decryptProviderKey(
   encrypted: EncryptedProviderKey,
   rootKey: Buffer,
   associatedData: string,
 ): DecryptedProviderKey | null {
+  switch (encrypted.version) {
+    case 1:
+      return decryptVersion1(encrypted, rootKey, associatedData);
+    default:
+      return null;
+  }
+}
+
+function decryptVersion1(
+  encrypted: EncryptedProviderKey,
+  rootKey: Buffer,
+  associatedData: string,
+): DecryptedProviderKey | null {
   try {
-    if (encrypted.version !== VERSION || encrypted.algorithm !== ALGORITHM) {
+    if (encrypted.algorithm !== ALGORITHM) {
       return null;
     }
 

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { parseServerEnv, resolveAppEnv } from "@/env";
 
+const VALID_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
+
 const validSource: Record<string, string> = {
   NODE_ENV: "development",
   SUPABASE_URL: "https://example.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+  PROVIDER_KEY_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
 };
 
 function omit(source: Record<string, string>, key: string): Record<string, string> {
@@ -20,6 +23,7 @@ describe("parseServerEnv", () => {
       NODE_ENV: "development",
       SUPABASE_URL: "https://example.supabase.co",
       SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+      PROVIDER_KEY_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
     });
   });
 
@@ -38,6 +42,16 @@ describe("parseServerEnv", () => {
 
   it("rejects a missing service role key", () => {
     expect(() => parseServerEnv(omit(validSource, "SUPABASE_SERVICE_ROLE_KEY"))).toThrow();
+  });
+
+  it("rejects a missing encryption key", () => {
+    expect(() => parseServerEnv(omit(validSource, "PROVIDER_KEY_ENCRYPTION_KEY"))).toThrow();
+  });
+
+  it("rejects an invalid encryption key", () => {
+    expect(() =>
+      parseServerEnv({ ...validSource, PROVIDER_KEY_ENCRYPTION_KEY: "not-a-key" }),
+    ).toThrow("PROVIDER_KEY_ENCRYPTION_KEY");
   });
 
   it("rejects an invalid NODE_ENV", () => {

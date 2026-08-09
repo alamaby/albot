@@ -32,7 +32,7 @@ Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb
 | `SUPABASE_ACCESS_TOKEN`       | GitHub Environment      | `empty` (secret personal access token CLI)          | Milestone 1   |
 | `SUPABASE_DB_PASSWORD`        | GitHub Environment      | `empty` (secret)                                    | Milestone 1   |
 | `SUPABASE_PUBLISHABLE_KEY`    | Development, Production | `empty` (publishable/anon key untuk RLS test)       | Milestone 1   |
-| `PROVIDER_KEY_ENCRYPTION_KEY` | Development, Production | `reserved`                                          | Milestone 2   |
+| `PROVIDER_KEY_ENCRYPTION_KEY` | Development, Production | `required` (base64, decode 32 bytes)                | Milestone 2   |
 | `TELEGRAM_BOT_TOKEN`          | Development, Production | `reserved`                                          | Milestone 3   |
 | `TELEGRAM_WEBHOOK_SECRET`     | Development, Production | `reserved`                                          | Milestone 3   |
 | `JOB_PROCESSOR_SECRET`        | Development, Production | `reserved`                                          | Milestone 3   |
@@ -49,6 +49,7 @@ Nama secret sama di kedua environment; nilainya berbeda.
 - `SUPABASE_URL` = `https://ceqcitzbosqzxpbtlpfn.supabase.co`
 - `SUPABASE_SERVICE_ROLE_KEY` = service role key project development
 - `SUPABASE_PUBLISHABLE_KEY` = publishable/anon key project development
+- `PROVIDER_KEY_ENCRYPTION_KEY` = base64 32-byte root key project development
 
 ### `production`
 
@@ -58,6 +59,7 @@ Nama secret sama di kedua environment; nilainya berbeda.
 - `SUPABASE_URL` = `https://pcexxtckvwmiquseznaz.supabase.co`
 - `SUPABASE_SERVICE_ROLE_KEY` = service role key project production
 - `SUPABASE_PUBLISHABLE_KEY` = publishable/anon key project production
+- `PROVIDER_KEY_ENCRYPTION_KEY` = base64 32-byte root key project production
 
 ## Requirements by Milestone
 

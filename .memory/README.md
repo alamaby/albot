@@ -1,12 +1,12 @@
 # Project Memory
 
-Last updated: 2026-08-08 18:50:00
+Last updated: 2026-08-09 17:50:00
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: Milestone 2 (Provider Abstraction and Configuration) — implementation in progress (encryption, providers, adapters, tests complete; migration + workflow pending)
-- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (6 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
+- Active milestone: Milestone 2 (Provider Abstraction and Configuration) — implementation committed `209847d`; review read-only selesai (50 findings); **review remediation: Phase 1-2 (C1-C8, H1-H11) implemented + verified** (142 tests, hosted 67/0 skip); pending commit/workflow/evidence + sisa M/L
+- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (7 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
 - M1 + remediation MILESTONE COMPLETE:
   - Development migration workflow success (run 31252455316, commit dba67ce)
   - Production migration history unchanged (0 migrations)
@@ -34,15 +34,20 @@ Last updated: 2026-08-08 18:50:00
 - M2 Pixazo models: Flux Schnell + SDXL; authentication via `Ocp-Apim-Subscription-Key`
 - M2 encryption: `PROVIDER_KEY_ENCRYPTION_KEY` base64, 32-byte AES-256-GCM
 - M2 admin surface: server-only repository contract (no admin UI/API in M2)
+- M2 review remediation (2026-08-09): C1 via `makeErrorFromHttpStatus` (retryable dari status); C2 via `responseKind` discriminator; C3 strict base64; C4 forward-fix migration `increment_provider_key_failure` (atomic + cooldown exponential, **tidak reset failure_count saat threshold**); C5 weighted cumulative-prefix + seed; C6 env validation wajib; C7 registry capability mismatch → `ProviderError`; C8 real hosted repository tests; H1-H11 sesuai plan
+- M2 remediation satu-satunya schema change: forward-fix migration C4 (additive, development-only) — dev 7 migrations, prod 0
 
 ## Open Blockers
 
-- (none) — M2 implementation in progress
+- (none) — M2 remediation Phase 1-2 done; commit + workflow pending
+- Item M/L review yang belum ter-trancribe ke plan (M1/M4-M8/M10/M13-M16, L2-L14): detail ada di sesi chat sebelumnya
 - Vercel Preview alias not configured
 - Telegram bot tokens not set
 
 ## Recent Entries
 
+- `2026-08-09/175000-milestone-2-review-remediation-implementation.md` — M2 remediation implementation (C1-C8 + H1-H11 done, migration C4 applied, 142 tests)
+- `2026-08-09/171800-milestone-2-review-remediation.md` — M2 review remediation start (plan, C1-C8/H1-H11, forward-fix migration C4)
 - `2026-08-08/175000-milestone-2-start.md` — M2 start, provider decisions, Pixazo contract confirmed, plan created
 - `2026-08-08/154404-milestone-1-review-remediation-plan.md` — M1 review findings + remediation plan (composite FK, auth tests, gates)
 - `2026-08-08/151834-milestone-1-database-foundation-implementation.md` — M1 implementation (schema, RLS, atomic functions, types, tests, workflows)
@@ -56,3 +61,4 @@ Last updated: 2026-08-08 18:50:00
 - `plans/2026-08-07-telegram-image-bot-implementation-plan.md` — Active plan
 - `plans/2026-08-08-milestone-0-review-remediation-plan.md` — Active plan (remediation)
 - `plans/2026-08-08-milestone-2-provider-abstraction-configuration-plan.md` — Detailed M2 execution plan
+- `plans/2026-08-09-milestone-2-review-remediation-plan.md` — M2 review remediation plan (active)

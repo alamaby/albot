@@ -6,12 +6,7 @@ import type {
   EnhancePromptInput,
   EnhancedPrompt,
 } from "@/server/domain/provider";
-import {
-  ProviderError,
-  makeRetryable,
-  makeNonRetryable,
-  classificationFromHttpStatus,
-} from "../errors";
+import { ProviderError, makeErrorFromHttpStatus, makeRetryable, makeNonRetryable } from "../errors";
 
 export type OpenAICompatibleConfig = {
   baseUrl: string;
@@ -28,6 +23,13 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     config: OpenAICompatibleConfig,
     private readonly apiKey: string,
   ) {
+    if (!/^https:\/\//i.test(config.baseUrl)) {
+      throw new ProviderError({
+        code: "provider_configuration_invalid",
+        retryable: false,
+        message: "openai-compatible provider base url must use https",
+      });
+    }
     this.baseUrl = config.baseUrl.replace(/\/+$/, "");
     this.model = config.model;
     this.timeoutMs = config.timeoutMs ?? 60000;
@@ -49,19 +51,16 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
         signal: controller.signal,
       });
 
-      clearTimeout(timeout);
-
       if (!response.ok) {
-        const status = response.status;
-        const code = classificationFromHttpStatus(status);
-        const retryable = status === 429 || status >= 500;
-        throw makeRetryable(code, `openai-compatible provider returned ${status}`, {
-          httpStatus: status,
-        });
+        throw makeErrorFromHttpStatus(
+          response.status,
+          `openai-compatible provider returned ${response.status}`,
+          { providerRequestId: readRequestId(response) },
+        );
       }
 
       const json = (await response.json()) as Record<string, unknown>;
-      return this.parseResponse(json);
+      return this.parseResponse(json, readRequestId(response));
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -70,10 +69,10 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
       throw makeRetryable(
         "provider_network_failed",
         `openai-compatible network error: ${String(error)}`,
-        {
-          cause: error,
-        },
+        { cause: error },
       );
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -107,12 +106,13 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     };
   }
 
-  private parseResponse(json: Record<string, unknown>): EnhancedPrompt {
+  private parseResponse(json: Record<string, unknown>, requestId?: string): EnhancedPrompt {
     const choices = json["choices"] as { message: { content: string } }[] | undefined;
     if (!choices?.[0]?.message?.content) {
       throw makeNonRetryable(
         "provider_response_invalid",
         "openai-compatible response missing choices[0].message.content",
+        { providerRequestId: requestId },
       );
     }
 
@@ -128,8 +128,17 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
       metadata: {
         model: json["model"] as string,
         usage: json["usage"] as Record<string, unknown>,
+        ...(requestId ? { providerRequestId: requestId } : {}),
         ...(reasoningContent ? { reasoningContent } : {}),
       },
     };
   }
+}
+
+// Reads the provider request id from response headers where available.
+function readRequestId(response: Response): string | undefined {
+  const headerId = response.headers.get("x-request-id");
+  if (headerId) return headerId;
+  const requestId = response.headers.get("x-request-trace-id");
+  return requestId ?? undefined;
 }

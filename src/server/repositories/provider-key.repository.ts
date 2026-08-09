@@ -1,17 +1,16 @@
 // Server-only provider key repository.
-// Encrypts before write, decrypts on read, never exposes ciphertext/IV/auth tag in safe results.
+// Safe projection only: encrypts before write and never exposes ciphertext,
+// IV, auth tag, or plaintext in safe results. Decryption lives exclusively in
+// ProviderKeyVaultRepository so this repository cannot become a decryption API.
 
-import { randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "@/server/supabase/admin";
-import {
-  encryptProviderKey,
-  decryptProviderKey,
-  computeFingerprint,
-  parseEncryptionKey,
-} from "@/server/security/encryption";
+import { encryptProviderKey } from "@/server/security/encryption";
+import { ProviderKeyVaultRepository } from "./provider-key-vault.repository";
 import type { Database } from "@/server/supabase/database.types";
 
 type Supabase = Database["public"]["Tables"];
+
+const DEFAULT_FAILURE_THRESHOLD = 3;
 
 export type InsertEncryptedKeyInput = {
   providerConfigId: string;
@@ -34,16 +33,10 @@ export type ProviderKeySafe = {
   updatedAt: string;
 };
 
-export type DecryptedProviderKeyHandle = {
-  id: string;
-  providerConfigId: string;
-  plaintext: string;
-  fingerprint: string;
-};
-
 export type MarkFailureInput = {
   keyId: string;
   providerConfigId: string;
+  threshold?: number;
 };
 
 export type MarkSuccessInput = {
@@ -59,10 +52,10 @@ export type RotateKeyInput = {
 };
 
 export class ProviderKeyRepository {
-  private readonly encryptionKey: Buffer;
+  private readonly vault: ProviderKeyVaultRepository;
 
-  constructor(encryptionKey: Buffer) {
-    this.encryptionKey = encryptionKey;
+  constructor(private readonly encryptionKey: Buffer) {
+    this.vault = new ProviderKeyVaultRepository(this.encryptionKey);
   }
 
   async insertEncryptedKey(input: InsertEncryptedKeyInput): Promise<ProviderKeySafe> {
@@ -105,57 +98,17 @@ export class ProviderKeyRepository {
     return (data ?? []).map(mapRowToSafe);
   }
 
-  async getDecryptableKey(
-    providerConfigId: string,
-    keyId: string,
-  ): Promise<DecryptedProviderKeyHandle | null> {
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from("provider_keys")
-      .select(
-        "id, provider_config_id, key_ciphertext, key_iv, key_auth_tag, key_fingerprint, label, weight, is_active, failure_count, cooldown_until, last_used_at, created_at, updated_at",
-      )
-      .eq("id", keyId)
-      .eq("provider_config_id", providerConfigId)
-      .single();
-
-    if (error) {
-      if (error.code === "PGRST116") return null;
-      throw new Error(`provider key get failed: ${error.message}`);
-    }
-    if (!data) return null;
-
-    const associatedData = `albot/provider-key/v1/${providerConfigId}`;
-    const decrypted = decryptProviderKey(
-      {
-        version: 1,
-        algorithm: "aes-256-gcm",
-        ciphertextBase64: data.key_ciphertext,
-        ivBase64: data.key_iv,
-        authTagBase64: data.key_auth_tag,
-        fingerprint: data.key_fingerprint,
-      },
-      this.encryptionKey,
-      associatedData,
-    );
-
-    if (!decrypted) return null;
-
-    return {
-      id: data.id,
-      providerConfigId: data.provider_config_id,
-      plaintext: decrypted.plaintext,
-      fingerprint: decrypted.fingerprint,
-    };
-  }
-
+  // Atomic failure accounting via RPC: increments failure_count, applies an
+  // exponential cooldown once the threshold is reached (see C4).
   async markFailure(input: MarkFailureInput): Promise<void> {
     const supabase = getSupabaseAdmin();
     const { error } = await supabase
-      .from("provider_keys")
-      .update({ failure_count: 1 })
-      .eq("id", input.keyId)
-      .eq("provider_config_id", input.providerConfigId);
+      .rpc("increment_provider_key_failure", {
+        p_provider_config_id: input.providerConfigId,
+        p_key_id: input.keyId,
+        p_threshold: input.threshold ?? DEFAULT_FAILURE_THRESHOLD,
+      })
+      .single();
 
     if (error) throw new Error(`provider key failure update failed: ${error.message}`);
   }
@@ -166,6 +119,7 @@ export class ProviderKeyRepository {
       .from("provider_keys")
       .update({
         failure_count: 0,
+        cooldown_until: null,
         last_used_at: new Date().toISOString(),
       })
       .eq("id", input.keyId)
@@ -175,7 +129,9 @@ export class ProviderKeyRepository {
   }
 
   async rotateKey(input: RotateKeyInput): Promise<ProviderKeySafe> {
-    // Insert new encrypted key first, verify decryption works, then deactivate old active key.
+    // Insert new encrypted key first, verify decryption works, then deactivate
+    // the old active key with a compare-and-set so a concurrent rotation cannot
+    // deactivate a key another worker already replaced.
     const newKey = await this.insertEncryptedKey({
       providerConfigId: input.providerConfigId,
       plaintextKey: input.plaintextKey,
@@ -184,7 +140,7 @@ export class ProviderKeyRepository {
     });
 
     // Verify the new key can be decrypted.
-    const decrypted = await this.getDecryptableKey(input.providerConfigId, newKey.id);
+    const decrypted = await this.vault.getDecryptableKey(input.providerConfigId, newKey.id);
     if (!decrypted || decrypted.plaintext !== input.plaintextKey) {
       // Rollback: delete the newly inserted key.
       const supabase = getSupabaseAdmin();
@@ -192,7 +148,7 @@ export class ProviderKeyRepository {
       throw new Error("provider key rotation verification failed");
     }
 
-    // Deactivate the oldest active key for this provider config.
+    // Deactivate the oldest active key for this provider config (CAS).
     const supabase = getSupabaseAdmin();
     const { data: oldKey, error } = await supabase
       .from("provider_keys")
@@ -204,7 +160,12 @@ export class ProviderKeyRepository {
       .single();
 
     if (!error && oldKey) {
-      await supabase.from("provider_keys").update({ is_active: false }).eq("id", oldKey.id);
+      await supabase
+        .from("provider_keys")
+        .update({ is_active: false })
+        .eq("id", oldKey.id)
+        .eq("provider_config_id", input.providerConfigId)
+        .eq("is_active", true);
     }
 
     return newKey;

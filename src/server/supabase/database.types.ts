@@ -708,6 +708,35 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      increment_provider_key_failure: {
+        Args: {
+          p_key_id: string
+          p_provider_config_id: string
+          p_threshold: number
+        }
+        Returns: {
+          cooldown_until: string | null
+          created_at: string
+          failure_count: number
+          id: string
+          is_active: boolean
+          key_auth_tag: string
+          key_ciphertext: string
+          key_fingerprint: string
+          key_iv: string
+          label: string | null
+          last_used_at: string | null
+          provider_config_id: string
+          updated_at: string
+          weight: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "provider_keys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       transition_prompt_session: {
         Args: {
           p_active_generation_attempt_id?: string

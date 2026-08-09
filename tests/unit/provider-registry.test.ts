@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getProviderRegistry } from "@/server/providers/registry";
+import { ProviderError } from "@/server/providers/errors";
 import {
   createDefaultMockReasoningProvider,
   createDefaultMockImageProvider,
@@ -45,8 +46,52 @@ describe("ProviderRegistry", () => {
   it("throws for unknown adapter type", () => {
     const registry = getProviderRegistry();
     expect(() => registry.createReasoningProvider("unknown_adapter", {}, "key")).toThrow(
-      "unknown reasoning adapter type",
+      "unknown provider adapter type",
     );
+  });
+
+  it("throws ProviderError for unknown adapter type", () => {
+    const registry = getProviderRegistry();
+    expect(() => registry.createReasoningProvider("unknown_adapter", {}, "key")).toThrow(
+      ProviderError,
+    );
+    expect(() => registry.createReasoningProvider("unknown_adapter", {}, "key")).toThrowError(
+      expect.objectContaining({ code: "provider_adapter_unknown", retryable: false }),
+    );
+  });
+
+  it("rejects reasoning adapter requested as image (capability mismatch)", () => {
+    const registry = getProviderRegistry();
+    expect(() => registry.createImageProvider("openai_compatible", {}, "key")).toThrowError(
+      expect.objectContaining({ code: "provider_capability_mismatch", retryable: false }),
+    );
+  });
+
+  it("createProviderForConfig enforces capability match", () => {
+    const registry = getProviderRegistry();
+    expect(() =>
+      registry.createProviderForConfig(
+        { capability: "image_generation", adapterType: "openai_compatible" },
+        {},
+        "key",
+      ),
+    ).toThrowError(
+      expect.objectContaining({ code: "provider_capability_mismatch", retryable: false }),
+    );
+
+    const provider = registry.createProviderForConfig(
+      { capability: "reasoning", adapterType: "openai_compatible" },
+      { base_url: "https://api.openai.com", model: "gpt-4" },
+      "key",
+    );
+    expect(provider).toBeDefined();
+  });
+
+  it("reports capability per adapter type", () => {
+    const registry = getProviderRegistry();
+    expect(registry.getCapability("openai_compatible")).toBe("reasoning");
+    expect(registry.getCapability("pixazo_flux_schnell")).toBe("image_generation");
+    expect(registry.getCapability("does_not_exist")).toBeNull();
   });
 
   it("registers mock adapters", () => {

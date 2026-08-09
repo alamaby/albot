@@ -101,6 +101,27 @@ export function classificationFromNetworkError(): ProviderErrorCode {
   return "provider_network_failed";
 }
 
+// Derives a normalized ProviderError from an upstream HTTP status.
+// Retryable derives from the status itself: 408/429/5xx are retryable,
+// all other statuses are terminal. Callers must never pass a precomputed
+// `retryable` that can diverge from the actual status.
+export function makeErrorFromHttpStatus(
+  status: number,
+  message: string,
+  options?: {
+    providerRequestId?: string;
+    cause?: unknown;
+  },
+): ProviderError {
+  return new ProviderError({
+    code: classificationFromHttpStatus(status),
+    retryable: status === 408 || status === 429 || status >= 500,
+    httpStatus: status,
+    ...options,
+    message,
+  });
+}
+
 export function makeRetryable(
   code: ProviderErrorCode,
   message: string,

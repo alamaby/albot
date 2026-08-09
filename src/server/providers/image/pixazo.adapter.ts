@@ -1,35 +1,44 @@
 // Pixazo image generation adapter.
 // Supports Flux 1 Schnell and Stable Diffusion XL models.
+// Model behavior is selected via the explicit `responseKind` discriminator,
+// never by string-matching the model name.
 
 import type {
   ImageGenerationProvider,
   GenerateImageInput,
   ImageGenerationResult,
 } from "@/server/domain/provider";
-import {
-  ProviderError,
-  makeRetryable,
-  makeNonRetryable,
-  classificationFromHttpStatus,
-} from "../errors";
+import { ProviderError, makeErrorFromHttpStatus, makeRetryable, makeNonRetryable } from "../errors";
+
+export type PixazoResponseKind = "flux" | "sdxl";
 
 export type PixazoConfig = {
   baseUrl: string;
   model: string;
+  responseKind: PixazoResponseKind;
   timeoutMs?: number;
 };
 
 export class PixazoImageAdapter implements ImageGenerationProvider {
   private readonly baseUrl: string;
   private readonly model: string;
+  private readonly responseKind: PixazoResponseKind;
   private readonly timeoutMs: number;
 
   constructor(
     config: PixazoConfig,
     private readonly apiKey: string,
   ) {
+    if (!/^https:\/\//i.test(config.baseUrl)) {
+      throw new ProviderError({
+        code: "provider_configuration_invalid",
+        retryable: false,
+        message: "pixazo provider base url must use https",
+      });
+    }
     this.baseUrl = config.baseUrl.replace(/\/+$/, "");
     this.model = config.model;
+    this.responseKind = config.responseKind;
     this.timeoutMs = config.timeoutMs ?? 120000;
   }
 
@@ -49,19 +58,18 @@ export class PixazoImageAdapter implements ImageGenerationProvider {
         signal: controller.signal,
       });
 
-      clearTimeout(timeout);
-
       if (!response.ok) {
-        const status = response.status;
-        const code = classificationFromHttpStatus(status);
-        const retryable = status === 429 || status >= 500;
-        throw makeRetryable(code, `pixazo provider returned ${status}`, {
-          httpStatus: status,
-        });
+        throw makeErrorFromHttpStatus(
+          response.status,
+          `pixazo provider returned ${response.status}`,
+          {
+            providerRequestId: readRequestId(response),
+          },
+        );
       }
 
       const json = (await response.json()) as Record<string, unknown>;
-      return this.parseResponse(json, this.model);
+      return this.parseResponse(json, readRequestId(response));
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -70,6 +78,8 @@ export class PixazoImageAdapter implements ImageGenerationProvider {
       throw makeRetryable("provider_network_failed", `pixazo network error: ${String(error)}`, {
         cause: error,
       });
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -92,13 +102,13 @@ export class PixazoImageAdapter implements ImageGenerationProvider {
     }
 
     // Add model-specific parameters.
-    if (this.model.includes("flux")) {
+    if (this.responseKind === "flux") {
       body["num_steps"] = (input.parameters["num_steps"] as number) ?? 4;
       body["seed"] = input.parameters["seed"] as number | undefined;
       // Flux uses 512 as default.
       if (!body["width"]) body["width"] = 512;
       if (!body["height"]) body["height"] = 512;
-    } else if (this.model.includes("sdxl")) {
+    } else {
       body["num_steps"] = (input.parameters["num_steps"] as number) ?? 20;
       body["guidance_scale"] = (input.parameters["guidance_scale"] as number) ?? 5;
       body["seed"] = input.parameters["seed"] as number | undefined;
@@ -129,43 +139,53 @@ export class PixazoImageAdapter implements ImageGenerationProvider {
     return map[ratio] ?? null;
   }
 
-  private parseResponse(json: Record<string, unknown>, model: string): ImageGenerationResult {
-    // Flux Schnell returns { "output": "https://..." }
-    if (model.includes("flux")) {
+  private parseResponse(json: Record<string, unknown>, requestId?: string): ImageGenerationResult {
+    if (this.responseKind === "flux") {
+      // Flux Schnell returns { "output": "https://..." }
       const output = json["output"] as string | undefined;
       if (!output || typeof output !== "string" || !output.startsWith("http")) {
         throw makeNonRetryable(
           "provider_response_invalid",
           "pixazo flux response missing valid output URL",
+          {
+            providerRequestId: requestId,
+          },
         );
       }
       return {
         status: "completed",
         imageUrl: output,
         mimeType: "image/png",
-        providerRequestId: json["request_id"] as string | undefined,
+        providerRequestId: (json["request_id"] as string | undefined) ?? requestId,
         metadata: {},
       };
     }
 
     // SDXL returns { "imageUrl": "https://..." }
-    if (model.includes("sdxl")) {
-      const imageUrl = json["imageUrl"] as string | undefined;
-      if (!imageUrl || typeof imageUrl !== "string" || !imageUrl.startsWith("http")) {
-        throw makeNonRetryable(
-          "provider_response_invalid",
-          "pixazo sdxl response missing valid imageUrl",
-        );
-      }
-      return {
-        status: "completed",
-        imageUrl,
-        mimeType: "image/png",
-        providerRequestId: json["id"] as string | undefined,
-        metadata: {},
-      };
+    const imageUrl = json["imageUrl"] as string | undefined;
+    if (!imageUrl || typeof imageUrl !== "string" || !imageUrl.startsWith("http")) {
+      throw makeNonRetryable(
+        "provider_response_invalid",
+        "pixazo sdxl response missing valid imageUrl",
+        {
+          providerRequestId: requestId,
+        },
+      );
     }
-
-    throw makeNonRetryable("provider_response_invalid", `unknown pixazo model: ${model}`);
+    return {
+      status: "completed",
+      imageUrl,
+      mimeType: "image/png",
+      providerRequestId: (json["id"] as string | undefined) ?? requestId,
+      metadata: {},
+    };
   }
+}
+
+// Reads the provider request id from response headers where available.
+function readRequestId(response: Response): string | undefined {
+  const headerId = response.headers.get("x-request-id");
+  if (headerId) return headerId;
+  const requestId = response.headers.get("x-request-trace-id");
+  return requestId ?? undefined;
 }

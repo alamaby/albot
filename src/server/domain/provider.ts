@@ -3,6 +3,10 @@
 
 export type ProviderCapability = "reasoning" | "image_generation";
 
+export type ProviderSelectionStrategy = "priority_failover" | "weighted";
+export type ProviderKeySelectionStrategy = "priority" | "weighted_round_robin";
+export type ProviderStrategy = ProviderSelectionStrategy | ProviderKeySelectionStrategy;
+
 export interface ReasoningProvider {
   enhancePrompt(input: EnhancePromptInput): Promise<EnhancedPrompt>;
 }

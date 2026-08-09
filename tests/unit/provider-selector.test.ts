@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ProviderSelector, type SelectionStrategy } from "@/server/providers/selector";
+import { ProviderSelector } from "@/server/providers/selector";
 import type { ProviderConfigSafe } from "@/server/repositories/provider-config.repository";
 import type { ProviderKeySafe } from "@/server/repositories/provider-key.repository";
 
@@ -92,5 +92,77 @@ describe("ProviderSelector", () => {
       "priority_failover",
     );
     expect(result.key.id).toBe("k1");
+  });
+
+  it("weighted selection honors config weight via seed", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "a", weight: 1, selectionStrategy: "weighted" }),
+      makeConfig({ id: "b", weight: 3, selectionStrategy: "weighted" }),
+    ];
+    const keys = new Map([
+      ["a", [makeKey({ providerConfigId: "a" })]],
+      ["b", [makeKey({ providerConfigId: "b" })]],
+    ]);
+
+    const low = await selector.selectProvider("image_generation", configs, keys, "weighted", {
+      seed: "seed-0",
+    });
+    const high = await selector.selectProvider("image_generation", configs, keys, "weighted", {
+      seed: "seed-1",
+    });
+    expect(low.config.id).toBe("a");
+    expect(high.config.id).toBe("b");
+  });
+
+  it("weighted selection is deterministic without a seed", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "a", weight: 1, selectionStrategy: "weighted" }),
+      makeConfig({ id: "b", weight: 3, selectionStrategy: "weighted" }),
+    ];
+    const keys = new Map([
+      ["a", [makeKey({ providerConfigId: "a" })]],
+      ["b", [makeKey({ providerConfigId: "b" })]],
+    ]);
+
+    const first = await selector.selectProvider("image_generation", configs, keys, "weighted");
+    const second = await selector.selectProvider("image_generation", configs, keys, "weighted");
+    expect(first.config.id).toBe(second.config.id);
+  });
+
+  it("weighted_round_robin key selection honors key weight", async () => {
+    const selector = new ProviderSelector();
+    const configs = [makeConfig({ id: "a", selectionStrategy: "weighted_round_robin" })];
+    const keys = new Map([
+      [
+        "a",
+        [
+          makeKey({ id: "k1", providerConfigId: "a", weight: 1 }),
+          makeKey({ id: "k2", providerConfigId: "a", weight: 3 }),
+        ],
+      ],
+    ]);
+
+    const low = await selector.selectProvider(
+      "image_generation",
+      configs,
+      keys,
+      "priority_failover",
+      {
+        seed: "seed-3",
+      },
+    );
+    const high = await selector.selectProvider(
+      "image_generation",
+      configs,
+      keys,
+      "priority_failover",
+      {
+        seed: "seed-0",
+      },
+    );
+    expect(low.key.id).toBe("k1");
+    expect(high.key.id).toBe("k2");
   });
 });

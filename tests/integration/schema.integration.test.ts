@@ -284,6 +284,11 @@ const EXPECTED_FUNCTIONS: [string, string, boolean][] = [
     "search_path=pg_catalog, public",
     true,
   ],
+  [
+    "increment_provider_key_failure(p_provider_config_id uuid, p_key_id uuid, p_threshold integer)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
   ["set_updated_at()", "search_path=pg_catalog, public", false],
 ];
 
@@ -302,6 +307,7 @@ const EXPECTED_MIGRATIONS = [
   "20260808145800",
   "20260808160000",
   "20260808160100",
+  "20260809171800",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];
@@ -424,7 +430,7 @@ describe.skipIf(skip)("schema integration", () => {
          from pg_proc p
          join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public'
-          and p.proname in ('claim_job', 'transition_prompt_session', 'set_updated_at')`,
+          and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'set_updated_at')`,
     );
     const rows = res.rows.map((r) => ({
       sig: `${r.proname}(${r.args})`,
@@ -445,6 +451,7 @@ describe.skipIf(skip)("schema integration", () => {
     for (const fn of [
       "claim_job(text, integer)",
       "transition_prompt_session(uuid, text, text, uuid, uuid)",
+      "increment_provider_key_failure(uuid, uuid, integer)",
     ]) {
       for (const role of API_ROLES) {
         const res = await pool!.query(

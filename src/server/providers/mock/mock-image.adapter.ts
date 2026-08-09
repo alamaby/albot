@@ -5,7 +5,7 @@ import type {
   GenerateImageInput,
   ImageGenerationResult,
 } from "@/server/domain/provider";
-import { ProviderError, makeNonRetryable } from "../errors";
+import { makeNonRetryable } from "../errors";
 
 export class MockImageAdapter implements ImageGenerationProvider {
   constructor(
@@ -29,7 +29,7 @@ export function createMockImageProvider(
 }
 
 export function createDefaultMockImageProvider(): ImageGenerationProvider {
-  return new MockImageAdapter(async (input) => ({
+  return new MockImageAdapter(async () => ({
     status: "completed",
     imageUrl: `https://mock.example.com/${Date.now()}.png`,
     mimeType: "image/png",

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseEncryptionKey } from "@/server/security/encryption";
 
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -9,6 +10,17 @@ const serverEnvSchema = z.object({
     .url()
     .transform((url) => url.replace(/\/+$/, "")),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  PROVIDER_KEY_ENCRYPTION_KEY: z
+    .string()
+    .min(1)
+    .refine((value) => {
+      try {
+        parseEncryptionKey(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "PROVIDER_KEY_ENCRYPTION_KEY must be a base64 string that decodes to exactly 32 bytes"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -34,6 +46,7 @@ export function parseServerEnv(source: Record<string, string | undefined>): Serv
     VERCEL_ENV: source.VERCEL_ENV,
     SUPABASE_URL: source.SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: source.SUPABASE_SERVICE_ROLE_KEY,
+    PROVIDER_KEY_ENCRYPTION_KEY: source.PROVIDER_KEY_ENCRYPTION_KEY,
   });
 }
 

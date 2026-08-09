@@ -1,11 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { OpenAICompatibleReasoningAdapter } from "@/server/providers/reasoning/openai-compatible.adapter";
 import type { EnhancePromptInput } from "@/server/domain/provider";
 import { ProviderError } from "@/server/providers/errors";
 
-// Mock fetch for testing
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  mockFetch.mockReset();
+});
 
 describe("OpenAICompatibleReasoningAdapter", () => {
   const adapter = new OpenAICompatibleReasoningAdapter(
@@ -14,9 +17,11 @@ describe("OpenAICompatibleReasoningAdapter", () => {
   );
 
   it("sends correct request body", async () => {
+    vi.stubGlobal("fetch", mockFetch);
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
+      headers: new Headers(),
       json: async () => ({
         choices: [{ message: { content: "This is an enhanced prompt." } }],
         model: "gpt-4",
@@ -45,9 +50,11 @@ describe("OpenAICompatibleReasoningAdapter", () => {
   });
 
   it("returns enhanced prompt with metadata", async () => {
+    vi.stubGlobal("fetch", mockFetch);
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
+      headers: new Headers(),
       json: async () => ({
         choices: [{ message: { content: "Enhanced prompt text" } }],
         model: "gpt-4",
@@ -66,26 +73,73 @@ describe("OpenAICompatibleReasoningAdapter", () => {
     expect(result.metadata).toHaveProperty("usage");
   });
 
-  it("throws on 401", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-    });
-
-    await expect(
-      adapter.enhancePrompt({ sourcePrompt: "Test", systemPrompt: "System", options: {} }),
-    ).rejects.toThrow(ProviderError);
-  });
-
-  it("throws on malformed response", async () => {
+  it("captures provider request id from response headers", async () => {
+    vi.stubGlobal("fetch", mockFetch);
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
+      headers: new Headers({ "x-request-id": "req-provider-42" }),
+      json: async () => ({
+        choices: [{ message: { content: "Enhanced" } }],
+        model: "gpt-4",
+      }),
+    });
+
+    const result = await adapter.enhancePrompt({
+      sourcePrompt: "Test",
+      systemPrompt: "System",
+      options: {},
+    });
+    expect(result.metadata).toHaveProperty("providerRequestId", "req-provider-42");
+  });
+
+  it("throws on 401 with non-retryable classification", async () => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401, headers: new Headers() });
+
+    await expect(
+      adapter.enhancePrompt({ sourcePrompt: "Test", systemPrompt: "System", options: {} }),
+    ).rejects.toMatchObject({
+      code: "provider_authentication_failed",
+      retryable: false,
+      httpStatus: 401,
+    });
+  });
+
+  it("classifies 429 as retryable rate limit", async () => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 429, headers: new Headers() });
+
+    await expect(
+      adapter.enhancePrompt({ sourcePrompt: "Test", systemPrompt: "System", options: {} }),
+    ).rejects.toMatchObject({
+      code: "provider_rate_limited",
+      retryable: true,
+      httpStatus: 429,
+    });
+  });
+
+  it("throws on malformed response", async () => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
       json: async () => ({}),
     });
 
     await expect(
       adapter.enhancePrompt({ sourcePrompt: "Test", systemPrompt: "System", options: {} }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: "provider_response_invalid", retryable: false });
+  });
+
+  it("rejects non-https base urls", () => {
+    expect(
+      () =>
+        new OpenAICompatibleReasoningAdapter(
+          { baseUrl: "http://insecure.example.com", model: "gpt-4" },
+          "key",
+        ),
+    ).toThrow(ProviderError);
   });
 });

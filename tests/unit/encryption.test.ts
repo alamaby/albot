@@ -16,16 +16,28 @@ describe("encryption", () => {
       expect(result).toHaveLength(32);
     });
 
-    it("rejects wrong length", () => {
-      expect(() => parseEncryptionKey(Buffer.from("hello", "utf8").toString("base64"))).toThrow();
+    it("rejects wrong length with specific message", () => {
+      expect(() => parseEncryptionKey(Buffer.from("hello", "utf8").toString("base64"))).toThrow(
+        "must decode to exactly 32 bytes",
+      );
     });
 
-    it("rejects invalid base64", () => {
-      expect(() => parseEncryptionKey("!!!invalid!!!")).toThrow();
+    it("rejects invalid base64 characters", () => {
+      expect(() => parseEncryptionKey("!!!invalid!!!")).toThrow("must be a valid base64 string");
+    });
+
+    it("rejects base64 with a lone trailing character", () => {
+      expect(() => parseEncryptionKey("AAAAA")).toThrow("must be a valid base64 string");
+    });
+
+    it("rejects empty string", () => {
+      expect(() => parseEncryptionKey("")).toThrow("must be a non-empty base64 string");
     });
 
     it("rejects all-zero key", () => {
-      expect(() => parseEncryptionKey(Buffer.alloc(32, 0).toString("base64"))).toThrow();
+      expect(() => parseEncryptionKey(Buffer.alloc(32, 0).toString("base64"))).toThrow(
+        "must not be all zeros",
+      );
     });
   });
 
@@ -72,6 +84,15 @@ describe("encryption", () => {
       encrypted.ciphertextBase64 = "dGFtcGVyZWQ=";
 
       expect(decryptProviderKey(encrypted, TEST_KEY, ASSOCIATED_DATA)).toBeNull();
+    });
+
+    it("fails decryption for unknown envelope version", () => {
+      const plaintext = "secret";
+      const encrypted = encryptProviderKey(plaintext, TEST_KEY, ASSOCIATED_DATA);
+
+      expect(
+        decryptProviderKey({ ...encrypted, version: 99 }, TEST_KEY, ASSOCIATED_DATA),
+      ).toBeNull();
     });
   });
 

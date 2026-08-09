@@ -82,30 +82,32 @@ M2 selesai hanya setelah:
 ```text
 src/server/
 ├── domain/
-│   └── provider.ts
+│   └── provider.ts                  # contracts + capability/strategy unions
 ├── providers/
-│   ├── contracts/
-│   │   ├── image-generation-provider.ts
-│   │   └── reasoning-provider.ts
+│   ├── config.ts                    # zod config validation (remediation H10)
 │   ├── errors.ts
+│   ├── index.ts                     # registry initialization
 │   ├── registry.ts
 │   ├── selector.ts
 │   ├── reasoning/
 │   │   └── openai-compatible.adapter.ts
 │   ├── image/
-│   │   ├── pixazo.adapter.ts
-│   │   ├── pixazo-flux-schnell.ts
-│   │   └── pixazo-sdxl.ts
+│   │   └── pixazo.adapter.ts         # flux + sdxl via responseKind discriminator
 │   └── mock/
 │       ├── mock-image.adapter.ts
 │       └── mock-reasoning.adapter.ts
 ├── repositories/
 │   ├── provider-config.repository.ts
-│   └── provider-key.repository.ts
+│   ├── provider-key.repository.ts    # safe projection only
+│   └── provider-key-vault.repository.ts  # decrypt-only (remediation H4)
 └── security/
-    ├── encryption.ts
-    └── fingerprint.ts
+    └── encryption.ts                 # encryption + fingerprint
 ```
+
+> Catatan (drift vs rencana awal): folder `contracts/` tidak ada — contract
+> didefinisikan langsung di `domain/provider.ts`. `fingerprint.ts` tergabung
+> dalam `encryption.ts`. Pixazo diimplementasikan sebagai satu adapter dengan
+> discriminator `responseKind` (bukan dua file terpisah).
 
 ## Verification Commands
 
@@ -201,6 +203,7 @@ Production workflow must not run in M2.
 
 - 2026-08-08 17:50:00 — Plan dibuat setelah M1 + remediation selesai dengan evidence. Decisions: OpenAI-compatible + Pixazo, server-only repository/API contract, base64 32-byte AES-GCM key. M2 belum diimplementasikan.
 - 2026-08-08 18:50 — Implementasi M2 Phase 1-7 selesai: encryption service, provider contracts, error taxonomy, registry, selector, repositories, adapters (OpenAI-compatible + Pixazo Flux Schnell/SDXL), mock adapters. 110 total tests pass, 56 hosted tests pass dengan REQUIRE_HOSTED_TESTS=true. Typecheck, lint, format, build semua lulus. Pending: forward-fix migration (jika ada schema changes), regenerate types, jalankan migrate-development.yml, capture evidence.
+- 2026-08-09 17:18 — Review read-only M2 (commit `209847d`): 50 findings (8 Critical, 11 High, 16 Medium, 15 Low). Remediation plan dibuat di `plans/2026-08-09-milestone-2-review-remediation-plan.md`. Structure actual tercatat (L15): contracts didefinisikan di `domain/provider.ts`; fingerprint tergabung di `encryption.ts`; Pixazo satu adapter dengan `responseKind`.
 
 ## Notes
 

@@ -5,7 +5,7 @@ import type {
   EnhancePromptInput,
   EnhancedPrompt,
 } from "@/server/domain/provider";
-import { ProviderError, makeNonRetryable } from "../errors";
+import { makeNonRetryable } from "../errors";
 
 export class MockReasoningAdapter implements ReasoningProvider {
   constructor(

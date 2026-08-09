@@ -3,16 +3,22 @@
 // Safe projections never include sensitive columns.
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
+import { validateProviderConfigInput } from "@/server/providers/config";
+import type { ProviderCapability, ProviderStrategy } from "@/server/domain/provider";
 import type { Database } from "@/server/supabase/database.types";
 
 type Supabase = Database["public"]["Tables"];
+
+// Single source of truth for the safe projection (M2).
+const SAFE_COLUMNS =
+  "id, capability, adapter_type, name, base_url, model, settings, selection_strategy, priority, weight, is_active, config_version, activated_at, created_at, updated_at";
 
 export type ProviderConfigInput = {
   capability: "reasoning" | "image_generation";
   adapterType: string;
   name: string;
   baseUrl: string;
-  model: string;
+  model?: string;
   settings: Record<string, unknown>;
   selectionStrategy: "priority_failover" | "weighted";
   priority: number;
@@ -22,13 +28,13 @@ export type ProviderConfigInput = {
 
 export type ProviderConfigSafe = {
   id: string;
-  capability: string;
+  capability: ProviderCapability;
   adapterType: string;
   name: string;
   baseUrl: string;
   model: string;
   settings: Record<string, unknown>;
-  selectionStrategy: string;
+  selectionStrategy: ProviderStrategy;
   priority: number;
   weight: number;
   isActive: boolean;
@@ -44,13 +50,13 @@ export type ProviderConfigInsert = Supabase["provider_configs"]["Insert"];
 function mapRow(row: ProviderConfigRow): ProviderConfigSafe {
   return {
     id: row.id,
-    capability: row.capability,
+    capability: row.capability as ProviderCapability,
     adapterType: row.adapter_type,
     name: row.name,
     baseUrl: row.base_url,
     model: row.model ?? "",
-    settings: row.settings as Record<string, unknown>,
-    selectionStrategy: row.selection_strategy,
+    settings: (row.settings as Record<string, unknown> | null) ?? {},
+    selectionStrategy: row.selection_strategy as ProviderStrategy,
     priority: row.priority,
     weight: row.weight,
     isActive: row.is_active,
@@ -62,13 +68,11 @@ function mapRow(row: ProviderConfigRow): ProviderConfigSafe {
 }
 
 export class ProviderConfigRepository {
-  async listActive(capability: string): Promise<ProviderConfigSafe[]> {
+  async listActive(capability: ProviderCapability): Promise<ProviderConfigSafe[]> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("provider_configs")
-      .select(
-        "id, capability, adapter_type, name, base_url, model, settings, selection_strategy, priority, weight, is_active, config_version, activated_at, created_at, updated_at",
-      )
+      .select(SAFE_COLUMNS)
       .eq("capability", capability)
       .eq("is_active", true)
       .order("priority", { ascending: true })
@@ -82,9 +86,7 @@ export class ProviderConfigRepository {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("provider_configs")
-      .select(
-        "id, capability, adapter_type, name, base_url, model, settings, selection_strategy, priority, weight, is_active, config_version, activated_at, created_at, updated_at",
-      )
+      .select(SAFE_COLUMNS)
       .eq("id", id)
       .single();
 
@@ -96,24 +98,23 @@ export class ProviderConfigRepository {
   }
 
   async insert(input: ProviderConfigInput): Promise<ProviderConfigSafe> {
+    const validated = validateProviderConfigInput(input);
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("provider_configs")
       .insert({
-        capability: input.capability,
-        adapter_type: input.adapterType,
-        name: input.name,
-        base_url: input.baseUrl,
-        model: input.model,
-        settings: input.settings,
-        selection_strategy: input.selectionStrategy,
-        priority: input.priority,
-        weight: input.weight,
-        is_active: input.isActive,
+        capability: validated.capability,
+        adapter_type: validated.adapterType,
+        name: validated.name,
+        base_url: validated.baseUrl,
+        model: validated.model ?? null,
+        settings: validated.settings,
+        selection_strategy: validated.selectionStrategy,
+        priority: validated.priority,
+        weight: validated.weight,
+        is_active: validated.isActive,
       } as ProviderConfigInsert)
-      .select(
-        "id, capability, adapter_type, name, base_url, model, settings, selection_strategy, priority, weight, is_active, config_version, activated_at, created_at, updated_at",
-      )
+      .select(SAFE_COLUMNS)
       .single();
 
     if (error) throw new Error(`provider config insert failed: ${error.message}`);
@@ -126,9 +127,7 @@ export class ProviderConfigRepository {
       .from("provider_configs")
       .update({ is_active: true })
       .eq("id", id)
-      .select(
-        "id, capability, adapter_type, name, base_url, model, settings, selection_strategy, priority, weight, is_active, config_version, activated_at, created_at, updated_at",
-      )
+      .select(SAFE_COLUMNS)
       .single();
 
     if (error) throw new Error(`provider config activate failed: ${error.message}`);
@@ -141,9 +140,7 @@ export class ProviderConfigRepository {
       .from("provider_configs")
       .update({ is_active: false })
       .eq("id", id)
-      .select(
-        "id, capability, adapter_type, name, base_url, model, settings, selection_strategy, priority, weight, is_active, config_version, activated_at, created_at, updated_at",
-      )
+      .select(SAFE_COLUMNS)
       .single();
 
     if (error) throw new Error(`provider config deactivate failed: ${error.message}`);

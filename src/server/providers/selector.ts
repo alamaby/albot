@@ -1,13 +1,27 @@
 // Provider and key selector.
 // Selects the best provider config and key for a given capability and request.
 // Selection is deterministic and does not depend on process-local random state.
+// Weighted selection uses a cumulative-prefix draw over total weight, driven by
+// a stable hash of the selection seed (see C5).
 
-import type { ProviderCapability } from "@/server/domain/provider";
+import type {
+  ProviderCapability,
+  ProviderSelectionStrategy,
+  ProviderKeySelectionStrategy,
+  ProviderStrategy,
+} from "@/server/domain/provider";
 import type { ProviderConfigSafe } from "@/server/repositories/provider-config.repository";
 import type { ProviderKeySafe } from "@/server/repositories/provider-key.repository";
-import { ProviderError, makeRetryable, makeNonRetryable } from "./errors";
+import { makeNonRetryable } from "./errors";
 
-export type SelectionStrategy = "priority_failover" | "weighted";
+export type SelectionStrategy = ProviderSelectionStrategy;
+export type KeySelectionStrategy = ProviderKeySelectionStrategy;
+
+export type SelectionOptions = {
+  // Optional per-request seed (e.g. job/session id) that makes weighted draws
+  // deterministic yet distributed across requests. Omit for a stable default.
+  seed?: string;
+};
 
 export type SelectedProvider = {
   config: ProviderConfigSafe;
@@ -26,6 +40,7 @@ export class ProviderSelector {
     configs: ProviderConfigSafe[],
     keysByConfig: Map<string, ProviderKeySafe[]>,
     strategy: SelectionStrategy,
+    options?: SelectionOptions,
   ): Promise<SelectedProvider> {
     const active = configs.filter((c) => c.isActive);
 
@@ -46,8 +61,8 @@ export class ProviderSelector {
       });
       selected = sorted[0];
     } else {
-      // Weighted selection: deterministic hash-based selection across active configs.
-      selected = this.selectWeighted(active);
+      // Weighted selection: deterministic cumulative-prefix draw.
+      selected = this.selectWeighted(active, this.configSeed(active, options?.seed));
     }
 
     const keys = keysByConfig.get(selected.id) ?? [];
@@ -57,7 +72,11 @@ export class ProviderSelector {
       throw makeNonRetryable("provider_key_unavailable", "no eligible keys for selected provider");
     }
 
-    const key = this.selectKey(eligible, selected.selectionStrategy);
+    const key = this.selectKey(
+      eligible,
+      selected.selectionStrategy,
+      this.keySeed(selected, options?.seed),
+    );
     return { config: selected, key };
   }
 
@@ -71,26 +90,52 @@ export class ProviderSelector {
     return true;
   }
 
-  private selectKey(keys: ProviderKeySafe[], strategy: string): ProviderKeySafe {
+  private selectKey(
+    keys: ProviderKeySafe[],
+    strategy: ProviderStrategy,
+    seed: string,
+  ): ProviderKeySafe {
     if (strategy === "weighted_round_robin") {
-      // Deterministic weighted selection based on key weight.
       const totalWeight = keys.reduce((sum, k) => sum + k.weight, 0);
-      if (totalWeight === 0) return keys[0];
-      // Use a stable hash of the provider config id to pick deterministically.
-      const hash = this.hashString(keys[0].providerConfigId);
-      const idx = hash % keys.length;
-      return keys[idx];
+      if (totalWeight <= 0) return keys[0];
+      const point = Math.abs(this.hashString(seed)) % totalWeight;
+      let cumulative = 0;
+      for (const key of keys) {
+        cumulative += key.weight;
+        if (point < cumulative) return key;
+      }
+      return keys[keys.length - 1];
     }
     // Default: round-robin by insertion order (first eligible key).
     return keys[0];
   }
 
-  private selectWeighted(configs: ProviderConfigSafe[]): ProviderConfigSafe {
+  private selectWeighted(configs: ProviderConfigSafe[], seed: string): ProviderConfigSafe {
     const totalWeight = configs.reduce((sum, c) => sum + c.weight, 0);
-    if (totalWeight === 0) return configs[0];
-    const hash = this.hashString(configs[0].id);
-    const idx = hash % configs.length;
-    return configs[idx];
+    if (totalWeight <= 0) return configs[0];
+    const point = Math.abs(this.hashString(seed)) % totalWeight;
+    let cumulative = 0;
+    for (const config of configs) {
+      cumulative += config.weight;
+      if (point < cumulative) return config;
+    }
+    return configs[configs.length - 1];
+  }
+
+  // Stable seed for config selection: request seed when provided, otherwise a
+  // deterministic composite of the participating config ids so selection is
+  // stable across serverless instances.
+  private configSeed(configs: ProviderConfigSafe[], seed?: string): string {
+    if (seed) return seed;
+    const ids = [...configs.map((c) => c.id)].sort().join(":");
+    return `albot/config/${ids}`;
+  }
+
+  // Stable seed for key selection scoped to the selected config so different
+  // configs draw keys independently.
+  private keySeed(config: ProviderConfigSafe, seed?: string): string {
+    if (seed) return `${config.id}:${seed}`;
+    return `albot/key/${config.id}`;
   }
 
   private hashString(s: string): number {
@@ -98,6 +143,6 @@ export class ProviderSelector {
     for (let i = 0; i < s.length; i++) {
       h = ((h << 5) - h + s.charCodeAt(i)) | 0;
     }
-    return Math.abs(h);
+    return h;
   }
 }

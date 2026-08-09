@@ -1,11 +1,11 @@
 // Initialize the provider registry with all available adapters.
 // Adapters register themselves when imported.
+// Factories prefer `base_url`/`model` from the provider config row (H8) and
+// fall back to provider-specific defaults when the row does not provide them.
 
 import { getProviderRegistry } from "./registry";
 import { OpenAICompatibleReasoningAdapter } from "./reasoning/openai-compatible.adapter";
 import { PixazoImageAdapter } from "./image/pixazo.adapter";
-import { createDefaultMockReasoningProvider } from "./mock/mock-reasoning.adapter";
-import { createDefaultMockImageProvider } from "./mock/mock-image.adapter";
 
 const registry = getProviderRegistry();
 
@@ -13,8 +13,8 @@ const registry = getProviderRegistry();
 registry.registerReasoning("openai_compatible", (config, apiKey) => {
   return new OpenAICompatibleReasoningAdapter(
     {
-      baseUrl: config["base_url"] as string,
-      model: config["model"] as string,
+      baseUrl: (config["base_url"] as string) ?? "https://api.openai.com/v1",
+      model: (config["model"] as string) ?? "gpt-4",
       timeoutMs: (config["timeout_ms"] as number) ?? 60000,
     },
     apiKey,
@@ -25,8 +25,10 @@ registry.registerReasoning("openai_compatible", (config, apiKey) => {
 registry.registerImage("pixazo_flux_schnell", (config, apiKey) => {
   return new PixazoImageAdapter(
     {
-      baseUrl: "https://gateway.pixazo.ai/flux-1-schnell/v1/getData",
-      model: "flux-1-schnell",
+      baseUrl:
+        (config["base_url"] as string) ?? "https://gateway.pixazo.ai/flux-1-schnell/v1/getData",
+      model: (config["model"] as string) ?? "flux-1-schnell",
+      responseKind: "flux",
       timeoutMs: (config["timeout_ms"] as number) ?? 120000,
     },
     apiKey,
@@ -36,8 +38,10 @@ registry.registerImage("pixazo_flux_schnell", (config, apiKey) => {
 registry.registerImage("pixazo_sdxl", (config, apiKey) => {
   return new PixazoImageAdapter(
     {
-      baseUrl: "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
-      model: "stable-diffusion-xl-base-1.0",
+      baseUrl:
+        (config["base_url"] as string) ?? "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
+      model: (config["model"] as string) ?? "sdxl",
+      responseKind: "sdxl",
       timeoutMs: (config["timeout_ms"] as number) ?? 120000,
     },
     apiKey,
