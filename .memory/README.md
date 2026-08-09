@@ -1,11 +1,11 @@
 # Project Memory
 
-Last updated: 2026-08-09 17:50:00
+Last updated: 2026-08-09 18:00:00
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: Milestone 2 (Provider Abstraction and Configuration) — implementation committed `209847d`; review read-only selesai (50 findings); **review remediation: Phase 1-2 (C1-C8, H1-H11) implemented + verified** (142 tests, hosted 67/0 skip); pending commit/workflow/evidence + sisa M/L
+- Active milestone: Milestone 2 (Provider Abstraction and Configuration) — implementation `209847d` + review remediation `35a9cab` **MILESTONE COMPLETE**: migrate-development run `31311782574` success (dev 7 migrations Local==Remote, hosted 67/0 skip, generated_types clean); production 0 migrations untouched
 - Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (7 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
 - M1 + remediation MILESTONE COMPLETE:
   - Development migration workflow success (run 31252455316, commit dba67ce)
@@ -39,13 +39,14 @@ Last updated: 2026-08-09 17:50:00
 
 ## Open Blockers
 
-- (none) — M2 remediation Phase 1-2 done; commit + workflow pending
+- (none) — M2 remediation selesai; M2 acceptance evidence final tinggal mengikuti M2 plan
 - Item M/L review yang belum ter-trancribe ke plan (M1/M4-M8/M10/M13-M16, L2-L14): detail ada di sesi chat sebelumnya
 - Vercel Preview alias not configured
 - Telegram bot tokens not set
 
 ## Recent Entries
 
+- `2026-08-09/180000-milestone-2-review-remediation-evidence.md` — M2 remediation evidence (run 31311782574 success, 7 migrations, hosted 67/0)
 - `2026-08-09/175000-milestone-2-review-remediation-implementation.md` — M2 remediation implementation (C1-C8 + H1-H11 done, migration C4 applied, 142 tests)
 - `2026-08-09/171800-milestone-2-review-remediation.md` — M2 review remediation start (plan, C1-C8/H1-H11, forward-fix migration C4)
 - `2026-08-08/175000-milestone-2-start.md` — M2 start, provider decisions, Pixazo contract confirmed, plan created

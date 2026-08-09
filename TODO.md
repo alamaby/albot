@@ -8,13 +8,12 @@ Milestone 2: Provider Abstraction and Configuration
 
 ## In Progress
 
-- M2 remediation Phase 1-2 selesai (C1-C8, H1-H11, M2/M3/M9/M11/M12, L1/L15): 142 tests pass, hosted 67 (0 skip), lint/typecheck/format/build bersih. Migration C4 diterapkan ke dev (7 migrations). Pending: commit, workflow development, evidence.
+- M2 remediation **selesai**: commit `35a9cab`, migrate-development run `31311782574` success (7 migrations dev Local==Remote, hosted 67/0 skip). Tinggal: transcribe sisa M/L findings bila daftar review tersedia, lalu M2 acceptance + evidence final.
 
 ## Pending
 
-- [ ] M2 remediation: commit + push + jalankan `migrate-development.yml` (commit SHA baru) + capture evidence
 - [ ] M2 remediation: transcribe & resolve sisa M/L findings (M1/M4-M8/M10/M13-M16, L2-L14) dari daftar review session bila tersedia
-- [ ] Complete M2: acceptance criteria + evidence lengkap
+- [ ] Complete M2: acceptance criteria + evidence final (M2 plan)
 - [ ] Implement Milestone 3 dan record verification evidence
 - [ ] Implement Milestone 4 dan record verification evidence
 - [ ] Implement Milestone 5 dan record verification evidence

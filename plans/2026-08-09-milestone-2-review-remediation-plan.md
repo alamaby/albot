@@ -117,7 +117,17 @@ M2 remediation selesai hanya setelah:
 - [x] `npm run format:check` — bersih.
 - [x] `npm run build` — sukses.
 - [x] `npm run db:lint`, `db:check-migrations` (7), `db:types:check` — lulus.
-- [ ] Commit remediation + jalankan `migrate-development.yml` + capture evidence.
+- [x] Commit remediation + jalankan `migrate-development.yml` + capture evidence.
+
+## Evidence (2026-08-09)
+
+- Commit SHA: `35a9cabe9a9d0b60c2f2ff03365f542f73468735` (push ke origin/main: `2a5e467..35a9cab`).
+- Validate CI (push): run `31311733783` success (Static checks + Secret scan) — https://github.com/alamaby/albot/actions/runs/31311733783
+- migrate-development workflow: run `31311782574` (run_number 3) **success** — https://github.com/alamaby/albot/actions/runs/31311782574
+- Manifest (artifact `development-migration-evidence`): `workflow=migrate-development`, `run_id=31311782574`, `commit_sha=35a9cab…`, `project_ref=ceqcitzbosqzxpbtlpfn` (dev), `generated_types=clean`.
+- Migration list: 7 migrations, Local==Remote (semua applied) — termasuk `20260809171800_add_increment_provider_key_failure`.
+- Hosted tests (REQUIRE_HOSTED_TESTS=true): **67 passed, 0 failed, 0 skipped/pending**.
+- Local verification: `npm test` 142/142, lint/typecheck/format/build/db checks bersih.
 
 ## Risks
 
@@ -131,6 +141,7 @@ M2 remediation selesai hanya setelah:
 
 - 2026-08-08 21:30:00 — Plan remediation dibuat setelah review read-only M2 (commit `209847d`). C1-C8 dan H1-H11 dirinci penuh; M/L tercantum nomor + yang sudah teridentifikasi, sisanya akan diverifikasi saat implementasi.
 - 2026-08-09 17:18:00 — Implementasi remediation Phase 1-2 selesai (C1-C8 + H1-H11 + M2/M3/M9/M11/M12 + L1/L15 + items tambahan: provider-config test, capability narrowing, mock adapter unused import, env docs). Forward-fix migration C4 diterapkan ke dev (7 migrations), types di-regenerate. 142 tests pass, hosted 67 (0 skip, REQUIRE_HOSTED_TESTS=true), lint/typecheck/format/build/db checks bersih. Pending: commit remediation + jalankan `migrate-development.yml` + capture evidence; M/L yang belum ter-trancribe menunggu daftar review session.
+- 2026-08-09 17:57 — Commit `35a9cab` + push; migrate-development run `31311782574` **success** (evidence di-capture: 7 migrations Local==Remote, hosted 67/0 skip, generated_types clean). M2 remediation selesai. Sisa: transcribe M/L yang belum teridentifikasi bila daftar review tersedia.
 
 ## Notes
 
