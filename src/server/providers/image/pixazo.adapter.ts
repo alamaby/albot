@@ -9,6 +9,7 @@ import type {
   ImageGenerationResult,
 } from "@/server/domain/provider";
 import { ProviderError, makeErrorFromHttpStatus, makeRetryable, makeNonRetryable } from "../errors";
+import { isHttpsUrl, readProviderRequestId } from "../http";
 
 export type PixazoResponseKind = "flux" | "sdxl";
 
@@ -63,13 +64,13 @@ export class PixazoImageAdapter implements ImageGenerationProvider {
           response.status,
           `pixazo provider returned ${response.status}`,
           {
-            providerRequestId: readRequestId(response),
+            providerRequestId: readProviderRequestId(response),
           },
         );
       }
 
       const json = (await response.json()) as Record<string, unknown>;
-      return this.parseResponse(json, readRequestId(response));
+      return this.parseResponse(json, readProviderRequestId(response));
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -143,10 +144,10 @@ export class PixazoImageAdapter implements ImageGenerationProvider {
     if (this.responseKind === "flux") {
       // Flux Schnell returns { "output": "https://..." }
       const output = json["output"] as string | undefined;
-      if (!output || typeof output !== "string" || !output.startsWith("http")) {
+      if (!output || typeof output !== "string" || !isHttpsUrl(output)) {
         throw makeNonRetryable(
           "provider_response_invalid",
-          "pixazo flux response missing valid output URL",
+          "pixazo flux response missing valid https output URL",
           {
             providerRequestId: requestId,
           },
@@ -156,17 +157,20 @@ export class PixazoImageAdapter implements ImageGenerationProvider {
         status: "completed",
         imageUrl: output,
         mimeType: "image/png",
-        providerRequestId: (json["request_id"] as string | undefined) ?? requestId,
-        metadata: {},
+        providerRequestId: this.readBodyRequestId(json, requestId),
+        metadata: {
+          model: this.model,
+          ...(requestId ? { providerRequestId: requestId } : {}),
+        },
       };
     }
 
     // SDXL returns { "imageUrl": "https://..." }
     const imageUrl = json["imageUrl"] as string | undefined;
-    if (!imageUrl || typeof imageUrl !== "string" || !imageUrl.startsWith("http")) {
+    if (!imageUrl || typeof imageUrl !== "string" || !isHttpsUrl(imageUrl)) {
       throw makeNonRetryable(
         "provider_response_invalid",
-        "pixazo sdxl response missing valid imageUrl",
+        "pixazo sdxl response missing valid https imageUrl",
         {
           providerRequestId: requestId,
         },
@@ -176,16 +180,22 @@ export class PixazoImageAdapter implements ImageGenerationProvider {
       status: "completed",
       imageUrl,
       mimeType: "image/png",
-      providerRequestId: (json["id"] as string | undefined) ?? requestId,
-      metadata: {},
+      providerRequestId: this.readBodyRequestId(json, requestId),
+      metadata: {
+        model: this.model,
+        ...(requestId ? { providerRequestId: requestId } : {}),
+      },
     };
   }
-}
 
-// Reads the provider request id from response headers where available.
-function readRequestId(response: Response): string | undefined {
-  const headerId = response.headers.get("x-request-id");
-  if (headerId) return headerId;
-  const requestId = response.headers.get("x-request-trace-id");
-  return requestId ?? undefined;
+  // Prefers the provider-assigned request id from the response body
+  // (`request_id` for Flux, `id` for SDXL), falling back to the header-based id.
+  private readBodyRequestId(
+    json: Record<string, unknown>,
+    headerRequestId?: string,
+  ): string | undefined {
+    const bodyRequestId =
+      (json["request_id"] as string | undefined) ?? (json["id"] as string | undefined);
+    return bodyRequestId ?? headerRequestId;
+  }
 }

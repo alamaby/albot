@@ -7,6 +7,7 @@ import type {
   EnhancedPrompt,
 } from "@/server/domain/provider";
 import { ProviderError, makeErrorFromHttpStatus, makeRetryable, makeNonRetryable } from "../errors";
+import { readProviderRequestId } from "../http";
 
 export type OpenAICompatibleConfig = {
   baseUrl: string;
@@ -55,12 +56,12 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
         throw makeErrorFromHttpStatus(
           response.status,
           `openai-compatible provider returned ${response.status}`,
-          { providerRequestId: readRequestId(response) },
+          { providerRequestId: readProviderRequestId(response) },
         );
       }
 
       const json = (await response.json()) as Record<string, unknown>;
-      return this.parseResponse(json, readRequestId(response));
+      return this.parseResponse(json, readProviderRequestId(response));
     } catch (error) {
       if (error instanceof ProviderError) throw error;
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -133,12 +134,4 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
       },
     };
   }
-}
-
-// Reads the provider request id from response headers where available.
-function readRequestId(response: Response): string | undefined {
-  const headerId = response.headers.get("x-request-id");
-  if (headerId) return headerId;
-  const requestId = response.headers.get("x-request-trace-id");
-  return requestId ?? undefined;
 }

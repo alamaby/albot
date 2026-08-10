@@ -35,6 +35,19 @@ export class ProviderSelector {
     this.now = now ?? (() => Date.now());
   }
 
+  // Selects the provider config and key for a request.
+  //
+  // Two strategy dimensions are intentionally independent:
+  // - `strategy` (caller-supplied) drives CONFIG selection: it picks among the
+  //   active configs for the requested capability (`priority_failover` sorts by
+  //   priority, `weighted` draws by config weight).
+  // - `selected.selectionStrategy` (read from the DB row) drives KEY selection
+  //   for the chosen config: `weighted` draws keys by their own weight, while
+  //   `priority_failover` picks the least-recently-used eligible key.
+  //
+  // They may differ (e.g. a caller passing `priority_failover` can select a
+  // config row whose `selection_strategy` is `weighted`). This is by design so
+  // the DB row is the source of truth for how keys within a config are rotated.
   async selectProvider(
     capability: ProviderCapability,
     configs: ProviderConfigSafe[],

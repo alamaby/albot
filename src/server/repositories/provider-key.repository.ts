@@ -59,8 +59,11 @@ export type RotateKeyInput = {
 export class ProviderKeyRepository {
   private readonly vault: ProviderKeyVaultRepository;
 
-  constructor(private readonly encryptionKey: Buffer) {
-    this.vault = new ProviderKeyVaultRepository(this.encryptionKey);
+  constructor(
+    private readonly encryptionKey: Buffer,
+    vault?: ProviderKeyVaultRepository,
+  ) {
+    this.vault = vault ?? new ProviderKeyVaultRepository(this.encryptionKey);
   }
 
   async insertEncryptedKey(input: InsertEncryptedKeyInput): Promise<ProviderKeySafe> {
@@ -116,7 +119,7 @@ export class ProviderKeyRepository {
 
   async markSuccess(input: MarkSuccessInput): Promise<void> {
     const supabase = getSupabaseAdmin();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("provider_keys")
       .update({
         failure_count: 0,
@@ -124,9 +127,15 @@ export class ProviderKeyRepository {
         last_used_at: new Date().toISOString(),
       })
       .eq("id", input.keyId)
-      .eq("provider_config_id", input.providerConfigId);
+      .eq("provider_config_id", input.providerConfigId)
+      .select("id");
 
     if (error) throw new Error(`provider key success update failed: ${error.message}`);
+    // Fail fast when the key is missing so a silent no-op cannot hide a stale
+    // reference (e.g. a worker recording success against a removed key).
+    if (!data || data.length === 0) {
+      throw new Error("provider key success update: key not found");
+    }
   }
 
   async rotateKey(input: RotateKeyInput): Promise<ProviderKeySafe> {

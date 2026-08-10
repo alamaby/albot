@@ -1,15 +1,35 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getAdminClient, getAnonClient, assertHostedOrSkip } from "../helpers/hosted";
+import { getAdminClient, getAnonClient, assertHostedOrSkip, getHostedEnv } from "../helpers/hosted";
 import {
   encryptProviderKey,
   decryptProviderKey,
   computeFingerprint,
 } from "@/server/security/encryption";
+import {
+  ProviderKeyRepository,
+  type MarkSuccessInput,
+} from "@/server/repositories/provider-key.repository";
+import { ProviderKeyVaultRepository } from "@/server/repositories/provider-key-vault.repository";
+import { resetServerEnvCache } from "@/env";
 
 const skip = assertHostedOrSkip();
 
 const TEST_ROOT_KEY = Buffer.alloc(32, 1);
 const ASSOCIATED_DATA_PREFIX = "albot/provider-key/v1";
+
+// ProviderKeyRepository resolves its admin client through getServerEnv(), which
+// reads the base environment names (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).
+// The hosted test harness uses _DEV suffixed names, so map them onto the base
+// names and reset the env cache before the repository is used.
+if (!skip) {
+  const env = getHostedEnv();
+  if (env) {
+    process.env.SUPABASE_URL = env.url;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = env.serviceRoleKey;
+    process.env.PROVIDER_KEY_ENCRYPTION_KEY = TEST_ROOT_KEY.toString("base64");
+  }
+  resetServerEnvCache();
+}
 
 const cleanup: { table: "provider_keys" | "provider_configs"; id: string }[] = [];
 
@@ -242,5 +262,75 @@ describe.skipIf(skip)("ProviderKeyRepository DB contract", () => {
     const { data, error } = await anon.from("provider_keys").select("id");
     expect(error).not.toBeNull();
     expect(data).toBeNull();
+  });
+
+  it("markSuccess throws when the key does not exist", async () => {
+    const configId = await insertConfig();
+    const repo = new ProviderKeyRepository(TEST_ROOT_KEY);
+
+    const input: MarkSuccessInput = {
+      keyId: "00000000-0000-0000-0000-000000000000",
+      providerConfigId: configId,
+    };
+    await expect(repo.markSuccess(input)).rejects.toThrow("key not found");
+  });
+
+  it("rotateKey rolls back the new key when vault verification throws", async () => {
+    const configId = await insertConfig();
+    const admin = getAdminClient();
+
+    // Vault stub that throws on decrypt so the verification path fails.
+    const throwingVault = {
+      getDecryptableKey: async () => {
+        throw new Error("vault unavailable");
+      },
+    } as unknown as ProviderKeyVaultRepository;
+    const repo = new ProviderKeyRepository(TEST_ROOT_KEY, throwingVault);
+
+    await expect(
+      repo.rotateKey({
+        providerConfigId: configId,
+        plaintextKey: "sk-contract-rotate-throw",
+        weight: 1,
+      }),
+    ).rejects.toThrow("vault unavailable");
+
+    // The newly inserted key must have been rolled back (no active key remains).
+    const { data: keys } = await admin
+      .from("provider_keys")
+      .select("id, is_active")
+      .eq("provider_config_id", configId);
+    expect(keys ?? []).toHaveLength(0);
+  });
+
+  it("rotateKey rolls back the new key when decryption verification mismatches", async () => {
+    const configId = await insertConfig();
+    const admin = getAdminClient();
+
+    // Vault stub that returns a wrong plaintext so verification mismatches.
+    const mismatchingVault = {
+      getDecryptableKey: async () => ({
+        id: "00000000-0000-0000-0000-000000000000",
+        providerConfigId: configId,
+        plaintext: "different-secret",
+        fingerprint: "deadbeef",
+      }),
+    } as unknown as ProviderKeyVaultRepository;
+    const repo = new ProviderKeyRepository(TEST_ROOT_KEY, mismatchingVault);
+
+    await expect(
+      repo.rotateKey({
+        providerConfigId: configId,
+        plaintextKey: "sk-contract-rotate-mismatch",
+        weight: 1,
+      }),
+    ).rejects.toThrow("provider key rotation verification failed");
+
+    // The newly inserted key must have been rolled back.
+    const { data: keys } = await admin
+      .from("provider_keys")
+      .select("id, is_active")
+      .eq("provider_config_id", configId);
+    expect(keys ?? []).toHaveLength(0);
   });
 });

@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-08-10 11:12:00
+Last updated: 2026-08-10 14:10:00
 
 ## Current State
 
@@ -46,6 +46,7 @@ Last updated: 2026-08-10 11:12:00
 
 ## Recent Entries
 
+- `2026-08-10/141000-milestone-2-review-followup.md` — post-closure review follow-up: http.ts helper, Pixazo https-only + request_id fallback + metadata, vault injectable, markSuccess fail-fast, 150 unit + hosted 74/0
 - `2026-08-10/111200-milestone-2-closure.md` — M2 closure: M/L transcribed, M1/M4/M5/M6 + C-Low A fixed, acceptance criteria checked, 143 unit + hosted 67/0
 - `2026-08-09/180000-milestone-2-review-remediation-evidence.md` — M2 remediation evidence (run 31311782574 success, 7 migrations, hosted 67/0)
 - `2026-08-09/175000-milestone-2-review-remediation-implementation.md` — M2 remediation implementation (C1-C8 + H1-H11 done, migration C4 applied, 142 tests)
