@@ -4,16 +4,15 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 2: Provider Abstraction and Configuration
+Milestone 3: Telegram Intake and Durable Jobs
 
 ## In Progress
 
-- M2 remediation **selesai**: commit `35a9cab`, migrate-development run `31311782574` success (7 migrations dev Local==Remote, hosted 67/0 skip). Tinggal: transcribe sisa M/L findings bila daftar review tersedia, lalu M2 acceptance + evidence final.
+- (none) — M2 closure selesai 2026-08-10: M/L ditranscribe (M1/M4/M5/M6 + C-Low A fixed; M7/M8/M10/M13-M16 + L2-L14 accepted), acceptance criteria di-centang, 143 tests + hosted 67/0, lint/typecheck/format/build/db bersih. Sisa: commit + push closure M2, lalu mulai Milestone 3.
 
 ## Pending
 
-- [ ] M2 remediation: transcribe & resolve sisa M/L findings (M1/M4-M8/M10/M13-M16, L2-L14) dari daftar review session bila tersedia
-- [ ] Complete M2: acceptance criteria + evidence final (M2 plan)
+- [ ] Commit + push closure M2 (plan `plans/2026-08-10-milestone-2-closure-plan.md`)
 - [ ] Implement Milestone 3 dan record verification evidence
 - [ ] Implement Milestone 4 dan record verification evidence
 - [ ] Implement Milestone 5 dan record verification evidence
@@ -26,6 +25,12 @@ Milestone 2: Provider Abstraction and Configuration
 - (none)
 
 ## Completed
+
+### Milestone 2: Provider Abstraction and Configuration (completed 2026-08-10)
+
+- [x] M2 implementation + review remediation (commit `209847d` + `35a9cab`, run `31311782574`, hosted 67/0)
+- [x] M2 closure: M/L transcribed (M1/M4/M5/M6 + C-Low A fixed, M7/M8/M10/M13-M16 + L2-L14 accepted), acceptance criteria checked, 143 tests + hosted 67/0
+- [x] Production untouched (0 migrations)
 
 ### Milestone 0: Repository Foundation
 

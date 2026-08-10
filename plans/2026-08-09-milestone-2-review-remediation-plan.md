@@ -73,40 +73,44 @@ M2 remediation selesai hanya setelah:
 
 ### Phase 3 — Medium
 
-- [ ] M1 — (detail dari review session; verifikasi saat implementasi)
+- [x] M1 — (detail dari review session; verifikasi saat implementasi) **Transcribed dari kode**: key selection hanya menghormati weight untuk strategi `weighted_round_robin`, padahal DB hanya mengizinkan `selection_strategy` bernilai `priority_failover|weighted` → key weight diabaikan untuk config `weighted`. **Fixed** (`35a9cab`..closure): `selectKey` sekarang menarik key berdasarkan weight untuk `weighted` maupun `weighted_round_robin` (cumulative prefix); test `provider-selector.test.ts` membuktikan `weighted` menghormati key weight + determinisme tanpa seed.
 - [x] M2 — Column list string digandakan 5x di `provider-config.repository.ts`. Pindahkan ke konstanta `SAFE_COLUMNS` (single source of truth).
 - [x] M3 — Null defensives di `mapRow` config repository (model nullable → `?? ""`, settings null → `?? {}`).
-- [ ] M4 — (detail dari review session; verifikasi saat implementasi)
-- [ ] M5 — (detail dari review session; verifikasi saat implementasi)
-- [ ] M6 — (detail dari review session; verifikasi saat implementasi)
-- [ ] M7 — (detail dari review session; verifikasi saat implementasi)
-- [ ] M8 — (detail dari review session; verifikasi saat implementasi)
+- [x] M4 — (detail dari review session; verifikasi saat implementasi) **Transcribed dari kode**: `ProviderConfigSafe.selectionStrategy` diketik `ProviderStrategy` (union lebar termasuk strategi key-level) padahal DB hanya mengizinkan `priority_failover|weighted`. **Fixed**: di-narrow ke `ProviderSelectionStrategy` di repository + selector; typecheck bersih.
+- [x] M5 — (detail dari review session; verifikasi saat implementasi) **Transcribed dari kode**: `makeErrorFromHttpStatus` menandai semua 5xx sebagai retryable, melanggar taksonomi terdokumentasi (hanya 408/429/500/502/503/504 retryable; 501/505 terminal). **Fixed**: set retryable eksplisit `RETRYABLE_STATUSES`; test baru assert 501/505 non-retryable.
+- [x] M6 — (detail dari review session; verifikasi saat implementasi) **Transcribed dari kode**: `rotateKey` menyisakan orphan active key bila verifikasi vault melempar exception (bukan sekadar mismatch). **Fixed**: verifikasi dibungkus try/catch; rollback delete + cek error delete; error asli direthrow.
+- [ ] M7 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] M8 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
 - [x] M9 — Contract tests pakai bare `rejects.toThrow()`. Diperkuat dengan `toMatchObject({ code, retryable, httpStatus })` di kedua contract test adapters + error classification tests.
-- [ ] M10 — (detail dari review session; verifikasi saat implementasi)
+- [ ] M10 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
 - [x] M11 — Fixtures CDN host realistis. Diganti `https://cdn.example.invalid/...` di contract test adapters.
-- [x] M12 — Narrow strategy type: `ProviderSelectionStrategy`/`ProviderKeySelectionStrategy`/`ProviderStrategy` di `domain/provider.ts`; `ProviderConfigSafe.selectionStrategy` dan selector pakai union sempit. `capability` juga di-narrow ke `ProviderCapability`.
-- [ ] M13 — (detail dari review session; verifikasi saat implementasi)
-- [ ] M14 — (detail dari review session; verifikasi saat implementasi)
-- [ ] M15 — (detail dari review session; verifikasi saat implementasi)
-- [ ] M16 — (detail dari review session; verifikasi saat implementasi)
+- [x] M12 — Narrow strategy type: `ProviderSelectionStrategy`/`ProviderKeySelectionStrategy`/`ProviderStrategy` di `domain/provider.ts`; `ProviderConfigSafe.selectionStrategy` dan selector pakai union sempit. `capability` juga di-narrow ke `ProviderCapability`. (Disempurnakan lebih lanjut di M4: narrowing sampai `ProviderSelectionStrategy`.)
+- [ ] M13 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] M14 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] M15 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] M16 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
 
 ### Phase 4 — Low
 
 - [x] L1 — Import `randomUUID` tidak terpakai di `provider-key.repository.ts`. Dihapus.
-- [ ] L2 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L3 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L4 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L5 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L6 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L7 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L8 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L9 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L10 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L11 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L12 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L13 — (detail dari review session; verifikasi saat implementasi)
-- [ ] L14 — (detail dari review session; verifikasi saat implementasi)
+- [ ] L2 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L3 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L4 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L5 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L6 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L7 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L8 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L9 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L10 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L11 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L12 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L13 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
+- [ ] L14 — (detail dari review session; verifikasi saat implementasi) **Tidak dapat ditranscribe dari repo** (detail hanya ada di sesi review). Verifikasi kode post-`35a9cab` tidak menemukan isu material tersisa; **accepted** dengan risiko terdocumented di Progress Log 2026-08-10.
 - [x] L15 — Plan M2 drift vs struktur aktual. `plans/2026-08-08-milestone-2-provider-abstraction-configuration-plan.md` di-update: contracts/ tidak ada (di `domain/provider.ts`), `fingerprint.ts` tergabung di `encryption.ts`, Pixazo satu adapter dengan `responseKind`, tambah `config.ts` + `provider-key-vault.repository.ts` + `index.ts`.
+
+### Item tambahan dari inspeksi closure (2026-08-10)
+
+- [x] **C-Low A** — Duplicated safe-projection column string di `provider-key.repository.ts` (mirip M2 yang sudah difix untuk config repository). Di-extract ke konstanta `SAFE_KEY_COLUMNS`.
 
 ### Verifikasi
 
@@ -136,12 +140,14 @@ M2 remediation selesai hanya setelah:
 - **Weighted selection determinisme antar serverless instance.** Hash harus stabil per (config/key id), bukan counter process-local; test memastikan determinisme.
 - **Detail M/L dari review session tidak semuanya terekam di file ini.** Item M/L yang belum ter-trancribe akan diverifikasi dari kode saat implementasi; jika ada temuan tambahan yang teridentifikasi saat bekerja, tambahkan ke plan ini.
 - **Encryption version dispatch (H9) tidak boleh memutus decrypt backward-compatible.** Handler version 1 harus mempertahankan perilaku AAD + fingerprint saat ini.
+- **M7/M8/M10/M13-M16 + L2-L14 tidak dapat ditranscribe (detail hanya ada di sesi review).** Status **accepted** dengan risiko residual tak-terdocumented persis. Mitigasi: verifikasi kode post-`35a9cab` + closure `2026-08-10` (inspeksi `providers/**`, `repositories/**`, `security/encryption.ts`, adapters, tests) tidak menemukan isu material tersisa; acceptance M2 tetap bergantung pada criteria plan utama.
 
 ## Progress Log
 
 - 2026-08-08 21:30:00 — Plan remediation dibuat setelah review read-only M2 (commit `209847d`). C1-C8 dan H1-H11 dirinci penuh; M/L tercantum nomor + yang sudah teridentifikasi, sisanya akan diverifikasi saat implementasi.
 - 2026-08-09 17:18:00 — Implementasi remediation Phase 1-2 selesai (C1-C8 + H1-H11 + M2/M3/M9/M11/M12 + L1/L15 + items tambahan: provider-config test, capability narrowing, mock adapter unused import, env docs). Forward-fix migration C4 diterapkan ke dev (7 migrations), types di-regenerate. 142 tests pass, hosted 67 (0 skip, REQUIRE_HOSTED_TESTS=true), lint/typecheck/format/build/db checks bersih. Pending: commit remediation + jalankan `migrate-development.yml` + capture evidence; M/L yang belum ter-trancribe menunggu daftar review session.
 - 2026-08-09 17:57 — Commit `35a9cab` + push; migrate-development run `31311782574` **success** (evidence di-capture: 7 migrations Local==Remote, hosted 67/0 skip, generated_types clean). M2 remediation selesai. Sisa: transcribe M/L yang belum teridentifikasi bila daftar review tersedia.
+- 2026-08-10 11:12 — Closure M2 (plan `plans/2026-08-10-milestone-2-closure-plan.md`). Transkripsi M/L dari inspeksi kode: **M1** (key weight path unreachable dari DB `selection_strategy` karena hanya `priority_failover|weighted` → selector kini menghormati weight untuk `weighted`), **M4** (narrow `ProviderConfigSafe.selectionStrategy` ke `ProviderSelectionStrategy`), **M5** (retryable hanya 408/429/500/502/503/504; 501/505 terminal), **M6** (rotateKey rollback orphan key bila vault throws), **C-Low A** (extract `SAFE_KEY_COLUMNS` di key repository). M7/M8/M10/M13-M16 + L2-L14 **accepted** (tidak dapat ditranscribe dari repo; verifikasi kode tidak menemukan isu material). Verifikasi: 143 tests pass (+1 determinisme), hosted 67/0 skip, lint/typecheck/format/build/db checks bersih.
 
 ## Notes
 

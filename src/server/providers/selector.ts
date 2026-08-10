@@ -90,12 +90,16 @@ export class ProviderSelector {
     return true;
   }
 
+  // Key selection honors the config-level strategy that is reachable from a DB
+  // row: `weighted` draws keys by their own `weight` (cumulative prefix), while
+  // `priority_failover` picks the least-recently-used eligible key. The
+  // `weighted_round_robin` branch is kept for explicit key-level strategy use.
   private selectKey(
     keys: ProviderKeySafe[],
     strategy: ProviderStrategy,
     seed: string,
   ): ProviderKeySafe {
-    if (strategy === "weighted_round_robin") {
+    if (strategy === "weighted" || strategy === "weighted_round_robin") {
       const totalWeight = keys.reduce((sum, k) => sum + k.weight, 0);
       if (totalWeight <= 0) return keys[0];
       const point = Math.abs(this.hashString(seed)) % totalWeight;
@@ -106,7 +110,7 @@ export class ProviderSelector {
       }
       return keys[keys.length - 1];
     }
-    // Default: round-robin by insertion order (first eligible key).
+    // Priority failover / round-robin by last use: first eligible key.
     return keys[0];
   }
 

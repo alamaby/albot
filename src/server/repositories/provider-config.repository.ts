@@ -4,7 +4,7 @@
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
 import { validateProviderConfigInput } from "@/server/providers/config";
-import type { ProviderCapability, ProviderStrategy } from "@/server/domain/provider";
+import type { ProviderCapability, ProviderSelectionStrategy } from "@/server/domain/provider";
 import type { Database } from "@/server/supabase/database.types";
 
 type Supabase = Database["public"]["Tables"];
@@ -34,7 +34,7 @@ export type ProviderConfigSafe = {
   baseUrl: string;
   model: string;
   settings: Record<string, unknown>;
-  selectionStrategy: ProviderStrategy;
+  selectionStrategy: ProviderSelectionStrategy;
   priority: number;
   weight: number;
   isActive: boolean;
@@ -56,7 +56,7 @@ function mapRow(row: ProviderConfigRow): ProviderConfigSafe {
     baseUrl: row.base_url,
     model: row.model ?? "",
     settings: (row.settings as Record<string, unknown> | null) ?? {},
-    selectionStrategy: row.selection_strategy as ProviderStrategy,
+    selectionStrategy: row.selection_strategy as ProviderSelectionStrategy,
     priority: row.priority,
     weight: row.weight,
     isActive: row.is_active,

@@ -55,12 +55,17 @@ describe("classificationFromHttpStatus", () => {
 describe("makeErrorFromHttpStatus", () => {
   it("derives retryable from status", () => {
     expect(makeErrorFromHttpStatus(500, "boom").retryable).toBe(true);
+    expect(makeErrorFromHttpStatus(502, "boom").retryable).toBe(true);
     expect(makeErrorFromHttpStatus(503, "boom").retryable).toBe(true);
+    expect(makeErrorFromHttpStatus(504, "boom").retryable).toBe(true);
     expect(makeErrorFromHttpStatus(408, "boom").retryable).toBe(true);
     expect(makeErrorFromHttpStatus(429, "boom").retryable).toBe(true);
     expect(makeErrorFromHttpStatus(400, "boom").retryable).toBe(false);
     expect(makeErrorFromHttpStatus(401, "boom").retryable).toBe(false);
     expect(makeErrorFromHttpStatus(404, "boom").retryable).toBe(false);
+    // 501/505 are terminal 5xx and must not be retried.
+    expect(makeErrorFromHttpStatus(501, "boom").retryable).toBe(false);
+    expect(makeErrorFromHttpStatus(505, "boom").retryable).toBe(false);
   });
 
   it("maps code and http status", () => {

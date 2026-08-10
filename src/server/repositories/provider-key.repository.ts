@@ -12,6 +12,11 @@ type Supabase = Database["public"]["Tables"];
 
 const DEFAULT_FAILURE_THRESHOLD = 3;
 
+// Single source of truth for the safe projection (never includes ciphertext,
+// IV, or auth tag).
+const SAFE_KEY_COLUMNS =
+  "id, provider_config_id, key_fingerprint, label, weight, is_active, failure_count, cooldown_until, last_used_at, created_at, updated_at";
+
 export type InsertEncryptedKeyInput = {
   providerConfigId: string;
   plaintextKey: string;
@@ -74,9 +79,7 @@ export class ProviderKeyRepository {
         label: input.label ?? null,
         weight: input.weight,
       } as Supabase["provider_keys"]["Insert"])
-      .select(
-        "id, provider_config_id, key_fingerprint, label, weight, is_active, failure_count, cooldown_until, last_used_at, created_at, updated_at",
-      )
+      .select(SAFE_KEY_COLUMNS)
       .single();
 
     if (error) throw new Error(`provider key insert failed: ${error.message}`);
@@ -87,9 +90,7 @@ export class ProviderKeyRepository {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("provider_keys")
-      .select(
-        "id, provider_config_id, key_fingerprint, label, weight, is_active, failure_count, cooldown_until, last_used_at, created_at, updated_at",
-      )
+      .select(SAFE_KEY_COLUMNS)
       .eq("provider_config_id", providerConfigId)
       .order("is_active", { ascending: false })
       .order("last_used_at", { ascending: true, nullsFirst: true });
@@ -139,13 +140,25 @@ export class ProviderKeyRepository {
       weight: input.weight,
     });
 
-    // Verify the new key can be decrypted.
-    const decrypted = await this.vault.getDecryptableKey(input.providerConfigId, newKey.id);
-    if (!decrypted || decrypted.plaintext !== input.plaintextKey) {
-      // Rollback: delete the newly inserted key.
+    try {
+      // Verify the new key can be decrypted.
+      const decrypted = await this.vault.getDecryptableKey(input.providerConfigId, newKey.id);
+      if (!decrypted || decrypted.plaintext !== input.plaintextKey) {
+        throw new Error("provider key rotation verification failed");
+      }
+    } catch (error) {
+      // Rollback: delete the newly inserted key so a failed rotation never
+      // leaves an orphan active key behind.
       const supabase = getSupabaseAdmin();
-      await supabase.from("provider_keys").delete().eq("id", newKey.id);
-      throw new Error("provider key rotation verification failed");
+      const { error: deleteError } = await supabase
+        .from("provider_keys")
+        .delete()
+        .eq("id", newKey.id)
+        .eq("provider_config_id", input.providerConfigId);
+      if (deleteError) {
+        throw new Error(`provider key rotation rollback failed: ${deleteError.message}`);
+      }
+      throw error;
     }
 
     // Deactivate the oldest active key for this provider config (CAS).

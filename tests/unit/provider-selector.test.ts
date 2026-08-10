@@ -131,9 +131,9 @@ describe("ProviderSelector", () => {
     expect(first.config.id).toBe(second.config.id);
   });
 
-  it("weighted_round_robin key selection honors key weight", async () => {
+  it("weighted key selection honors key weight via config strategy", async () => {
     const selector = new ProviderSelector();
-    const configs = [makeConfig({ id: "a", selectionStrategy: "weighted_round_robin" })];
+    const configs = [makeConfig({ id: "a", selectionStrategy: "weighted" })];
     const keys = new Map([
       [
         "a",
@@ -164,5 +164,23 @@ describe("ProviderSelector", () => {
     );
     expect(low.key.id).toBe("k1");
     expect(high.key.id).toBe("k2");
+  });
+
+  it("weighted key selection is deterministic without a seed", async () => {
+    const selector = new ProviderSelector();
+    const configs = [makeConfig({ id: "a", selectionStrategy: "weighted" })];
+    const keys = new Map([
+      [
+        "a",
+        [
+          makeKey({ id: "k1", providerConfigId: "a", weight: 1 }),
+          makeKey({ id: "k2", providerConfigId: "a", weight: 3 }),
+        ],
+      ],
+    ]);
+
+    const first = await selector.selectProvider("image_generation", configs, keys, "weighted");
+    const second = await selector.selectProvider("image_generation", configs, keys, "weighted");
+    expect(first.key.id).toBe(second.key.id);
   });
 });

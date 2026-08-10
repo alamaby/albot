@@ -1,11 +1,12 @@
 # Project Memory
 
-Last updated: 2026-08-09 18:00:00
+Last updated: 2026-08-10 11:12:00
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: Milestone 2 (Provider Abstraction and Configuration) — implementation `209847d` + review remediation `35a9cab` **MILESTONE COMPLETE**: migrate-development run `31311782574` success (dev 7 migrations Local==Remote, hosted 67/0 skip, generated_types clean); production 0 migrations untouched
+- Active milestone: **Milestone 3 (Telegram Intake and Durable Jobs)** — belum dimulai
+- Milestone 2 (Provider Abstraction and Configuration) **CLOSED** 2026-08-10: implementasi `209847d` + remediation `35a9cab` + closure (M/L transcribed: M1/M4/M5/M6 + C-Low A fixed; M7/M8/M10/M13-M16 + L2-L14 accepted; acceptance criteria checked). Evidence: run `31311782574` (dev 7 migrations Local==Remote, hosted 67/0 skip), 143 unit tests, production 0 migrations untouched
 - Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (7 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
 - M1 + remediation MILESTONE COMPLETE:
   - Development migration workflow success (run 31252455316, commit dba67ce)
@@ -39,13 +40,13 @@ Last updated: 2026-08-09 18:00:00
 
 ## Open Blockers
 
-- (none) — M2 remediation selesai; M2 acceptance evidence final tinggal mengikuti M2 plan
-- Item M/L review yang belum ter-trancribe ke plan (M1/M4-M8/M10/M13-M16, L2-L14): detail ada di sesi chat sebelumnya
+- (none) — M2 closed; M3 belum dimulai
 - Vercel Preview alias not configured
 - Telegram bot tokens not set
 
 ## Recent Entries
 
+- `2026-08-10/111200-milestone-2-closure.md` — M2 closure: M/L transcribed, M1/M4/M5/M6 + C-Low A fixed, acceptance criteria checked, 143 unit + hosted 67/0
 - `2026-08-09/180000-milestone-2-review-remediation-evidence.md` — M2 remediation evidence (run 31311782574 success, 7 migrations, hosted 67/0)
 - `2026-08-09/175000-milestone-2-review-remediation-implementation.md` — M2 remediation implementation (C1-C8 + H1-H11 done, migration C4 applied, 142 tests)
 - `2026-08-09/171800-milestone-2-review-remediation.md` — M2 review remediation start (plan, C1-C8/H1-H11, forward-fix migration C4)
@@ -61,5 +62,6 @@ Last updated: 2026-08-09 18:00:00
 
 - `plans/2026-08-07-telegram-image-bot-implementation-plan.md` — Active plan
 - `plans/2026-08-08-milestone-0-review-remediation-plan.md` — Active plan (remediation)
-- `plans/2026-08-08-milestone-2-provider-abstraction-configuration-plan.md` — Detailed M2 execution plan
-- `plans/2026-08-09-milestone-2-review-remediation-plan.md` — M2 review remediation plan (active)
+- `plans/2026-08-08-milestone-2-provider-abstraction-configuration-plan.md` — Detailed M2 execution plan (closed)
+- `plans/2026-08-09-milestone-2-review-remediation-plan.md` — M2 review remediation plan (closed)
+- `plans/2026-08-10-milestone-2-closure-plan.md` — M2 closure plan (closed)
