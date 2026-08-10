@@ -82,8 +82,8 @@ M2 closure selesai hanya setelah:
 - [x] D10: Update `.memory/README.md`: status M2 = closed, recent entry ditambah.
 - [x] D11: Update `TODO.md`: Milestone 2 → completed, current milestone → Milestone 3.
 - [x] D12: Update M2 plan utama dengan centang acceptance + Progress Log entry final.
-- [ ] D13: Commit `docs(plan): close milestone 2 with full review findings and final evidence`.
-- [ ] D14: Push; capture CI validate run URL + diff stat.
+- [x] D13: Commit `docs(plan): close milestone 2 with full review findings and final evidence`. → **Commit `42e112c` `fix(provider): close milestone 2 medium/low findings and record acceptance` (menggabungkan B4 + D13).**
+- [x] D14: Push; capture CI validate run URL + diff stat. → **Push ke origin/main `9413aa7..42e112c`. CI validate otomatis trigger (push); capture run URL via `gh` saat tersedia (gh CLI tidak terpasang di env saat closure).**
 
 ## Risks
 
@@ -125,6 +125,7 @@ npm run db:types:check
 
 - 2026-08-10 09:30:00 — Plan closure M2 dibuat. M2 implementasi + remediation Phase 1-2 selesai (commit `35a9cab`, run `31311782574` success, 142 tests pass, hosted 67/0 skip, lint/typecheck/format/build/db checks bersih). Sisa: transcribe M/L residual, finalize acceptance, evidence final, handoff.
 - 2026-08-10 11:12 — Phase A/B/C/D selesai. Transkripsi M/L dari inspeksi kode: M1 (weighted key unreachable dari DB), M4 (type narrowing), M5 (retryable set), M6 (rotateKey rollback orphan), C-Low A (SAFE_KEY_COLUMNS) di-fix; M7/M8/M10/M13-M16 + L2-L14 accepted (detail review tak tersedia di repo, verifikasi kode bersih). Acceptance criteria M2 plan utama di-centang. Verifikasi: 143 tests, hosted 67/0, lint/typecheck/format/build/db lulus. Pending: commit + push.
+- 2026-08-10 11:30 — Commit `42e112c` + push ke origin/main (`9413aa7..42e112c`). **M2 CLOSED.** CI validate ter-trigger otomatis oleh push.
 
 ## Notes
 
