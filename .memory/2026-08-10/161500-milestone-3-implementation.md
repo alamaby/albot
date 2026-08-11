@@ -35,6 +35,7 @@ Milestone 3 implementasi webhook Telegram intake, secret validation, allowlist, 
 - `npm run db:lint`, `db:check-migrations` (8), `db:types:check` — clean.
 - Dev migration: 8/8 applied (Local==Remote).
 - Production: 0 migrations untouched.
+- CI validate run 31473611370 — success (commit 21ac62e).
 
 ## Risks
 
@@ -42,7 +43,14 @@ Milestone 3 implementasi webhook Telegram intake, secret validation, allowlist, 
 - Race active-session: toleransi concurrent (kedua user insert, yang kedua reject via message).
 - Partial unique index `prompt_sessions(telegram_user_id) WHERE status NOT IN terminal` deferred to M6.
 
+## Pending Platform Wiring (manual actions required)
+
+1. **Vercel Preview env vars**: set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET` di Vercel dashboard (Project Settings → Environment Variables).
+2. **Provision Telegram dev bot**: buat bot baru via @BotFather, catat token.
+3. **Seed allowlist admin**: manual SQL insert ke `bot_users(is_allowed=true)`.
+4. **Set Telegram webhook**: `node scripts/set-telegram-webhook.mjs set <token> <preview_url>/api/telegram/webhook <secret>`.
+5. **E2E test**: kirim prompt via Telegram dev bot → verify DB rows.
+
 ## Next
 
-- Phase G (Vercel Preview wiring + Telegram bot setup) requires user action: set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET` di Vercel Preview env vars.
-- Commit + push + run `migrate-development.yml` workflow.
+- M4: Prompt Enhancement, Confirmation, and Revision (reasoning provider invocation).

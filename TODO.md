@@ -8,8 +8,14 @@ Milestone 3: Telegram Intake and Durable Jobs
 
 ## In Progress
 
-- Implementasi kode M3 selesai: RPC `create_initial_session`, webhook route, job processor skeleton, inline dispatcher, telegram auth/parser/client/messages, 5 repositories baru, 4 test files baru, 8 migrations di dev.
-- Pending: Vercel Preview env vars (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`) + Telegram bot provisioning + dispatch `migrate-development.yml` workflow.
+- (none) — M3 implementation selesai commit `21ac62e`, push ke origin/main. CI validate run 31473611370 success. Migration dev 8/8 applied. Production 0 migrations.
+- **Pending platform wiring (manual actions)**:
+  1. Set Vercel Preview env vars: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`
+  2. Provision Telegram dev bot via @BotFather
+  3. Seed allowlist admin user (manual SQL ke `bot_users`)
+  4. Set Telegram webhook: `node scripts/set-telegram-webhook.mjs set <token> <preview_url>/api/telegram/webhook <secret>`
+  5. E2E test kirim prompt via Telegram dev bot
+  6. Dispatch `migrate-development.yml` workflow run untuk evidence M3
 
 ## Pending
 

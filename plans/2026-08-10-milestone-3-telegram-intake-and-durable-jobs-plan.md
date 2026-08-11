@@ -374,7 +374,8 @@ Resolves `APP_ENV` from env, reads Vercel alias dari `VERCEL_PROJECT_PRODUCTION_
 ## Progress Log
 
 - 2026-08-10 15:01:49 — Plan detail M3 dibuat. Keputusan dari user: dispatcher inline fetch, RPC `create_initial_session`, rate limit/active session derived dari `prompt_sessions`, bootstrap admin manual SQL seed. Implementasi belum dimulai.
-- 2026-08-10 16:15:00 — Implementasi selesai. Semua verifikasi commands lulus: lint 0 warning, typecheck clean, 218 tests (24 files) pass, format:check clean, build clean, db:lint + db:check-migrations (8) + db:types:check clean. Dev migration applied (8/8 Local==Remote), production untouched (0 migrations). Memory + plan updated. Pending: Vercel Preview env vars wiring (TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, JOB_PROCESSOR_SECRET) + Telegram bot provisioning + `migrate-development.yml` workflow dispatch.
+- 2026-08-10 16:15:00 — Implementasi selesai. Semua verifikasi commands lulus: lint 0 warning, typecheck clean, 218 tests (24 files) pass, format:check clean, build clean, db:lint + db:check-migrations (8) + db:types:check clean. Dev migration applied (8/8 Local==Remote), production untouched (0 migrations). Commit `21ac62e` push ke origin/main.
+- 2026-08-10 16:20:00 — M3 CODE DONE. Pending platform wiring: (1) set Vercel Preview env vars `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`; (2) set Telegram dev bot webhook ke Vercel Preview alias via `scripts/set-telegram-webhook.mjs`; (3) seed allowlisted admin user via manual SQL; (4) dispatch `migrate-development.yml` workflow.
 
 ## Notes
 
