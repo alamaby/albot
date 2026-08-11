@@ -8,6 +8,9 @@ const validSource: Record<string, string> = {
   SUPABASE_URL: "https://example.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
   PROVIDER_KEY_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
+  TELEGRAM_BOT_TOKEN: "123456789:AAexamplebotToken000",
+  TELEGRAM_WEBHOOK_SECRET: "webhook-secret-abc",
+  JOB_PROCESSOR_SECRET: "job-processor-secret-0123456789abcdef",
 };
 
 function omit(source: Record<string, string>, key: string): Record<string, string> {
@@ -24,6 +27,9 @@ describe("parseServerEnv", () => {
       SUPABASE_URL: "https://example.supabase.co",
       SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
       PROVIDER_KEY_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
+      TELEGRAM_BOT_TOKEN: "123456789:AAexamplebotToken000",
+      TELEGRAM_WEBHOOK_SECRET: "webhook-secret-abc",
+      JOB_PROCESSOR_SECRET: "job-processor-secret-0123456789abcdef",
     });
   });
 
@@ -52,6 +58,42 @@ describe("parseServerEnv", () => {
     expect(() =>
       parseServerEnv({ ...validSource, PROVIDER_KEY_ENCRYPTION_KEY: "not-a-key" }),
     ).toThrow("PROVIDER_KEY_ENCRYPTION_KEY");
+  });
+
+  it("rejects a missing telegram bot token", () => {
+    expect(() => parseServerEnv(omit(validSource, "TELEGRAM_BOT_TOKEN"))).toThrow();
+  });
+
+  it("rejects an invalid telegram bot token format", () => {
+    expect(() =>
+      parseServerEnv({ ...validSource, TELEGRAM_BOT_TOKEN: "not-a-valid-token" }),
+    ).toThrow("TELEGRAM_BOT_TOKEN");
+  });
+
+  it("rejects a missing webhook secret", () => {
+    expect(() => parseServerEnv(omit(validSource, "TELEGRAM_WEBHOOK_SECRET"))).toThrow();
+  });
+
+  it("rejects a short webhook secret", () => {
+    expect(() => parseServerEnv({ ...validSource, TELEGRAM_WEBHOOK_SECRET: "short" })).toThrow(
+      "TELEGRAM_WEBHOOK_SECRET",
+    );
+  });
+
+  it("rejects an invalid webhook secret character set", () => {
+    expect(() =>
+      parseServerEnv({ ...validSource, TELEGRAM_WEBHOOK_SECRET: "has space and\n" }),
+    ).toThrow("TELEGRAM_WEBHOOK_SECRET");
+  });
+
+  it("rejects a missing job processor secret", () => {
+    expect(() => parseServerEnv(omit(validSource, "JOB_PROCESSOR_SECRET"))).toThrow();
+  });
+
+  it("rejects a short job processor secret", () => {
+    expect(() => parseServerEnv({ ...validSource, JOB_PROCESSOR_SECRET: "way-too-short" })).toThrow(
+      "JOB_PROCESSOR_SECRET",
+    );
   });
 
   it("rejects an invalid NODE_ENV", () => {

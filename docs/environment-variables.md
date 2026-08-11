@@ -33,9 +33,9 @@ Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb
 | `SUPABASE_DB_PASSWORD`        | GitHub Environment      | `empty` (secret)                                    | Milestone 1   |
 | `SUPABASE_PUBLISHABLE_KEY`    | Development, Production | `empty` (publishable/anon key untuk RLS test)       | Milestone 1   |
 | `PROVIDER_KEY_ENCRYPTION_KEY` | Development, Production | `required` (base64, decode 32 bytes)                | Milestone 2   |
-| `TELEGRAM_BOT_TOKEN`          | Development, Production | `reserved`                                          | Milestone 3   |
-| `TELEGRAM_WEBHOOK_SECRET`     | Development, Production | `reserved`                                          | Milestone 3   |
-| `JOB_PROCESSOR_SECRET`        | Development, Production | `reserved`                                          | Milestone 3   |
+| `TELEGRAM_BOT_TOKEN`          | Development, Production | `required` (dev bot)                                | Milestone 3   |
+| `TELEGRAM_WEBHOOK_SECRET`     | Development, Production | `required` (min 8 char URL-safe base64)             | Milestone 3   |
+| `JOB_PROCESSOR_SECRET`        | Development, Production | `required` (min 32 char)                            | Milestone 3   |
 
 ## GitHub Environment Secrets
 
@@ -50,6 +50,9 @@ Nama secret sama di kedua environment; nilainya berbeda.
 - `SUPABASE_SERVICE_ROLE_KEY` = service role key project development
 - `SUPABASE_PUBLISHABLE_KEY` = publishable/anon key project development
 - `PROVIDER_KEY_ENCRYPTION_KEY` = base64 32-byte root key project development
+- `TELEGRAM_BOT_TOKEN` = token bot Telegram development (dari BotFather)
+- `TELEGRAM_WEBHOOK_SECRET` = shared secret webhook development (min 8 char URL-safe base64)
+- `JOB_PROCESSOR_SECRET` = shared secret internal job processor development (min 32 char)
 
 ### `production`
 
@@ -60,6 +63,9 @@ Nama secret sama di kedua environment; nilainya berbeda.
 - `SUPABASE_SERVICE_ROLE_KEY` = service role key project production
 - `SUPABASE_PUBLISHABLE_KEY` = publishable/anon key project production
 - `PROVIDER_KEY_ENCRYPTION_KEY` = base64 32-byte root key project production
+- `TELEGRAM_BOT_TOKEN` = token bot Telegram production (dari BotFather)
+- `TELEGRAM_WEBHOOK_SECRET` = shared secret webhook production (min 8 char URL-safe base64)
+- `JOB_PROCESSOR_SECRET` = shared secret internal job processor production (min 32 char)
 
 ## Requirements by Milestone
 

@@ -7,12 +7,20 @@ const skip = assertHostedOrSkip();
 const cleanup: { table: "jobs" | "prompt_sessions"; id: string }[] = [];
 
 // Remove leftover test-tagged jobs from interrupted runs so claim_job's global
-// ordering cannot pick up unrelated fixtures.
+// ordering cannot pick up unrelated fixtures. Also clean up any enhance_prompt
+// jobs created by the Milestone 3 initial-session contract test (update_id
+// range 990000000..990999999) to avoid interfering with claim_job's deterministic
+// earliest-due ordering.
 beforeAll(async () => {
   if (skip) return;
   const admin = getAdminClient();
   await admin.from("jobs").delete().like("payload->>test_tag", "ct_%");
   await admin.from("jobs").delete().like("payload->>test_tag", "sr_%");
+  await admin
+    .from("jobs")
+    .delete()
+    .gte("payload->>update_id", "990000000")
+    .lte("payload->>update_id", "990999999");
 });
 
 afterEach(async () => {

@@ -7,6 +7,9 @@ function withSupabaseEnv() {
   process.env.SUPABASE_URL = "https://example.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
   process.env.PROVIDER_KEY_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
+  process.env.TELEGRAM_BOT_TOKEN = "123456789:AAexamplebotToken000";
+  process.env.TELEGRAM_WEBHOOK_SECRET = "webhook-secret-abc";
+  process.env.JOB_PROCESSOR_SECRET = "job-processor-secret-0123456789abcdef";
 }
 
 function fakeResponse(status: number, body: string): Response {
@@ -27,6 +30,9 @@ afterEach(() => {
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   delete process.env.PROVIDER_KEY_ENCRYPTION_KEY;
+  delete process.env.TELEGRAM_BOT_TOKEN;
+  delete process.env.TELEGRAM_WEBHOOK_SECRET;
+  delete process.env.JOB_PROCESSOR_SECRET;
   resetServerEnvCache();
 });
 

@@ -21,6 +21,20 @@ const serverEnvSchema = z.object({
         return false;
       }
     }, "PROVIDER_KEY_ENCRYPTION_KEY must be a base64 string that decodes to exactly 32 bytes"),
+  TELEGRAM_BOT_TOKEN: z
+    .string()
+    .regex(
+      /^[0-9]+:[A-Za-z0-9_-]+$/,
+      "TELEGRAM_BOT_TOKEN must match the Telegram bot token format",
+    ),
+  TELEGRAM_WEBHOOK_SECRET: z
+    .string()
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      "TELEGRAM_WEBHOOK_SECRET must contain only URL-safe base64 characters",
+    )
+    .min(8, "TELEGRAM_WEBHOOK_SECRET must be at least 8 characters"),
+  JOB_PROCESSOR_SECRET: z.string().min(32, "JOB_PROCESSOR_SECRET must be at least 32 characters"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -47,6 +61,9 @@ export function parseServerEnv(source: Record<string, string | undefined>): Serv
     SUPABASE_URL: source.SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: source.SUPABASE_SERVICE_ROLE_KEY,
     PROVIDER_KEY_ENCRYPTION_KEY: source.PROVIDER_KEY_ENCRYPTION_KEY,
+    TELEGRAM_BOT_TOKEN: source.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_WEBHOOK_SECRET: source.TELEGRAM_WEBHOOK_SECRET,
+    JOB_PROCESSOR_SECRET: source.JOB_PROCESSOR_SECRET,
   });
 }
 

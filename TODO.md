@@ -8,12 +8,19 @@ Milestone 3: Telegram Intake and Durable Jobs
 
 ## In Progress
 
-- (none) — M2 closure selesai 2026-08-10: M/L ditranscribe (M1/M4/M5/M6 + C-Low A fixed; M7/M8/M10/M13-M16 + L2-L14 accepted), acceptance criteria di-centang, 143 tests + hosted 67/0, lint/typecheck/format/build/db bersih. Sisa: commit + push closure M2, lalu mulai Milestone 3.
+- Implementasi kode M3 selesai: RPC `create_initial_session`, webhook route, job processor skeleton, inline dispatcher, telegram auth/parser/client/messages, 5 repositories baru, 4 test files baru, 8 migrations di dev.
+- Pending: Vercel Preview env vars (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`) + Telegram bot provisioning + dispatch `migrate-development.yml` workflow.
 
 ## Pending
 
-- [ ] Commit + push closure M2 (plan `plans/2026-08-10-milestone-2-closure-plan.md`)
-- [ ] Implement Milestone 3 dan record verification evidence
+- [ ] Phase A: env secrets (TELEGRAM_BOT_TOKEN/TELEGRAM_WEBHOOK_SECRET/JOB_PROCESSOR_SECRET) + migration `create_initial_session`
+- [ ] Phase B: telegram auth/parser/client/messages + repositories (bot-user/session-policy/telegram-update/callback-event/initial-session) + jobs skeleton
+- [ ] Phase C: webhook route + jobs/process route + inline dispatcher
+- [ ] Phase D: `scripts/set-telegram-webhook.ts` + runbook bootstrap admin
+- [ ] Phase E: unit + contract tests
+- [ ] Phase F: verifikasi lokal + hosted
+- [ ] Phase G: Vercel Preview wiring + Telegram webhook set + E2E dev
+- [ ] Phase H: memory + plan Progress Log + commit + push
 - [ ] Implement Milestone 4 dan record verification evidence
 - [ ] Implement Milestone 5 dan record verification evidence
 - [ ] Implement Milestone 6 dan record verification evidence

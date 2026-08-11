@@ -708,6 +708,20 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      create_initial_session: {
+        Args: {
+          p_job_type?: string
+          p_source_prompt: string
+          p_telegram_chat_id: number
+          p_telegram_user_id: number
+          p_update_id: number
+        }
+        Returns: {
+          job_id: string
+          revision_id: string
+          session_id: string
+        }[]
+      }
       increment_provider_key_failure: {
         Args: {
           p_key_id: string
