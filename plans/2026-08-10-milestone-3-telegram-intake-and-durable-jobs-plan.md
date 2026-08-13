@@ -325,10 +325,11 @@ Resolves `APP_ENV` from env, reads Vercel alias dari `VERCEL_PROJECT_PRODUCTION_
 | Existing active session | 200 + "session active" message, no new session |
 | Rate limit > 5/10min | 200 + "rate limit" message, no new session |
 | Duplicate `update_id` | 200, no duplicate session/job |
-| Valid prompt | 200 fast (< 1s), 1 session + 1 revision + 1 job row, dispatcher hits `/api/jobs/process` and gets `{status:'idle'}` (no handler yet) → job remains `queued` |
+| Valid prompt | 200 fast (< 1s), 1 session + 1 revision + 1 job row, dispatcher hits `/api/jobs/process` and gets `{status:'processed'}` (no handler yet) → job rescheduled to `retry_scheduled` |
 | Webhook → processor with wrong secret | 401, job stays queued |
 | Webhook → processor with valid secret + no job | 200 `{status:'idle'}` |
-| Callback_query (any) | 200, `callback_events` row, no job, no session |
+| Callback_query (recognized action) | 200, `callback_events` row, no job, no session |
+| Callback_query (unknown action) | 200, ack, log only, no callback_events row |
 | `answerCallbackQuery` logout | logged, doesn't fail webhook |
 
 ## Acceptance Criteria
@@ -337,7 +338,7 @@ Resolves `APP_ENV` from env, reads Vercel alias dari `VERCEL_PROJECT_PRODUCTION_
 - [ ] Duplicate `update_id` produces no duplicate session/revision/job.
 - [ ] Non-allowlisted user cannot spawn session.
 - [ ] Only `private` chat accepted.
-- [ ] Callback queries persist but no job dispatched (deferred to M4).
+- [ ] Callback queries with recognized actions persist; unknown actions are acked without persisting (M3). No job dispatched (M4 owns state machine).
 - [ ] Length, active-session, rate-limit checks precede `create_initial_session`.
 - [ ] New RPC `create_initial_session` is definer, fixed `search_path`, service_role only.
 - [ ] `JOB_PROCESSOR_SECRET` validated constant-time.
@@ -376,6 +377,8 @@ Resolves `APP_ENV` from env, reads Vercel alias dari `VERCEL_PROJECT_PRODUCTION_
 - 2026-08-10 15:01:49 — Plan detail M3 dibuat. Keputusan dari user: dispatcher inline fetch, RPC `create_initial_session`, rate limit/active session derived dari `prompt_sessions`, bootstrap admin manual SQL seed. Implementasi belum dimulai.
 - 2026-08-10 16:15:00 — Implementasi selesai. Semua verifikasi commands lulus: lint 0 warning, typecheck clean, 218 tests (24 files) pass, format:check clean, build clean, db:lint + db:check-migrations (8) + db:types:check clean. Dev migration applied (8/8 Local==Remote), production untouched (0 migrations). Commit `21ac62e` push ke origin/main.
 - 2026-08-10 16:20:00 — M3 CODE DONE. Pending platform wiring: (1) set Vercel Preview env vars `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`; (2) set Telegram dev bot webhook ke Vercel Preview alias via `scripts/set-telegram-webhook.mjs`; (3) seed allowlisted admin user via manual SQL; (4) dispatch `migrate-development.yml` workflow.
+- 2026-08-11 10:00:00 — PR #1: Plan sync, code cleanup, and test coverage. Updated plan documentation to reflect actual behavior (job rescheduling vs queued, callback action persistence). Added bigint helper for type-safe DB operations, simplified parser (removed union with bigint), updated prompt_received message to "Sedang dalam antrian...", enhanced dispatcher body with sessionOrigin, added HTTPS validation and APP_ENV guard in webhook setup script, enhanced test coverage for idle/claim-error paths, update_id validation, unknown callback ack, and dispatcher body. Created runbook for manual admin bootstrap and platform wiring.
+- 2026-08-13 — PR #1 committed. Test sync fixes: parser tests use JSON-number fixtures with BigInt assertions (parser now `z.number().transform(BigInt)`), webhook test asserts dispatcher payload `{ sessionOrigin: "webhook" }`. Added `bigint-helper.test.ts`, corrected `bigintToDb` typing to return `string`, fixed whitespace corruption (10 files), added `.commandcode/` to `.gitignore`, created missing memory entry. All verification green (lint, typecheck, tests, format:check).
 
 ## Notes
 

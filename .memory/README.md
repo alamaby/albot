@@ -1,11 +1,11 @@
 # Project Memory
 
-Last updated: 2026-08-10 16:15:00
+Last updated: 2026-08-13
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: **Milestone 3 (Telegram Intake and Durable Jobs)** — implementasi selesai (218 tests, 8 migrations applied to dev), menunggu Vercel Preview wiring + Telegram bot provisioning
+- Active milestone: **Milestone 3 (Telegram Intake and Durable Jobs)** — PR #1 completed (2026-08-11) dan di-commit 2026-08-13: plan synchronization, code cleanup (bigint helper, parser simplification, messages, dispatcher body), test coverage enhancements, runbook created; pending platform wiring (Vercel Preview env vars, Telegram bot provisioning, admin seed, webhook set)
 - Milestone 2 (Provider Abstraction and Configuration) **CLOSED** 2026-08-10: implementasi `209847d` + remediation `35a9cab` + closure (M/L transcribed: M1/M4/M5/M6 + C-Low A fixed; M7/M8/M10/M13-M16 + L2-L14 accepted; acceptance criteria checked). Evidence: run `31311782574` (dev 7 migrations Local==Remote, hosted 67/0 skip), 143 unit tests, production 0 migrations untouched
 - Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (8 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
 - M1 + remediation MILESTONE COMPLETE:
@@ -47,6 +47,7 @@ Last updated: 2026-08-10 16:15:00
 
 ## Recent Entries
 
+- `2026-08-11/100000-milestone-3-pr1-code-cleanup.md` — PR #1: plan synchronization, code cleanup (bigint helper, parser simplification, messages, dispatcher body), test coverage enhancements for idle/claim-error paths, update_id validation, unknown callback ack, dispatcher body, runbook creation for manual admin bootstrap and platform wiring.
 - `2026-08-10/161500-milestone-3-implementation.md` — M3 webhook intake + durable jobs: RPC create_initial_session, telegram auth/parser/client/messages, 5 repositories, webhook + processor routes, inline dispatcher, 218 tests pass, 8 migrations applied dev
 - `2026-08-10/141000-milestone-2-review-followup.md` — post-closure review follow-up: http.ts helper, Pixazo https-only + request_id fallback + metadata, vault injectable, markSuccess fail-fast, 150 unit + hosted 74/0
 - `2026-08-10/111200-milestone-2-closure.md` — M2 closure: M/L transcribed, M1/M4/M5/M6 + C-Low A fixed, acceptance criteria checked, 143 unit + hosted 67/0

@@ -6,9 +6,12 @@ import {
   TELEGRAM_MAX_PROMPT_LENGTH,
 } from "@/server/telegram/parser";
 
-const PRIVATE_USER_ID = 123456789n;
-const PRIVATE_CHAT_ID = 123456789n;
-const UPDATE_ID = 42n;
+// Telegram sends JSON numbers for user/chat/update ids. The parser converts
+// them to BigInt, so fixtures use plain numbers (JSON shape) and assertions
+// expect BigInt.
+const PRIVATE_USER_ID = 123456789;
+const PRIVATE_CHAT_ID = 123456789;
+const UPDATE_ID = 42;
 
 function privateMessageUpdate(overrides: Record<string, unknown> = {}) {
   return {
@@ -39,9 +42,16 @@ function callbackUpdate(overrides: Record<string, unknown> = {}) {
 describe("parseTelegramUpdate", () => {
   it("parses a valid private message update", () => {
     const update = parseTelegramUpdate(privateMessageUpdate());
-    expect(update.update_id).toBe(UPDATE_ID);
+    expect(update.update_id).toBe(BigInt(UPDATE_ID));
     expect(update.message?.chat.type).toBe("private");
-    expect(update.message?.from?.id).toBe(PRIVATE_USER_ID);
+    expect(update.message?.from?.id).toBe(BigInt(PRIVATE_USER_ID));
+  });
+
+  it("converts numeric JSON ids to bigint", () => {
+    const update = parseTelegramUpdate(privateMessageUpdate());
+    expect(typeof update.update_id).toBe("bigint");
+    expect(update.message?.from?.id).toBeTypeOf("bigint");
+    expect(update.message?.chat.id).toBe(BigInt(PRIVATE_CHAT_ID));
   });
 
   it("rejects an update without message or callback_query", () => {
@@ -73,7 +83,7 @@ describe("parseTelegramUpdate", () => {
       ...privateMessageUpdate(),
       edited_message: { message_id: 1 },
     });
-    expect(update.update_id).toBe(UPDATE_ID);
+    expect(update.update_id).toBe(BigInt(UPDATE_ID));
   });
 
   it("parses a valid callback query update", () => {
@@ -88,9 +98,9 @@ describe("reduceTelegramUpdate", () => {
     const reduced = reduceTelegramUpdate(parseTelegramUpdate(privateMessageUpdate()));
     expect(reduced).toEqual({
       kind: "private_text_message",
-      updateId: UPDATE_ID,
-      userId: PRIVATE_USER_ID,
-      chatId: PRIVATE_CHAT_ID,
+      updateId: BigInt(UPDATE_ID),
+      userId: BigInt(PRIVATE_USER_ID),
+      chatId: BigInt(PRIVATE_CHAT_ID),
       messageId: 7,
       text: "a cozy cabin in the mountains",
     });
@@ -98,13 +108,13 @@ describe("reduceTelegramUpdate", () => {
 
   it("maps a group message to unsupported", () => {
     const update = privateMessageUpdate();
-    update.message.chat = { id: 1n, type: "group" };
+    update.message.chat = { id: 1, type: "group" };
     expect(reduceTelegramUpdate(parseTelegramUpdate(update)).kind).toBe("unsupported");
   });
 
   it("maps a channel post to unsupported", () => {
     const update = privateMessageUpdate();
-    update.message.chat = { id: 1n, type: "channel" };
+    update.message.chat = { id: 1, type: "channel" };
     expect(reduceTelegramUpdate(parseTelegramUpdate(update)).kind).toBe("unsupported");
   });
 
@@ -118,8 +128,8 @@ describe("reduceTelegramUpdate", () => {
     const reduced = reduceTelegramUpdate(parseTelegramUpdate(callbackUpdate()));
     expect(reduced).toEqual({
       kind: "callback_query",
-      updateId: UPDATE_ID,
-      userId: PRIVATE_USER_ID,
+      updateId: BigInt(UPDATE_ID),
+      userId: BigInt(PRIVATE_USER_ID),
       callbackQueryId: "callback-1",
       data: "generate",
     });

@@ -9,6 +9,7 @@ Milestone 3: Telegram Intake and Durable Jobs
 ## In Progress
 
 - (none) — M3 implementation selesai commit `21ac62e`, push ke origin/main. CI validate run 31473611370 success. Migration dev 8/8 applied. Production 0 migrations.
+- **PR #1 completed & committed (2026-08-13)**: plan synchronization, code cleanup (bigint helper, parser simplification, messages, dispatcher body), test coverage enhancements, runbook created. Test sync fixes (parser number-in fixtures, webhook dispatcher assertion) + bigint-helper unit test + `.commandcode/` gitignore — commit `5be1d6b` push ke origin/main.
 - **Pending platform wiring (manual actions)**:
   1. Set Vercel Preview env vars: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`
   2. Provision Telegram dev bot via @BotFather

@@ -133,7 +133,9 @@ describe("handleTelegramUpdate - private text message", () => {
       sourcePrompt: "a cozy cabin in the mountains",
       updateId: 42n,
     });
-    expect(deps.dispatchToProcessor).toHaveBeenCalledWith("https://example.vercel.app", SECRET);
+    expect(deps.dispatchToProcessor).toHaveBeenCalledWith("https://example.vercel.app", SECRET, {
+      sessionOrigin: "webhook",
+    });
     expect(calls.sentMessages.some((m) => m.text.includes("diterima"))).toBe(true);
   });
 

@@ -75,7 +75,9 @@ const [command, botToken, url, secretToken] = process.argv.slice(2);
 
 if (!command || !botToken) {
   fail(
-    "usage: node scripts/set-telegram-webhook.mjs <get|set|delete> <bot_token> [webhook_url] [secret_token]",
+    "usage: node scripts/set-telegram-webhook.mjs <get|set|delete> <bot_token> [webhook_url] [secret_token]\n" +
+      "   - webhook_url must start with https:// (for set)\n" +
+      "   - set command is disabled in production (APP_ENV=production)",
   );
 }
 
@@ -86,6 +88,17 @@ switch (command) {
   case "set":
     if (!url || !secretToken) {
       fail("set requires <webhook_url> and <secret_token>");
+    }
+    // HTTPS validation
+    if (!url.startsWith("https://")) {
+      fail("webhook URL must start with https://");
+    }
+    // APP_ENV guard: disallow setting webhook in production
+    const appEnv = process.env.APP_ENV || "development";
+    if (appEnv === "production") {
+      fail(
+        "refusing to set webhook in production environment (use Vercel dashboard or wait for Milestone 7)",
+      );
     }
     await setWebhook(botToken, url, secretToken);
     break;
