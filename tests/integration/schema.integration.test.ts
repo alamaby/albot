@@ -309,6 +309,7 @@ const EXPECTED_MIGRATIONS = [
   "20260808160100",
   "20260809171800",
   "20260810150719",
+  "20260813100000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];
