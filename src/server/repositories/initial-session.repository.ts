@@ -3,6 +3,7 @@
 // prompt_session, the first prompt_revision, and the enhancement job.
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
+import { bigintToDb } from "@/server/application/bigint-helper";
 import type { Database } from "@/server/supabase/database.types";
 
 export type CreateInitialSessionInput = {
@@ -28,10 +29,10 @@ export class InitialSessionRepository {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .rpc("create_initial_session", {
-        p_telegram_user_id: input.telegramUserId.toString(),
-        p_telegram_chat_id: input.telegramChatId.toString(),
+        p_telegram_user_id: bigintToDb(input.telegramUserId),
+        p_telegram_chat_id: bigintToDb(input.telegramChatId),
         p_source_prompt: input.sourcePrompt,
-        p_update_id: input.updateId.toString(),
+        p_update_id: bigintToDb(input.updateId),
         p_job_type: "enhance_prompt",
       } as unknown as InitialSessionRpcArgs)
       .single();

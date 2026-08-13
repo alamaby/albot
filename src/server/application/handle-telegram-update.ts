@@ -31,7 +31,11 @@ export type TelegramWebhookDeps = {
   initialSessionRepository: InitialSessionRepository;
   sendTelegramMessage: (token: string, chatId: bigint, text: string) => Promise<unknown>;
   answerTelegramCallback: (token: string, callbackQueryId: string) => Promise<unknown>;
-  dispatchToProcessor: (origin: string, secret: string) => Promise<unknown>;
+  dispatchToProcessor: (
+    origin: string,
+    secret: string,
+    payload?: Record<string, unknown>,
+  ) => Promise<unknown>;
 };
 
 export function createDefaultWebhookDeps(): TelegramWebhookDeps {
@@ -64,7 +68,11 @@ async function trySendMessage(
 
 // Best-effort dispatcher call: fires the internal job processor. Failures are
 // logged; the durable job row remains and a recovery poll (M7) can pick it up.
-export async function dispatchToProcessorUrl(origin: string, secret: string): Promise<void> {
+export async function dispatchToProcessorUrl(
+  origin: string,
+  secret: string,
+  payload?: Record<string, unknown>,
+): Promise<void> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
   try {
@@ -74,7 +82,7 @@ export async function dispatchToProcessorUrl(origin: string, secret: string): Pr
         Authorization: `Bearer ${secret}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify(payload ?? {}),
       signal: controller.signal,
     });
     if (!response.ok) {
@@ -202,7 +210,7 @@ async function handlePrivateTextMessage(
   // 6. Acknowledge and dispatch asynchronously.
   await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_received"));
   try {
-    await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET);
+    await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, { sessionOrigin: "webhook" });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
     console.error(`webhook: dispatcher failed (${detail})`);

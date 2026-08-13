@@ -8,7 +8,7 @@ export const TELEGRAM_MAX_PROMPT_LENGTH = 4000;
 
 // Telegram user id and chat id are JSON numbers that may exceed JS safe integer
 // range. zod coerces them into BigInt for exactness.
-const bigintFromJson = z.union([z.bigint(), z.number()]).transform((value) => BigInt(value));
+const bigintFromJson = z.number().transform((value) => BigInt(value));
 
 const telegramUserSchema = z.object({
   id: bigintFromJson,

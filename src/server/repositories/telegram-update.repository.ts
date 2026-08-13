@@ -3,6 +3,7 @@
 // and duplicate deliveries are deduplicated at the database level.
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
+import { bigintToDb } from "@/server/application/bigint-helper";
 import type { Database } from "@/server/supabase/database.types";
 
 type TelegramUpdateInsert = Database["public"]["Tables"]["telegram_updates"]["Insert"];
@@ -25,9 +26,9 @@ export class TelegramUpdateRepository {
     const { data, error } = await supabase
       .from("telegram_updates")
       .insert({
-        update_id: input.updateId.toString(),
-        telegram_user_id: input.telegramUserId?.toString() ?? null,
-        telegram_chat_id: input.telegramChatId?.toString() ?? null,
+        update_id: bigintToDb(input.updateId),
+        telegram_user_id: input.telegramUserId ? bigintToDb(input.telegramUserId) : null,
+        telegram_chat_id: input.telegramChatId ? bigintToDb(input.telegramChatId) : null,
         update_type: input.updateType,
       } as unknown as TelegramUpdateInsert)
       .select("id")

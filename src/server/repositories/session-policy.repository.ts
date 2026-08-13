@@ -5,6 +5,7 @@
 // Both values are used by the webhook handler before creating a new session.
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
+import { bigintToDb } from "@/server/application/bigint-helper";
 
 const TERMINAL_STATUSES = ["completed", "cancelled", "expired"];
 
@@ -24,7 +25,7 @@ export class SessionPolicyRepository {
   // expires_at passed but status was never swept are filtered by time here.
   async countActiveSessions(telegramUserId: bigint): Promise<number> {
     const supabase = getSupabaseAdmin();
-    const userId = telegramUserId.toString() as unknown as number;
+    const userId = bigintToDb(telegramUserId);
     const { count, error } = await supabase
       .from("prompt_sessions")
       .select("id", { count: "exact", head: true })
@@ -44,7 +45,7 @@ export class SessionPolicyRepository {
     const { count, error } = await supabase
       .from("prompt_sessions")
       .select("id", { count: "exact", head: true })
-      .eq("telegram_user_id", telegramUserId.toString() as unknown as number)
+      .eq("telegram_user_id", bigintToDb(telegramUserId))
       .gte("created_at", since);
 
     if (error) throw new Error(`recent submission count failed: ${error.message}`);

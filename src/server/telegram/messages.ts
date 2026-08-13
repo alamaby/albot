@@ -30,7 +30,7 @@ export function buildBotMessage(
     case "rate_limited":
       return `Terlalu banyak permintaan. Maksimal ${rateLimitMax} prompt per ${rateLimitWindowMinutes} menit.`;
     case "prompt_received":
-      return "Prompt diterima. Sedang memproses...";
+      return "Prompt diterima. Sedang dalam antrian...";
     case "callback_acknowledged":
       return "Diterima.";
   }

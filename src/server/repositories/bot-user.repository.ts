@@ -2,6 +2,7 @@
 // Queries the bot_users table by numeric Telegram user id (bigint).
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
+import { bigintToDb } from "@/server/application/bigint-helper";
 
 export type BotUserSafe = {
   id: string;
@@ -19,7 +20,7 @@ export class BotUserRepository {
     const { data, error } = await supabase
       .from("bot_users")
       .select("id, telegram_user_id, is_allowed, is_admin, username")
-      .eq("telegram_user_id", telegramUserId.toString() as unknown as number)
+      .eq("telegram_user_id", bigintToDb(telegramUserId))
       .maybeSingle();
 
     if (error) throw new Error(`bot user lookup failed: ${error.message}`);

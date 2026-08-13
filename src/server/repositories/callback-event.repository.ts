@@ -3,6 +3,7 @@
 // callback retries are deduplicated at the database level.
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
+import { bigintToDb } from "@/server/application/bigint-helper";
 import type { Database } from "@/server/supabase/database.types";
 
 type CallbackEventInsert = Database["public"]["Tables"]["callback_events"]["Insert"];
@@ -24,7 +25,7 @@ export class CallbackEventRepository {
       .insert({
         callback_query_id: input.callbackQueryId,
         action: input.action,
-        telegram_user_id: input.telegramUserId.toString(),
+        telegram_user_id: bigintToDb(input.telegramUserId),
         prompt_session_id: input.promptSessionId ?? null,
       } as unknown as CallbackEventInsert)
       .select("id")
