@@ -106,6 +106,10 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.apiKey}`,
+      // OpenRouter (and several OpenAI-compatible gateways) use these to
+      // identify the app; some free-tier routes require them to be present.
+      "HTTP-Referer": "https://albot-ten.vercel.app",
+      "X-Title": "albot",
     };
   }
 
