@@ -37,6 +37,8 @@ Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb
 | `TELEGRAM_WEBHOOK_SECRET`     | Development, Production | `required` (min 8 char URL-safe base64)             | Milestone 3   |
 | `JOB_PROCESSOR_SECRET`        | Development, Production | `required` (min 32 char)                            | Milestone 3   |
 
+> Milestone 4: provider reasoning dipilih dari tabel `provider_configs` di Supabase (bukan env). Key dienkripsi di `provider_keys` memakai `PROVIDER_KEY_ENCRYPTION_KEY`. Provisioning dilakukan via `scripts/seed-provider-config.mjs` (lihat `docs/runbooks/milestone-4-e2e.md`). Tidak ada env baru yang dibutuhkan di M4.
+
 ## GitHub Environment Secrets
 
 Nama secret sama di kedua environment; nilainya berbeda.

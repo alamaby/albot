@@ -54,6 +54,25 @@ export async function sendMessage(
   return { messageId: result.result.message_id };
 }
 
+// Sends a message with an inline keyboard (reply_markup). Used for the
+// enhancement confirmation so the user can Generate / Revise Lagi / Batal.
+export async function sendMessageWithKeyboard(
+  token: string,
+  chatId: bigint,
+  text: string,
+  keyboard: { inline_keyboard: { text: string; callback_data: string }[][] },
+): Promise<SendMessageResult> {
+  const result = await callApi<{ message_id: number }>(token, "sendMessage", {
+    chat_id: chatId.toString(),
+    text,
+    reply_markup: keyboard,
+  });
+  if (!result.ok) {
+    throw new Error(`telegram sendMessageWithKeyboard failed: ${redactTelegramError(result)}`);
+  }
+  return { messageId: result.result.message_id };
+}
+
 export async function answerCallbackQuery(
   token: string,
   callbackQueryId: string,

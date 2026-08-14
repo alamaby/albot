@@ -4,15 +4,14 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 4: (belum dimulai)
+Milestone 4: Prompt Enhancement, Confirmation, and Revision (in progress — implementation done, platform wiring/E2E pending)
 
 ## In Progress
 
-- (none) — Milestone 3 **CLOSED** 2026-08-13. Lihat bagian Completed.
+- [ ] Implement Milestone 4 dan record verification evidence
 
 ## Pending
 
-- [ ] Implement Milestone 4 dan record verification evidence
 - [ ] Implement Milestone 5 dan record verification evidence
 - [ ] Implement Milestone 6 dan record verification evidence
 - [ ] Implement Milestone 7 dan record verification evidence

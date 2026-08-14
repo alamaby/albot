@@ -79,6 +79,16 @@ function buildDeps(overrides: Partial<MutableDeps> = {}): {
         jobId: "job-1",
       })),
     } as unknown as TelegramWebhookDeps["initialSessionRepository"],
+    sessionRepository: {
+      findActiveByUserId: vi.fn(async () => null),
+      getById: vi.fn(async () => null),
+    } as unknown as TelegramWebhookDeps["sessionRepository"],
+    revisionInput: {
+      handle: vi.fn(async () => ({ status: "ignored" })),
+    } as unknown as TelegramWebhookDeps["revisionInput"],
+    callbackStateMachine: {
+      handle: vi.fn(async () => ({ status: "accepted" })),
+    } as unknown as TelegramWebhookDeps["callbackStateMachine"],
     sendTelegramMessage: vi.fn(async (_token: string, chatId: bigint, text: string) => {
       calls.sentMessages.push({ chatId, text });
     }),
@@ -110,7 +120,7 @@ function callbackQuery(overrides: Partial<Record<string, unknown>> = {}) {
     updateId: 42n,
     userId: 123n,
     callbackQueryId: "callback-1",
-    data: "generate",
+    data: "generate:session-1",
     ...overrides,
   };
 }
@@ -261,7 +271,24 @@ describe("handleTelegramUpdate - private text message", () => {
 describe("handleTelegramUpdate - callback query", () => {
   it("persists a recognized callback event and answers it", async () => {
     withEnv();
-    const { deps } = buildDeps();
+    const session = {
+      id: "session-1",
+      telegramUserId: 123n,
+      telegramChatId: 456n,
+      status: "awaiting_confirmation",
+      activeRevisionId: "revision-1",
+      activeGenerationAttemptId: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z",
+      completedAt: null,
+    };
+    const { deps } = buildDeps({
+      sessionRepository: {
+        findActiveByUserId: vi.fn(async () => null),
+        getById: vi.fn(async () => session),
+      } as unknown as TelegramWebhookDeps["sessionRepository"],
+    });
     await handleTelegramUpdate(callbackQuery(), "https://example.vercel.app", deps);
 
     expect(deps.telegramUpdateRepository.insertIfAbsent).toHaveBeenCalledWith({
@@ -274,9 +301,43 @@ describe("handleTelegramUpdate - callback query", () => {
       action: "generate",
       telegramUserId: 123n,
     });
-    expect(deps.answerTelegramCallback).toHaveBeenCalledWith(TOKEN, "callback-1");
+    expect(deps.callbackStateMachine.handle).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "generate", sessionId: "session-1" }),
+    );
     expect(deps.dispatchToProcessor).not.toHaveBeenCalled();
     expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
+  });
+
+  it("runs the callback state machine for an action with a session id", async () => {
+    withEnv();
+    const session = {
+      id: "session-1",
+      telegramUserId: 123n,
+      telegramChatId: 456n,
+      status: "awaiting_confirmation",
+      activeRevisionId: "revision-1",
+      activeGenerationAttemptId: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z",
+      completedAt: null,
+    };
+    const { deps } = buildDeps({
+      sessionRepository: {
+        findActiveByUserId: vi.fn(async () => null),
+        getById: vi.fn(async () => session),
+      } as unknown as TelegramWebhookDeps["sessionRepository"],
+    });
+    await handleTelegramUpdate(callbackQuery(), "https://example.vercel.app", deps);
+
+    expect(deps.callbackStateMachine.handle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "generate",
+        sessionId: "session-1",
+        telegramUserId: 123n,
+        callbackQueryId: "callback-1",
+      }),
+    );
   });
 
   it("acks a duplicate callback update without persisting again", async () => {

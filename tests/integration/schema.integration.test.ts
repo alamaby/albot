@@ -272,6 +272,11 @@ const EXPECTED_INDEX_DEF_FRAGMENTS: [string, string[]][] = [
     ],
   ],
   ["jobs_lease_recovery_idx", ["btree (locked_at, id)", "'processing'::text"]],
+  [
+    "prompt_sessions_one_active_idx",
+    ["btree (telegram_user_id)", "'completed'::text", "'cancelled'::text", "'expired'::text"],
+  ],
+  ["prompt_sessions_status_idx", ["btree (status, updated_at DESC)"]],
   ["provider_requests_config_created_idx", ["btree (provider_config_id, created_at DESC)"]],
   ["callback_events_session_received_idx", ["btree (prompt_session_id, received_at DESC)"]],
 ];
@@ -286,6 +291,16 @@ const EXPECTED_FUNCTIONS: [string, string, boolean][] = [
   ],
   [
     "increment_provider_key_failure(p_provider_config_id uuid, p_key_id uuid, p_threshold integer)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
+  [
+    "mark_revision_failed(p_revision_id uuid, p_error_code text, p_error_message_redacted text)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
+  [
+    "create_revision(p_session_id uuid, p_source_prompt text, p_previous_prompt text, p_revision_instruction text)",
     "search_path=pg_catalog, public",
     true,
   ],
@@ -309,6 +324,8 @@ const EXPECTED_MIGRATIONS = [
   "20260808160100",
   "20260809171800",
   "20260810150719",
+  "20260813074037",
+  "20260813091942",
   "20260813100000",
 ];
 
@@ -432,7 +449,7 @@ describe.skipIf(skip)("schema integration", () => {
          from pg_proc p
          join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public'
-          and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'set_updated_at')`,
+          and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'set_updated_at')`,
     );
     const rows = res.rows.map((r) => ({
       sig: `${r.proname}(${r.args})`,
@@ -449,11 +466,31 @@ describe.skipIf(skip)("schema integration", () => {
     }
   });
 
+  it("has the partial unique index on active sessions", async () => {
+    const res = await pool!.query(
+      `select i.relname, pg_get_indexdef(x.indexrelid) as def
+         from pg_index x
+         join pg_class i on i.oid = x.indexrelid
+         join pg_class t on t.oid = x.indrelid
+        where t.relnamespace = 'public'::regnamespace
+          and i.relname = 'prompt_sessions_one_active_idx'`,
+    );
+    expect(res.rows).toHaveLength(1);
+    const def = res.rows[0].def as string;
+    expect(def).toContain("WHERE");
+    expect(def).toContain("'completed'::text");
+    expect(def).toContain("'cancelled'::text");
+    expect(def).toContain("'expired'::text");
+    expect(def).toContain("telegram_user_id");
+  });
+
   it("grants execute of atomic functions only to service_role", async () => {
     for (const fn of [
       "claim_job(text, integer)",
       "transition_prompt_session(uuid, text, text, uuid, uuid)",
       "increment_provider_key_failure(uuid, uuid, integer)",
+      "mark_revision_failed(uuid, text, text)",
+      "create_revision(uuid, text, text, text)",
     ]) {
       for (const role of API_ROLES) {
         const res = await pool!.query(

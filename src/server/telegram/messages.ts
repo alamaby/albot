@@ -10,7 +10,11 @@ export type BotMessage =
   | "active_session_exists"
   | "rate_limited"
   | "prompt_received"
-  | "callback_acknowledged";
+  | "callback_acknowledged"
+  | "revision_instruction_too_long"
+  | "session_expired"
+  | "enhancement_failed"
+  | "session_cancelled";
 
 export function buildBotMessage(
   kind: BotMessage,
@@ -33,5 +37,32 @@ export function buildBotMessage(
       return "Prompt diterima. Sedang dalam antrian...";
     case "callback_acknowledged":
       return "Diterima.";
+    case "revision_instruction_too_long":
+      return `Instruksi revisi terlalu panjang. Maksimal ${maxPromptLength} karakter.`;
+    case "session_expired":
+      return "Sesi telah berakhir. Kirim prompt baru untuk memulai sesi baru.";
+    case "enhancement_failed":
+      return "Gagal memproses prompt. Silakan coba lagi nanti.";
+    case "session_cancelled":
+      return "Sesi dibatalkan.";
   }
+}
+
+// Enhanced prompt confirmation message. Shows the (user-editable) enhanced
+// prompt with the confirmation actions. The prompt text is plain text so no
+// markdown escaping is needed; the inline keyboard carries the session id.
+export function buildEnhancedPromptMessage(input: {
+  enhancedPrompt: string;
+  revisionNumber: number;
+  sourcePrompt: string;
+}): string {
+  return [
+    `Prompt yang akan digunakan (revisi ${input.revisionNumber}):`,
+    "",
+    input.enhancedPrompt,
+    "",
+    "—",
+    "",
+    "Pilih aksi di bawah untuk melanjutkan.",
+  ].join("\n");
 }

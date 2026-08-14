@@ -59,8 +59,8 @@ describe("generateWorkerId", () => {
 });
 
 describe("isRegisteredJobType", () => {
-  it("reports enhance_prompt as unhandled in Milestone 3", () => {
-    expect(isRegisteredJobType("enhance_prompt")).toBe(false);
+  it("reports enhance_prompt as handled in Milestone 4", () => {
+    expect(isRegisteredJobType("enhance_prompt")).toBe(true);
   });
 
   it("reports unknown job types as unhandled", () => {

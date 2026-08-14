@@ -11,14 +11,17 @@
 
 import { randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "@/server/supabase/admin";
+import { enhancePromptHandler } from "./enhance-prompt.handler";
 import type { Database } from "@/server/supabase/database.types";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 
+export type { JobRow };
+
 export type JobHandler = (job: JobRow) => Promise<void>;
 
 const handlers: Record<string, JobHandler> = {
-  // M4: enhance_prompt: enhancePromptHandler,
+  enhance_prompt: enhancePromptHandler,
 };
 
 const WORKER_PREFIX = "processor";
@@ -84,6 +87,14 @@ export async function processNextJob(): Promise<{ status: "processed" | "idle"; 
     return { status: "processed", jobId: job.id };
   }
 
-  await handler(job);
+  try {
+    await handler(job);
+  } catch (error) {
+    // A handler that throws unexpectedly must not lose the durable job. The
+    // worker ownership guard keeps the reschedule safe.
+    const detail = error instanceof Error ? error.message : "unknown";
+    console.error(`job processor: handler failed for ${job.job_type} (${detail})`);
+    await rescheduleUnhandledJob(job.id, workerId, "handler_error");
+  }
   return { status: "processed", jobId: job.id };
 }

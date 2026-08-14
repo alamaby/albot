@@ -722,6 +722,18 @@ export type Database = {
           session_id: string
         }[]
       }
+      create_revision: {
+        Args: {
+          p_previous_prompt: string
+          p_revision_instruction: string
+          p_session_id: string
+          p_source_prompt: string
+        }
+        Returns: {
+          revision_id: string
+          revision_number: number
+        }[]
+      }
       increment_provider_key_failure: {
         Args: {
           p_key_id: string
@@ -750,6 +762,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      mark_revision_failed: {
+        Args: {
+          p_error_code: string
+          p_error_message_redacted: string
+          p_revision_id: string
+        }
+        Returns: undefined
       }
       transition_prompt_session: {
         Args: {

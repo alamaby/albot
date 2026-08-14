@@ -96,6 +96,8 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
       messages,
       temperature: 0.7,
       max_tokens: 1024,
+      // Caller-provided options win over defaults. response_format may be passed
+      // here to request JSON mode from OpenAI-compatible providers.
       ...input.options,
     };
   }

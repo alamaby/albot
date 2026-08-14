@@ -15,6 +15,9 @@ import { SessionPolicyRepository } from "@/server/repositories/session-policy.re
 import { TelegramUpdateRepository } from "@/server/repositories/telegram-update.repository";
 import { CallbackEventRepository } from "@/server/repositories/callback-event.repository";
 import { InitialSessionRepository } from "@/server/repositories/initial-session.repository";
+import { SessionRepository } from "@/server/repositories/session.repository";
+import { RevisionInputUseCase } from "./revision-input";
+import { CallbackStateMachine } from "./callback-state-machine";
 
 export const ACCESS_CONTROLS = {
   maxPromptLength: TELEGRAM_MAX_PROMPT_LENGTH,
@@ -29,8 +32,15 @@ export type TelegramWebhookDeps = {
   telegramUpdateRepository: TelegramUpdateRepository;
   callbackEventRepository: CallbackEventRepository;
   initialSessionRepository: InitialSessionRepository;
+  sessionRepository: SessionRepository;
+  revisionInput: RevisionInputUseCase;
+  callbackStateMachine: CallbackStateMachine;
   sendTelegramMessage: (token: string, chatId: bigint, text: string) => Promise<unknown>;
-  answerTelegramCallback: (token: string, callbackQueryId: string) => Promise<unknown>;
+  answerTelegramCallback: (
+    token: string,
+    callbackQueryId: string,
+    options?: { text?: string; showAlert?: boolean },
+  ) => Promise<unknown>;
   dispatchToProcessor: (
     origin: string,
     secret: string,
@@ -45,6 +55,9 @@ export function createDefaultWebhookDeps(): TelegramWebhookDeps {
     telegramUpdateRepository: new TelegramUpdateRepository(),
     callbackEventRepository: new CallbackEventRepository(),
     initialSessionRepository: new InitialSessionRepository(),
+    sessionRepository: new SessionRepository(),
+    revisionInput: new RevisionInputUseCase(),
+    callbackStateMachine: new CallbackStateMachine(),
     sendTelegramMessage: sendMessage,
     answerTelegramCallback: answerCallbackQuery,
     dispatchToProcessor: dispatchToProcessorUrl,
@@ -128,9 +141,8 @@ async function handleCallbackQuery(
   });
   if (!inserted) return;
 
-  // Milestone 3 does not own the callback state machine (Milestone 4 does), but
-  // recognized callback actions are recorded for deduplication. Unrecognized
-  // data is acknowledged without persisting.
+  // Recognized callback actions are recorded for deduplication before the state
+  // machine runs (Milestone 4). Unknown data is acknowledged without persisting.
   const action = parseCallbackAction(callback.data);
   let callbackEventId: string | null = null;
   if (action !== "unknown") {
@@ -141,12 +153,54 @@ async function handleCallbackQuery(
     });
   }
 
-  // Answer the callback promptly so Telegram clears the loading indicator.
-  try {
-    await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    console.error(`webhook: telegram answerCallbackQuery failed (${detail})`);
+  // A duplicate callback_query_id returns null: acknowledge and stop.
+  if (!callbackEventId) {
+    try {
+      await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      console.error(`webhook: telegram answerCallbackQuery failed (${detail})`);
+    }
+    return;
+  }
+
+  // Resolve the session id from the callback data (action:sessionId) and run
+  // the inline state machine. Failures are logged; the callback is answered.
+  const sessionId = callback.data?.split(":")[1];
+  if (sessionId && action !== "unknown") {
+    try {
+      const session = await deps.sessionRepository.getById(sessionId);
+      if (session) {
+        await deps.callbackStateMachine.handle({
+          action: action as "generate" | "revise" | "cancel",
+          sessionId,
+          session,
+          telegramUserId: callback.userId,
+          callbackQueryId: callback.callbackQueryId,
+        });
+      } else {
+        await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId, {
+          text: "Sesi tidak ditemukan.",
+        });
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      console.error(`webhook: callback state machine failed (${detail})`);
+      try {
+        await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId);
+      } catch (ackError) {
+        const ackDetail = ackError instanceof Error ? ackError.message : "unknown";
+        console.error(`webhook: telegram answerCallbackQuery failed (${ackDetail})`);
+      }
+    }
+  } else {
+    // Acknowledge the callback promptly so Telegram clears the loading indicator.
+    try {
+      await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      console.error(`webhook: telegram answerCallbackQuery failed (${detail})`);
+    }
   }
 
   if (callbackEventId) {
@@ -177,13 +231,35 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 3. Prompt length limit.
+  // 3. Revision-input mode: a session in awaiting_revision_input consumes the
+  //    next message as a revision instruction instead of a new prompt.
+  const activeSession = await deps.sessionRepository.findActiveByUserId(message.userId);
+  if (activeSession && activeSession.status === "awaiting_revision_input") {
+    const outcome = await deps.revisionInput.handle(activeSession, message.text, origin);
+    if (outcome.status === "expired") {
+      await trySendMessage(env, deps, message.chatId, buildBotMessage("session_expired"));
+    } else if (outcome.status === "too_long") {
+      await trySendMessage(
+        env,
+        deps,
+        message.chatId,
+        buildBotMessage("revision_instruction_too_long", {
+          maxPromptLength: ACCESS_CONTROLS.maxPromptLength,
+        }),
+      );
+    }
+    // 'accepted' and 'ignored' need no extra message here (the use case sends
+    // its own acknowledgment).
+    return;
+  }
+
+  // 4. Prompt length limit.
   if (message.text.length > ACCESS_CONTROLS.maxPromptLength) {
     await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
     return;
   }
 
-  // 4. Abuse controls (derived from prompt_sessions).
+  // 5. Abuse controls (derived from prompt_sessions).
   const policy = await deps.sessionPolicyRepository.getPolicyState(message.userId, {
     rateLimitWindowMinutes: ACCESS_CONTROLS.rateLimitWindowMinutes,
     rateLimitMaxSubmissions: ACCESS_CONTROLS.rateLimitMaxSubmissions,
@@ -199,7 +275,7 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 5. Atomically create session + first revision + enhancement job.
+  // 6. Atomically create session + first revision + enhancement job.
   await deps.initialSessionRepository.create({
     telegramUserId: message.userId,
     telegramChatId: message.chatId,
@@ -207,7 +283,7 @@ async function handlePrivateTextMessage(
     updateId: message.updateId,
   });
 
-  // 6. Acknowledge and dispatch asynchronously.
+  // 7. Acknowledge and dispatch asynchronously.
   await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_received"));
   try {
     await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, { sessionOrigin: "webhook" });
