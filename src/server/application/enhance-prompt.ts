@@ -7,6 +7,10 @@
 // made by the caller (enhance-prompt.handler) based on thrown ProviderError.
 
 import { getServerEnv } from "@/env";
+// Side-effect import: registers the built-in reasoning/image adapters on the
+// provider registry (see providers/index.ts). Without this the registry is
+// empty at runtime and every adapter lookup fails with provider_adapter_unknown.
+import "@/server/providers/index";
 import { getProviderRegistry } from "@/server/providers/registry";
 import { ProviderSelector, type SelectedProvider } from "@/server/providers/selector";
 import { ProviderError } from "@/server/providers/errors";
