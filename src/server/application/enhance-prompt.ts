@@ -164,6 +164,11 @@ export class EnhancePromptUseCase {
       return { status: "completed", session, revision, prompt: parseCachedEnhanced(revision) };
     }
 
+    // Mark the revision as processing before any outbound call so the
+    // mark_revision_failed RPC guard (status='processing') can later mark it
+    // failed without racing a completed revision.
+    await this.enhancementRepository.markRevisionProcessing(revision.id);
+
     const { selected, startedAt } = await this.selectProvider(session.id);
 
     const requestId = await this.enhancementRepository.recordProviderRequest({

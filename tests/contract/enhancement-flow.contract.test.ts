@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { getAdminClient, assertHostedOrSkip, getHostedEnv } from "../helpers/hosted";
 import { resetServerEnvCache } from "@/env";
 import { EnhancePromptUseCase } from "@/server/application/enhance-prompt";
@@ -40,6 +40,10 @@ const cleanup: {
 const MOCK_ADAPTER = "mock_reasoning_contract";
 let registered = false;
 
+// Ids of reasoning configs that existed before this test and were temporarily
+// deactivated so the mock config (priority 0) is deterministically selected.
+const deactivatedConfigIds: string[] = [];
+
 beforeAll(async () => {
   if (skip) return;
   if (!registered) {
@@ -54,6 +58,30 @@ beforeAll(async () => {
       }));
     });
     registered = true;
+  }
+
+  // Isolate the test: deactivate any pre-existing active reasoning configs so
+  // the selector cannot pick them (e.g. the seeded Cloudflare config in dev).
+  const admin = getAdminClient();
+  const { data: active } = await admin
+    .from("provider_configs")
+    .select("id")
+    .eq("capability", "reasoning")
+    .eq("is_active", true);
+  for (const config of active ?? []) {
+    await admin.from("provider_configs").update({ is_active: false }).eq("id", config.id);
+    deactivatedConfigIds.push(config.id);
+  }
+});
+
+afterAll(async () => {
+  if (skip) return;
+  if (deactivatedConfigIds.length > 0) {
+    const admin = getAdminClient();
+    for (const id of deactivatedConfigIds) {
+      await admin.from("provider_configs").update({ is_active: true }).eq("id", id);
+    }
+    deactivatedConfigIds.length = 0;
   }
 });
 

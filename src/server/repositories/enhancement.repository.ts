@@ -150,6 +150,21 @@ export class EnhancementRepository {
     if (error) throw new Error(`enhanced prompt save failed: ${error.message}`);
   }
 
+  // Marks a revision as processing before the outbound provider call. This is
+  // what makes mark_revision_failed's guard (status='processing') meaningful:
+  // a stale worker cannot mark a revision failed once a newer worker completed
+  // it first.
+  async markRevisionProcessing(revisionId: string): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase
+      .from("prompt_revisions")
+      .update({ status: "processing" })
+      .eq("id", revisionId)
+      .eq("status", "pending");
+
+    if (error) throw new Error(`revision mark processing failed: ${error.message}`);
+  }
+
   // Marks a revision processing-state as failed via RPC (guard-patched so a
   // stale worker cannot overwrite a completed revision).
   async markRevisionFailed(

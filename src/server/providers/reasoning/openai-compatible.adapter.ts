@@ -53,6 +53,14 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
       });
 
       if (!response.ok) {
+        // Log the upstream error detail (truncated, never the key) so runtime
+        // failures like Cloudflare/OpenRouter 401s are diagnosable from logs.
+        try {
+          const errorBody = (await response.text()).slice(0, 500);
+          console.error(`openai-compatible provider error ${response.status}: ${errorBody}`);
+        } catch {
+          // ignore body read failure
+        }
         throw makeErrorFromHttpStatus(
           response.status,
           `openai-compatible provider returned ${response.status}`,
