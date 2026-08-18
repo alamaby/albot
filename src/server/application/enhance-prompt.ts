@@ -326,7 +326,13 @@ export class EnhancePromptUseCase {
     if (!data) {
       throw new Error(`session transition ${expected} -> ${next} lost the CAS`);
     }
-    return data as unknown as SessionSafe;
+    // The RPC returns the raw snake_case row; reload through the repository so
+    // callers get the camelCase SessionSafe shape (telegramChatId etc.).
+    const session = await this.sessionRepository.getById(sessionId);
+    if (!session) {
+      throw new Error(`session ${sessionId} not found after transition`);
+    }
+    return session;
   }
 }
 
