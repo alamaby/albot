@@ -2,12 +2,13 @@
 //
 // Usage (run from repo root, secrets via environment or arguments):
 //   node scripts/seed-provider-config.mjs add <adapter_type> <name> <base_url> <model> \
-//       <selection_strategy> <priority> <weight> --key <plaintext_key> [--label <label>]
+//       <selection_strategy> <priority> <weight> --key <plaintext_key> [--label <label>] \
+//       [--capability <reasoning|image_generation>]
 //
 // Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / PROVIDER_KEY_ENCRYPTION_KEY from
 // the environment (same as the server). Inserts a provider_configs row
-// (capability=reasoning, is_active=true) and an encrypted provider_keys row.
-// Never prints the plaintext key.
+// (capability defaults to reasoning, is_active=true) and an encrypted
+// provider_keys row. Never prints the plaintext key.
 //
 // Alternative key input: pass the key via the PROVIDER_KEY arg instead of --key
 // so it does not appear in shell history (still an arg; prefer an env var).
@@ -17,7 +18,11 @@ import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const ADAPTERS = ["openai_compatible"];
+const ADAPTERS_BY_CAPABILITY = {
+  reasoning: ["openai_compatible"],
+  image_generation: ["pixazo_flux_schnell", "pixazo_sdxl"],
+};
+const CAPABILITIES = ["reasoning", "image_generation"];
 const STRATEGIES = ["priority_failover", "weighted"];
 
 function fail(message) {
@@ -89,12 +94,20 @@ async function main() {
   if (command !== "add") {
     fail(
       "usage: node scripts/seed-provider-config.mjs add <adapter_type> <name> <base_url> <model> " +
-        "<selection_strategy> <priority> <weight> --key <plaintext_key> [--label <label>]",
+        "<selection_strategy> <priority> <weight> --key <plaintext_key> [--label <label>] " +
+        "[--capability <reasoning|image_generation>]",
     );
   }
 
-  if (!ADAPTERS.includes(adapterType)) {
-    fail(`adapter_type must be one of: ${ADAPTERS.join(", ")}`);
+  // Default capability is reasoning (backward compatible with M2-M4 usage).
+  const capabilityIndex = process.argv.indexOf("--capability");
+  const capability = capabilityIndex !== -1 ? process.argv[capabilityIndex + 1] : "reasoning";
+  if (!CAPABILITIES.includes(capability)) {
+    fail(`capability must be one of: ${CAPABILITIES.join(", ")}`);
+  }
+  const adapters = ADAPTERS_BY_CAPABILITY[capability];
+  if (!adapters.includes(adapterType)) {
+    fail(`adapter_type for capability ${capability} must be one of: ${adapters.join(", ")}`);
   }
   if (!STRATEGIES.includes(strategy)) {
     fail(`selection_strategy must be one of: ${STRATEGIES.join(", ")}`);
@@ -153,7 +166,7 @@ async function main() {
   const { data: config, error: configError } = await admin
     .from("provider_configs")
     .insert({
-      capability: "reasoning",
+      capability,
       adapter_type: adapterType,
       name,
       base_url: baseUrl,

@@ -14,6 +14,7 @@ export type BotMessage =
   | "revision_instruction_too_long"
   | "session_expired"
   | "enhancement_failed"
+  | "generation_failed"
   | "session_cancelled";
 
 export function buildBotMessage(
@@ -43,6 +44,8 @@ export function buildBotMessage(
       return "Sesi telah berakhir. Kirim prompt baru untuk memulai sesi baru.";
     case "enhancement_failed":
       return "Gagal memproses prompt. Silakan coba lagi nanti.";
+    case "generation_failed":
+      return "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.";
     case "session_cancelled":
       return "Sesi dibatalkan.";
   }
@@ -65,4 +68,12 @@ export function buildEnhancedPromptMessage(input: {
     "",
     "Pilih aksi di bawah untuk melanjutkan.",
   ].join("\n");
+}
+
+// Caption for a generated image. Shows which attempt produced which revision.
+export function buildResultCaption(input: {
+  attemptNumber: number;
+  revisionNumber: number;
+}): string {
+  return `Gambar ${input.attemptNumber} dari revisi ${input.revisionNumber}.`;
 }

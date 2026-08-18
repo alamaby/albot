@@ -12,6 +12,7 @@
 import { randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "@/server/supabase/admin";
 import { enhancePromptHandler } from "./enhance-prompt.handler";
+import { generateImageHandler } from "./generate-image.handler";
 import type { Database } from "@/server/supabase/database.types";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
@@ -22,6 +23,7 @@ export type JobHandler = (job: JobRow) => Promise<void>;
 
 const handlers: Record<string, JobHandler> = {
   enhance_prompt: enhancePromptHandler,
+  generate_image: generateImageHandler,
 };
 
 const WORKER_PREFIX = "processor";

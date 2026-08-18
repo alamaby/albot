@@ -4,9 +4,16 @@
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
 const REQUEST_TIMEOUT_MS = 5000;
+// sendPhoto instructs Telegram to fetch the image URL itself; allow more time
+// for that upstream fetch than for plain text messages.
+const PHOTO_REQUEST_TIMEOUT_MS = 15_000;
 
 export type SendMessageResult = {
   messageId: number;
+};
+
+export type InlineKeyboard = {
+  inline_keyboard: { text: string; callback_data: string }[][];
 };
 
 export type TelegramApiError = {
@@ -21,9 +28,10 @@ async function callApi<T>(
   token: string,
   method: string,
   body: Record<string, unknown>,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
 ): Promise<TelegramApiResult<T>> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${TELEGRAM_API_BASE}/bot${token}/${method}`, {
       method: "POST",
@@ -60,7 +68,7 @@ export async function sendMessageWithKeyboard(
   token: string,
   chatId: bigint,
   text: string,
-  keyboard: { inline_keyboard: { text: string; callback_data: string }[][] },
+  keyboard: InlineKeyboard,
 ): Promise<SendMessageResult> {
   const result = await callApi<{ message_id: number }>(token, "sendMessage", {
     chat_id: chatId.toString(),
@@ -69,6 +77,32 @@ export async function sendMessageWithKeyboard(
   });
   if (!result.ok) {
     throw new Error(`telegram sendMessageWithKeyboard failed: ${redactTelegramError(result)}`);
+  }
+  return { messageId: result.result.message_id };
+}
+
+// Sends a photo by URL. Telegram fetches the image itself, so the Vercel
+// response body never carries the image bytes. Used for image generation
+// results (Milestone 5).
+export async function sendPhotoByUrl(
+  token: string,
+  chatId: bigint,
+  imageUrl: string,
+  options?: { caption?: string; replyMarkup?: InlineKeyboard },
+): Promise<SendMessageResult> {
+  const result = await callApi<{ message_id: number }>(
+    token,
+    "sendPhoto",
+    {
+      chat_id: chatId.toString(),
+      photo: imageUrl,
+      ...(options?.caption ? { caption: options.caption } : {}),
+      ...(options?.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+    },
+    PHOTO_REQUEST_TIMEOUT_MS,
+  );
+  if (!result.ok) {
+    throw new Error(`telegram sendPhoto failed: ${redactTelegramError(result)}`);
   }
   return { messageId: result.result.message_id };
 }

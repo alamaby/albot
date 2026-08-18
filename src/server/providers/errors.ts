@@ -17,7 +17,8 @@ export type ProviderErrorCode =
   | "provider_content_rejected"
   | "provider_response_invalid"
   | "provider_upstream_failed"
-  | "provider_unknown_error";
+  | "provider_unknown_error"
+  | "telegram_delivery_failed";
 
 export type ProviderErrorShape = {
   code: ProviderErrorCode;

@@ -304,6 +304,22 @@ const EXPECTED_FUNCTIONS: [string, string, boolean][] = [
     "search_path=pg_catalog, public",
     true,
   ],
+  [
+    "create_generation_attempt(p_session_id uuid, p_revision_id uuid)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
+  [
+    "mark_generation_attempt_failed(p_attempt_id uuid, p_error_code text, p_error_message_redacted text)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
+  [
+    "mark_generation_attempt_succeeded(p_attempt_id uuid, p_provider_request_id text, p_telegram_message_id bigint)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
+  ["complete_prompt_session(p_session_id uuid)", "search_path=pg_catalog, public", true],
   ["set_updated_at()", "search_path=pg_catalog, public", false],
 ];
 
@@ -327,6 +343,7 @@ const EXPECTED_MIGRATIONS = [
   "20260813074037",
   "20260813091942",
   "20260813100000",
+  "20260818100000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];
@@ -449,7 +466,7 @@ describe.skipIf(skip)("schema integration", () => {
          from pg_proc p
          join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public'
-          and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'set_updated_at')`,
+          and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'create_generation_attempt', 'mark_generation_attempt_failed', 'mark_generation_attempt_succeeded', 'complete_prompt_session', 'set_updated_at')`,
     );
     const rows = res.rows.map((r) => ({
       sig: `${r.proname}(${r.args})`,
@@ -491,6 +508,10 @@ describe.skipIf(skip)("schema integration", () => {
       "increment_provider_key_failure(uuid, uuid, integer)",
       "mark_revision_failed(uuid, text, text)",
       "create_revision(uuid, text, text, text)",
+      "create_generation_attempt(uuid, uuid)",
+      "mark_generation_attempt_failed(uuid, text, text)",
+      "mark_generation_attempt_succeeded(uuid, text, bigint)",
+      "complete_prompt_session(uuid)",
     ]) {
       for (const role of API_ROLES) {
         const res = await pool!.query(

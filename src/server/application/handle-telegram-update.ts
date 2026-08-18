@@ -68,6 +68,7 @@ export function createDefaultWebhookDeps(): TelegramWebhookDeps {
     callbackStateMachine: new CallbackStateMachine({
       sendTelegramMessage,
       answerCallbackQuery: answerTelegramCallback,
+      dispatchToProcessor,
     }),
     sendTelegramMessage,
     answerTelegramCallback,
@@ -131,7 +132,7 @@ export async function handleTelegramUpdate(
     case "unsupported":
       return;
     case "callback_query":
-      await handleCallbackQuery(env, deps, update);
+      await handleCallbackQuery(env, deps, update, origin);
       return;
     case "private_text_message":
       await handlePrivateTextMessage(env, deps, update, origin);
@@ -143,6 +144,7 @@ async function handleCallbackQuery(
   env: ServerEnv,
   deps: TelegramWebhookDeps,
   callback: Extract<ParsedUpdate, { kind: "callback_query" }>,
+  origin: string,
 ): Promise<void> {
   // Dedupe the update first. A duplicate update_id is acknowledged silently.
   const inserted = await deps.telegramUpdateRepository.insertIfAbsent({
@@ -186,11 +188,12 @@ async function handleCallbackQuery(
       const session = await deps.sessionRepository.getById(sessionId);
       if (session) {
         await deps.callbackStateMachine.handle({
-          action: action as "generate" | "revise" | "cancel",
+          action: action as "generate" | "revise" | "cancel" | "regenerate" | "complete",
           sessionId,
           session,
           telegramUserId: callback.userId,
           callbackQueryId: callback.callbackQueryId,
+          origin,
         });
       } else {
         await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId, {

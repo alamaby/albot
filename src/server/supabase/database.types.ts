@@ -708,6 +708,17 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      complete_prompt_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
+      create_generation_attempt: {
+        Args: { p_revision_id: string; p_session_id: string }
+        Returns: {
+          attempt_id: string
+          attempt_number: number
+        }[]
+      }
       create_initial_session: {
         Args: {
           p_job_type?: string
@@ -762,6 +773,22 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      mark_generation_attempt_failed: {
+        Args: {
+          p_attempt_id: string
+          p_error_code: string
+          p_error_message_redacted: string
+        }
+        Returns: undefined
+      }
+      mark_generation_attempt_succeeded: {
+        Args: {
+          p_attempt_id: string
+          p_provider_request_id: string
+          p_telegram_message_id: number
+        }
+        Returns: undefined
       }
       mark_revision_failed: {
         Args: {

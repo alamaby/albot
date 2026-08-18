@@ -89,6 +89,19 @@ export class JobRepository {
     return data!.id;
   }
 
+  // Links a job to its generation attempt once the attempt exists (created by
+  // the generate-image use case after claim). Keeps the job row auditable and
+  // lets a retried claim find the attempt id on failure.
+  async attachGenerationAttempt(jobId: string, attemptId: string): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase
+      .from("jobs")
+      .update({ generation_attempt_id: attemptId })
+      .eq("id", jobId);
+
+    if (error) throw new Error(`job attach generation attempt failed: ${error.message}`);
+  }
+
   // Creates a generate_image job from a confirmed revision (Milestone 5 owns
   // the handler; the job stays queued until then).
   async insertGenerateImageJob(input: {

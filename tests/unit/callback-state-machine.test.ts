@@ -54,6 +54,7 @@ function stubRpcTransition(data: unknown) {
 function buildMachine(overrides: Partial<CallbackStateMachineDeps> = {}) {
   const sentMessages: { chatId: bigint; text: string }[] = [];
   const acks: { callbackQueryId: string; text?: string }[] = [];
+  const dispatched: { origin: string; payload?: Record<string, unknown> }[] = [];
 
   const machine = new CallbackStateMachine({
     sessionRepository: {} as CallbackStateMachineDeps["sessionRepository"],
@@ -62,6 +63,9 @@ function buildMachine(overrides: Partial<CallbackStateMachineDeps> = {}) {
       ({
         insertGenerateImageJob: vi.fn(async () => "job-gen-1"),
       } as unknown as CallbackStateMachineDeps["jobRepository"]),
+    dispatchToProcessor: vi.fn(async (origin: string, _secret: string, payload) => {
+      dispatched.push({ origin, payload });
+    }),
     sendTelegramMessage: vi.fn(async (_token, chatId, text) => {
       sentMessages.push({ chatId, text });
     }),
@@ -71,18 +75,18 @@ function buildMachine(overrides: Partial<CallbackStateMachineDeps> = {}) {
     ...overrides,
   });
 
-  return { machine, sentMessages, acks };
+  return { machine, sentMessages, acks, dispatched };
 }
 
 describe("CallbackStateMachine", () => {
-  it("accepts generate and enqueues a generate_image job", async () => {
+  it("accepts generate and enqueues a generate_image job and dispatches the processor", async () => {
     withEnv();
     stubRpcTransition({ id: "session-1", status: "generating" });
     const jobRepository = {
       insertGenerateImageJob: vi.fn(async () => "job-gen-1"),
     } as unknown as CallbackStateMachineDeps["jobRepository"];
 
-    const { machine, acks } = buildMachine({ jobRepository });
+    const { machine, acks, dispatched } = buildMachine({ jobRepository });
 
     const outcome = await machine.handle({
       action: "generate",
@@ -90,6 +94,7 @@ describe("CallbackStateMachine", () => {
       session: session(),
       telegramUserId: 123n,
       callbackQueryId: "cb-1",
+      origin: "https://test.origin",
     });
 
     expect(outcome.status).toBe("accepted");
@@ -99,6 +104,12 @@ describe("CallbackStateMachine", () => {
     expect(repo.insertGenerateImageJob).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: "session-1", revisionId: "revision-1" }),
     );
+    expect(dispatched).toEqual([
+      {
+        origin: "https://test.origin",
+        payload: { sessionOrigin: "callback_generate" },
+      },
+    ]);
     expect(acks).toEqual([{ callbackQueryId: "cb-1", text: "Mulai membuat gambar..." }]);
   });
 
@@ -112,6 +123,7 @@ describe("CallbackStateMachine", () => {
       session: session({ telegramUserId: 999n }),
       telegramUserId: 123n,
       callbackQueryId: "cb-1",
+      origin: "https://test.origin",
     });
     expect(outcome.status).toBe("rejected_owner");
   });
@@ -126,6 +138,7 @@ describe("CallbackStateMachine", () => {
       session: session({ expiresAt: "2020-01-01T00:00:00Z" }),
       telegramUserId: 123n,
       callbackQueryId: "cb-1",
+      origin: "https://test.origin",
     });
     expect(outcome.status).toBe("rejected_expired");
   });
@@ -140,6 +153,7 @@ describe("CallbackStateMachine", () => {
       session: session({ status: "generating" }),
       telegramUserId: 123n,
       callbackQueryId: "cb-1",
+      origin: "https://test.origin",
     });
     expect(outcome.status).toBe("rejected_state");
     expect(acks.some((a) => a.text?.includes("diproses"))).toBe(true);
@@ -155,6 +169,7 @@ describe("CallbackStateMachine", () => {
       session: session(),
       telegramUserId: 123n,
       callbackQueryId: "cb-2",
+      origin: "https://test.origin",
     });
     expect(outcome.status).toBe("accepted");
     expect(sentMessages.some((m) => m.text.includes("instruksi revisi"))).toBe(true);
@@ -170,6 +185,7 @@ describe("CallbackStateMachine", () => {
       session: session(),
       telegramUserId: 123n,
       callbackQueryId: "cb-3",
+      origin: "https://test.origin",
     });
     expect(outcome.status).toBe("accepted");
     expect(sentMessages.some((m) => m.text.includes("Sesi dibatalkan"))).toBe(true);
@@ -185,8 +201,172 @@ describe("CallbackStateMachine", () => {
       session: session(),
       telegramUserId: 123n,
       callbackQueryId: "cb-4",
+      origin: "https://test.origin",
     });
     expect(outcome.status).toBe("rejected_state");
     expect(acks.some((a) => a.text?.includes("diproses"))).toBe(true);
+  });
+
+  it("accepts regenerate from result_ready and enqueues a new job", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "generating" });
+    const jobRepository = {
+      insertGenerateImageJob: vi.fn(async () => "job-gen-2"),
+    } as unknown as CallbackStateMachineDeps["jobRepository"];
+
+    const { machine, acks } = buildMachine({ jobRepository });
+
+    const outcome = await machine.handle({
+      action: "regenerate",
+      sessionId: "session-1",
+      session: session({ status: "result_ready" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-reg-1",
+      origin: "https://test.origin",
+    });
+
+    expect(outcome.status).toBe("accepted");
+    const repo = jobRepository as unknown as {
+      insertGenerateImageJob: ReturnType<typeof vi.fn>;
+    };
+    expect(repo.insertGenerateImageJob).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "session-1", revisionId: "revision-1" }),
+    );
+    expect(acks.some((a) => a.text?.includes("Mulai membuat gambar lagi"))).toBe(true);
+  });
+
+  it("rejects regenerate when session is not result_ready", async () => {
+    withEnv();
+    stubRpcTransition(null);
+    const { machine, acks } = buildMachine();
+    const outcome = await machine.handle({
+      action: "regenerate",
+      sessionId: "session-1",
+      session: session({ status: "awaiting_confirmation" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-reg-2",
+      origin: "https://test.origin",
+    });
+    expect(outcome.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("diproses"))).toBe(true);
+  });
+
+  it("accepts revise from result_ready and transitions to awaiting_revision_input", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "awaiting_revision_input" });
+    const { machine, sentMessages } = buildMachine();
+    const outcome = await machine.handle({
+      action: "revise",
+      sessionId: "session-1",
+      session: session({ status: "result_ready" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rev-1",
+      origin: "https://test.origin",
+    });
+    expect(outcome.status).toBe("accepted");
+    expect(sentMessages.some((m) => m.text.includes("instruksi revisi"))).toBe(true);
+  });
+
+  it("completes a result_ready session via completeSession", async () => {
+    withEnv();
+    const completeSession = vi.fn(async () => {});
+    const { machine, acks, sentMessages } = buildMachine({ completeSession });
+    const outcome = await machine.handle({
+      action: "complete",
+      sessionId: "session-1",
+      session: session({ status: "result_ready" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-complete-1",
+      origin: "https://test.origin",
+    });
+    expect(outcome.status).toBe("accepted");
+    expect(completeSession).toHaveBeenCalledWith("session-1");
+    expect(acks.some((a) => a.text?.includes("Sesi selesai"))).toBe(true);
+    expect(sentMessages.some((m) => m.text.includes("Sesi selesai"))).toBe(true);
+  });
+
+  it("rejects complete when session is not result_ready", async () => {
+    withEnv();
+    const completeSession = vi.fn(async () => {});
+    const { machine } = buildMachine({ completeSession });
+    const outcome = await machine.handle({
+      action: "complete",
+      sessionId: "session-1",
+      session: session({ status: "generating" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-complete-2",
+      origin: "https://test.origin",
+    });
+    expect(outcome.status).toBe("rejected_state");
+    expect(completeSession).not.toHaveBeenCalled();
+  });
+
+  it("rolls back the session when the generate job insert fails", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "generating" });
+    const jobRepository = {
+      insertGenerateImageJob: vi.fn(async () => {
+        throw new Error("insert failed");
+      }),
+    } as unknown as CallbackStateMachineDeps["jobRepository"];
+
+    const { machine, acks } = buildMachine({ jobRepository });
+
+    const outcome = await machine.handle({
+      action: "regenerate",
+      sessionId: "session-1",
+      session: session({ status: "result_ready" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-reg-3",
+      origin: "https://test.origin",
+    });
+
+    expect(outcome.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("Gagal mengirim permintaan"))).toBe(true);
+  });
+
+  it("accepts generate from generation_failed as a retry and dispatches", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "generating" });
+    const jobRepository = {
+      insertGenerateImageJob: vi.fn(async () => "job-gen-retry"),
+    } as unknown as CallbackStateMachineDeps["jobRepository"];
+
+    const { machine, dispatched, acks } = buildMachine({ jobRepository });
+
+    const outcome = await machine.handle({
+      action: "generate",
+      sessionId: "session-1",
+      session: session({ status: "generation_failed" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-gen-retry-1",
+      origin: "https://test.origin",
+    });
+
+    expect(outcome.status).toBe("accepted");
+    const repo = jobRepository as unknown as {
+      insertGenerateImageJob: ReturnType<typeof vi.fn>;
+    };
+    expect(repo.insertGenerateImageJob).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "session-1", revisionId: "revision-1" }),
+    );
+    expect(dispatched[0].payload).toEqual({ sessionOrigin: "callback_generate" });
+    expect(acks.some((a) => a.text?.includes("Mulai membuat gambar"))).toBe(true);
+  });
+
+  it("accepts revise from generation_failed and transitions to awaiting_revision_input", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "awaiting_revision_input" });
+    const { machine, sentMessages } = buildMachine();
+    const outcome = await machine.handle({
+      action: "revise",
+      sessionId: "session-1",
+      session: session({ status: "generation_failed" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rev-failed-1",
+      origin: "https://test.origin",
+    });
+    expect(outcome.status).toBe("accepted");
+    expect(sentMessages.some((m) => m.text.includes("instruksi revisi"))).toBe(true);
   });
 });

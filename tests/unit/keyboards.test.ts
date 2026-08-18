@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   confirmationKeyboard,
+  resultKeyboard,
   buildCallbackData,
   parseConfirmationData,
+  parseResultData,
 } from "@/server/telegram/keyboards";
 
 const SESSION_ID = "8f4f9c10-2a5a-4b3c-9d1e-000000000001";
@@ -33,5 +35,34 @@ describe("keyboards", () => {
     expect(parseConfirmationData("generate:session:extra")).toBeNull();
     expect(parseConfirmationData(undefined)).toBeNull();
     expect(parseConfirmationData("")).toBeNull();
+  });
+});
+
+describe("result keyboard (Milestone 5)", () => {
+  it("builds a result keyboard with the three post-result actions", () => {
+    const keyboard = resultKeyboard(SESSION_ID);
+    expect(keyboard.inline_keyboard).toHaveLength(1);
+    const buttons = keyboard.inline_keyboard[0];
+    expect(buttons).toHaveLength(3);
+    expect(buttons.map((b) => b.text)).toEqual(["Regenerate", "Revise Prompt", "Selesai"]);
+    expect(buttons[0].callback_data).toBe(`regenerate:${SESSION_ID}`);
+    expect(buttons[1].callback_data).toBe(`revise:${SESSION_ID}`);
+    expect(buttons[2].callback_data).toBe(`complete:${SESSION_ID}`);
+  });
+
+  it("round-trips callback data through parseResultData", () => {
+    for (const action of ["regenerate", "revise", "complete"] as const) {
+      const data = buildCallbackData(action, SESSION_ID);
+      expect(parseResultData(data)).toEqual({ action, sessionId: SESSION_ID });
+    }
+  });
+
+  it("rejects non-result actions and malformed data", () => {
+    expect(parseResultData("generate:abc")).toBeNull();
+    expect(parseResultData("regenerate:")).toBeNull();
+    expect(parseResultData("regenerate")).toBeNull();
+    expect(parseResultData("regenerate:session:extra")).toBeNull();
+    expect(parseResultData(undefined)).toBeNull();
+    expect(parseResultData("")).toBeNull();
   });
 });
