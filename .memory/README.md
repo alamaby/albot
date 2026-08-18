@@ -5,7 +5,7 @@ Last updated: 2026-08-13
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: **Milestone 4 IMPLEMENTED + E2E VERIFIED 2026-08-18** (Prompt Enhancement, Confirmation, and Revision). E2E dev lengkap: enhancement → confirmation → revise loop → generate → batal, provider Cloudflare gpt-oss-120b, 7 bug fixed selama E2E (registry import, base_url merge, session shape, callback wiring, prompt_session_id, revision processing, test isolation). Closure evidence pending.
+- Active milestone: **Milestone 4 CLOSED 2026-08-18** (Prompt Enhancement, Confirmation, and Revision). E2E dev lengkap: enhancement → confirmation → revise loop → generate → batal, provider Cloudflare gpt-oss-120b, 7 bug fixed selama E2E, acceptance criteria 8/8, CI #25-#32 success. Next: Milestone 5 (Image Generation).
 - Milestone 3 **CLOSED** 2026-08-13: platform wiring + E2E selesai (Vercel Preview env vars, webhook terpasang, seed admin applied, E2E prompt → session/revision/job rows, hosted 79/79).
 - Milestone 2 (Provider Abstraction and Configuration) **CLOSED** 2026-08-10: implementasi `209847d` + remediation `35a9cab` + closure (M/L transcribed: M1/M4/M5/M6 + C-Low A fixed; M7/M8/M10/M13-M16 + L2-L14 accepted; acceptance criteria checked). Evidence: run `31311782574` (dev 7 migrations Local==Remote, hosted 67/0 skip), 143 unit tests, production 0 migrations untouched
 - Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (9 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
@@ -45,11 +45,11 @@ Last updated: 2026-08-13
 
 ## Open Blockers
 
-- (none) — M4 E2E verified; closure evidence pending
+- (none) — M4 CLOSED; M5 belum dimulai
 
 ## Recent Entries
 
-- `2026-08-13/140000-milestone-4-implementation.md` — M4: implementation + E2E VERIFIED 2026-08-18. Bugs fixed: registry import, base_url merge (akar semua 401), session shape, callback wiring (stub "not wired"), prompt_session_id link, revision processing, test isolation. Provider dev: Cloudflare gpt-oss-120b. E2E: prompt → konfirmasi → revise → generate (job queued M5) → batal.
+- `2026-08-13/140000-milestone-4-implementation.md` — M4: implementation + E2E VERIFIED + CLOSED 2026-08-18. Bugs fixed: registry import, base_url merge (akar semua 401), session shape, callback wiring (stub "not wired"), prompt_session_id link, revision processing, test isolation. Provider dev: Cloudflare gpt-oss-120b. E2E: prompt → konfirmasi → revise → generate (job queued M5) → batal. Closure plan `plans/2026-08-18-milestone-4-closure-plan.md`, CI #25-#32 success.
 - `2026-08-11/100000-milestone-3-pr1-code-cleanup.md` — PR #1: plan synchronization, code cleanup (bigint helper, parser simplification, messages, dispatcher body), test coverage enhancements for idle/claim-error paths, update_id validation, unknown callback ack, dispatcher body, runbook creation for manual admin bootstrap and platform wiring.
 - `2026-08-10/161500-milestone-3-implementation.md` — M3 webhook intake + durable jobs: RPC create_initial_session, telegram auth/parser/client/messages, 5 repositories, webhook + processor routes, inline dispatcher, 218 tests pass, 8 migrations applied dev
 - `2026-08-10/141000-milestone-2-review-followup.md` — post-closure review follow-up: http.ts helper, Pixazo https-only + request_id fallback + metadata, vault injectable, markSuccess fail-fast, 150 unit + hosted 74/0

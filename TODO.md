@@ -4,15 +4,14 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 4: Prompt Enhancement, Confirmation, and Revision (E2E verified 2026-08-18 — closure evidence pending)
+Milestone 4: Prompt Enhancement, Confirmation, and Revision (**CLOSED 2026-08-18** — lihat Completed)
 
 ## In Progress
 
-- [x] Implement Milestone 4 (implementation + E2E dev verified)
+- (none) — Milestone 4 CLOSED 2026-08-18. Lihat bagian Completed.
 
 ## Pending
 
-- [ ] Record M4 closure evidence (CI run, migration run, DB timeline, screenshots) dan update plan
 - [ ] Implement Milestone 5 dan record verification evidence
 - [ ] Implement Milestone 6 dan record verification evidence
 - [ ] Implement Milestone 7 dan record verification evidence
@@ -23,6 +22,20 @@ Milestone 4: Prompt Enhancement, Confirmation, and Revision (E2E verified 2026-0
 - (none)
 
 ## Completed
+
+### Milestone 4: Prompt Enhancement, Confirmation, and Revision (closed 2026-08-18)
+
+- [x] Handler `enhance_prompt`: select provider+key dari DB config, `provider_requests` audit, invoke adapter, zod-validate structured output, persist revision, session → `awaiting_confirmation`, konfirmasi + tombol Generate/Revise Lagi/Batal
+- [x] Callback state machine inline webhook: generate (job `generate_image` + `generating`), revise (`awaiting_revision_input`), cancel (`cancelled`); dedupe + owner check + expiry + CAS
+- [x] Revision input: `create_revision` RPC (monotonic, immutable, `previous_prompt` audit), re-enhance
+- [x] Retry bounded: classification + backoff (cap 8m), `mark_revision_failed` guard, worker-ownership updates
+- [x] Migration `20260813074037` (2 RPC + partial unique index + status index) + forward-fix `20260813091942` — dev 11/11, prod 0
+- [x] Seed script `seed-provider-config.mjs` (+ .env load, `--env-key`); provider dev: Cloudflare Workers AI gpt-oss-120b (OpenRouter di-deactivate)
+- [x] 7 bug fixed selama E2E (registry import, base_url merge, session shape, callback wiring, prompt_session_id, revision processing, test isolation)
+- [x] E2E dev verified: prompt → enhancement → konfirmasi → revise loop → generate (job queued) → batal
+- [x] All verification: lint 0, typecheck clean, 179 unit + hosted contract/integration green, build clean, CI validate #25-#32 success, db checks clean
+- [x] Production untouched (0 migrations)
+- [x] Closure plan: `plans/2026-08-18-milestone-4-closure-plan.md`
 
 ### Milestone 3: Telegram Intake and Durable Jobs (closed 2026-08-13)
 

@@ -4,7 +4,7 @@ Date: 2026-08-13 (updated 2026-08-18 E2E)
 
 ## Status
 
-**IMPLEMENTED + E2E VERIFIED 2026-08-18** — local + hosted tests green, migration 11/11 applied ke dev, production untouched. E2E happy path lengkap di dev (enhancement → confirmation → revise loop → generate → batal). Closure evidence recording pending.
+**CLOSED 2026-08-18** — implementation + E2E dev verified + closure plan `plans/2026-08-18-milestone-4-closure-plan.md`. Local + hosted tests green, migration 11/11 applied ke dev, production untouched. CI validate #25-#32 success.
 
 ## E2E Results (dev, 2026-08-18)
 
