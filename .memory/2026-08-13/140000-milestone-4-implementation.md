@@ -1,41 +1,49 @@
 # Milestone 4 — Prompt Enhancement, Confirmation, and Revision
 
-Date: 2026-08-13
+Date: 2026-08-13 (updated 2026-08-18 E2E)
 
 ## Status
 
-**Implementation done** — local + hosted tests green (266/266, 34 files), migration 11/11 applied ke dev, production untouched. Platform wiring (provider seed di dev, E2E Telegram, screenshots) dan closure pending.
+**IMPLEMENTED + E2E VERIFIED 2026-08-18** — local + hosted tests green, migration 11/11 applied ke dev, production untouched. E2E happy path lengkap di dev (enhancement → confirmation → revise loop → generate → batal). Closure evidence recording pending.
 
-## Scope Implemented
+## E2E Results (dev, 2026-08-18)
 
-- Handler `enhance_prompt` di job processor (sebelumnya skeleton no-op M3): select provider via registry/selector M2 (config + key dari DB), `provider_requests` audit row sebelum outbound, invoke reasoning adapter, parse + zod validate structured JSON output (`prompt`/`negative_prompt`/`aspect_ratio`), persist revision `completed`, transition session `received|awaiting_revision_input → enhancing → awaiting_confirmation`, kirim confirmation message + inline keyboard.
-- Callback state machine inline di webhook: `generate` (insert `generate_image` job + session → `generating`, M5 handler), `revise` (→ `awaiting_revision_input` + minta instruksi), `cancel` (→ `cancelled`). Owner check + expiry check + CAS; dedupe via `callback_events.insertIfAbsent`.
-- Revision input: text saat session `awaiting_revision_input` → RPC `create_revision` (revision_number monotonic, immutable, `previous_prompt` = enhanced lama) → transition → enqueue `enhance_prompt` baru → dispatch.
-- Retry bounded: `classifyEnhancementError` (retryable 408/429/5xx; terminal 4xx non-429, invalid output) + backoff `60s * 2^n` cap 8m; `mark_revision_failed` guard-patched; job `retry_scheduled`/`failed` via worker-ownership update.
-- Migration `20260813074037` (2 RPC: `mark_revision_failed`, `create_revision` + partial unique index `prompt_sessions_one_active_idx` + `prompt_sessions_status_idx`) + forward-fix `20260813091942` (`#variable_conflict use_column` — original RPC ambiguous `revision_number`).
-- Script `scripts/seed-provider-config.mjs` (provision provider config + encrypted key dev).
-- `docs/runbooks/milestone-4-e2e.md`, `docs/environment-variables.md` note.
+- Prompt "desain poster kafe cozy di malam hari" → enhancement (Cloudflare gpt-oss-120b, HTTP 200) → session `awaiting_confirmation`, revision `completed`, pesan konfirmasi + tombol Generate/Revise Lagi/Batal muncul.
+- `Revise Lagi` → instruksi "buat lebih terang" → revision 2 `completed` (previous_prompt audit), revision 1 immutable.
+- `Generate` → session `generating` + job `generate_image` `queued` (handler M5 belum ada — expected).
+- `Batal` → session `cancelled`.
+- Callback dedupe: callback_events unique per callback_query_id; `prompt_session_id` ter-link.
+
+## Platform/Provider
+
+- **Provider reasoning dev: Cloudflare Workers AI** (`@cf/openai/gpt-oss-120b`) via openai_compatible adapter, base_url `https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1`. OpenRouter free (`nvidia/nemotron-3.5-lightning:free`, `poolside/laguna-xs-2.1:free`) di-deactivate karena 401 (key dikirim ke base_url salah — bug, sudah fixed).
+- Seed via `scripts/seed-provider-config.mjs` (membaca .env, `--env-key`). Config `bd1c7875` + key Cloudflare di dev.
+- **Vercel Preview deploy manual** via `vercel` CLI (bukan auto-deploy): setiap push → `npx vercel` → update webhook ke URL baru via script (TELEGRAM_BOT_TOKEN/SECRET di .env lokal, sama dengan Vercel Preview).
+
+## Bugs Fixed Selama E2E (semua di-commit ke main)
+
+1. `provider_adapter_unknown` — registry adapter tidak ter-registrasi: tambah `import "@/server/providers/index"` side-effect di enhance-prompt.ts.
+2. Semua 401 (`provider_authentication_failed`) — adapter factory membaca `base_url` dari `config.settings`, tapi use case hanya meneruskan settings; base_url/model dari kolom DB tidak diteruskan → request ke `api.openai.com` default. Fix: merge `base_url` + `model` dari ProviderConfigSafe ke payload factory.
+3. `confirmation send failed (toString undefined)` — `transitionSessionOrThrow` mengembalikan raw RPC row (snake_case); `telegramChatId` undefined. Fix: reload via `sessionRepository.getById` setelah transisi.
+4. Callback "berkilau" tidak merespons — `createDefaultWebhookDeps` meng-construct `RevisionInputUseCase`/`CallbackStateMachine` tanpa Telegram client (stub "not wired"). Fix: wire `sendTelegramMessage`/`answerCallbackQuery`/`dispatchToProcessor` ke use cases.
+5. `callback_events.prompt_session_id` null — parse sessionId dari callback data sebelum insert.
+6. `mark_revision_failed` guard gagal — revision tidak pernah `processing`. Fix: `markRevisionProcessing` sebelum provider call.
+7. Contract test enhancement-flow flaky — deactivate config lain di beforeAll (isolate), cleanup FK-safe.
 
 ## Verification
 
-- `npm test` — **266 passed** (34 files) termasuk contract baru: revision-rpc, session-one-active, enhancement-flow (mock provider end-to-end: select → request → persist → transition).
+- `npm test` — 266+ unit/hosted green (final: 180 unit + hosted).
 - lint 0 warning, typecheck clean, format clean, build clean.
 - `db:lint`, `db:check-migrations` (11), `db:types:check` — clean.
-- Dev migration 11/11 (Local==Remote). Production 0 untouched.
+- Dev migration 11/11. Production 0 untouched.
 
 ## Notes / Gotchas
 
-- **Claim_job global FIFO + test isolation**: contract test `claim_job` concurrency gagal bila ada job claimable asing (enhancement-flow leftover). Fix: enhancement-flow job diinsert sebagai `processing` (bukan `queued`) agar tidak claimable, dan cleanup FK-safe (provider_requests → jobs → sessions → revisions → keys → configs). Job `ct_*` dari run yang gagal harus di-cleanup manual (delete provider_requests dulu — FK RESTRICT).
-- **Cleanup aktif-sesi dev**: sebelum migration partial unique index, 22 session aktif leftover test di-cancel manual (user range `88xxxxxxx` + admin `83540732`).
-- **RPC args types**: `create_revision`/`mark_revision_failed` args di generated types non-nullable (SQL `text`); call site memakai cast `as never` di test/repo sampai types di-regenerate.
-
-## Pending Platform Wiring
-
-1. Seed provider reasoning di dev (`node scripts/seed-provider-config.mjs ...` + key OpenAI).
-2. E2E Telegram dev: prompt → enhancement → konfirmasi → Revise Lagi → revisi 2 → Generate (job `generate_image` queued) → Batal.
-3. Record evidence (CI run, migration run, DB timeline, screenshots, failover test).
-4. Commit + push → CI validate green → closure M4.
+- **Claim_job global FIFO + test isolation**: contract test `claim_job` concurrency gagal bila ada job claimable asing. Job `ct_*`/`worker-contract` leftover harus cleanup manual (delete provider_requests dulu — FK RESTRICT).
+- **`vercel env pull` menghasilkan `[SENSITIVE]` untuk Sensitive vars** — token bot/secret harus disalin manual ke .env lokal.
+- **Vercel Preview tidak auto-deploy dari push** — tiap deploy manual `npx vercel`, webhook di-update ke URL baru.
+- **Session aktif dev** — sebelum tiap E2E, cancel session non-terminal (partial unique index).
 
 ## Next
 
-- M5: Image Generation and Post-Result Actions (handler `generate_image`).
+- M5: Image Generation and Post-Result Actions (handler `generate_image` — job sudah `queued` di dev).
