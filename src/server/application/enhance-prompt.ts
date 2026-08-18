@@ -179,9 +179,16 @@ export class EnhancePromptUseCase {
     });
 
     try {
+      // Adapter factories read base_url/model from the config payload; merge
+      // the DB row's columns (baseUrl, model) into the settings so the adapter
+      // hits the configured endpoint instead of the factory default.
       const adapter = getProviderRegistry().createReasoningProvider(
         selected.config.adapterType,
-        selected.config.settings,
+        {
+          ...selected.config.settings,
+          base_url: selected.config.baseUrl,
+          model: selected.config.model,
+        },
         await this.decryptKey(selected),
       );
 
