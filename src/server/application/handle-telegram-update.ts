@@ -49,6 +49,9 @@ export type TelegramWebhookDeps = {
 };
 
 export function createDefaultWebhookDeps(): TelegramWebhookDeps {
+  const sendTelegramMessage = sendMessage;
+  const answerTelegramCallback = answerCallbackQuery;
+  const dispatchToProcessor = dispatchToProcessorUrl;
   return {
     botUserRepository: new BotUserRepository(),
     sessionPolicyRepository: new SessionPolicyRepository(),
@@ -56,11 +59,19 @@ export function createDefaultWebhookDeps(): TelegramWebhookDeps {
     callbackEventRepository: new CallbackEventRepository(),
     initialSessionRepository: new InitialSessionRepository(),
     sessionRepository: new SessionRepository(),
-    revisionInput: new RevisionInputUseCase(),
-    callbackStateMachine: new CallbackStateMachine(),
-    sendTelegramMessage: sendMessage,
-    answerTelegramCallback: answerCallbackQuery,
-    dispatchToProcessor: dispatchToProcessorUrl,
+    // Wire the real Telegram client + dispatcher into the M4 use cases; their
+    // default stubs throw "not wired" and would break callbacks/revision input.
+    revisionInput: new RevisionInputUseCase({
+      sendTelegramMessage,
+      dispatchToProcessor,
+    }),
+    callbackStateMachine: new CallbackStateMachine({
+      sendTelegramMessage,
+      answerCallbackQuery: answerTelegramCallback,
+    }),
+    sendTelegramMessage,
+    answerTelegramCallback,
+    dispatchToProcessor,
   };
 }
 
@@ -144,12 +155,16 @@ async function handleCallbackQuery(
   // Recognized callback actions are recorded for deduplication before the state
   // machine runs (Milestone 4). Unknown data is acknowledged without persisting.
   const action = parseCallbackAction(callback.data);
+  // Callback data shape: "<action>:<sessionId>". Parse early so the callback
+  // event row links to the session (audit + dedupe).
+  const sessionId = callback.data?.split(":")[1];
   let callbackEventId: string | null = null;
   if (action !== "unknown") {
     callbackEventId = await deps.callbackEventRepository.insertIfAbsent({
       callbackQueryId: callback.callbackQueryId,
       action,
       telegramUserId: callback.userId,
+      promptSessionId: sessionId,
     });
   }
 
@@ -166,7 +181,6 @@ async function handleCallbackQuery(
 
   // Resolve the session id from the callback data (action:sessionId) and run
   // the inline state machine. Failures are logged; the callback is answered.
-  const sessionId = callback.data?.split(":")[1];
   if (sessionId && action !== "unknown") {
     try {
       const session = await deps.sessionRepository.getById(sessionId);

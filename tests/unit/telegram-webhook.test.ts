@@ -300,6 +300,7 @@ describe("handleTelegramUpdate - callback query", () => {
       callbackQueryId: "callback-1",
       action: "generate",
       telegramUserId: 123n,
+      promptSessionId: "session-1",
     });
     expect(deps.callbackStateMachine.handle).toHaveBeenCalledWith(
       expect.objectContaining({ action: "generate", sessionId: "session-1" }),
