@@ -102,6 +102,13 @@ export class CallbackStateMachine {
     }
 
     if (isSessionExpired(session)) {
+      // Tell the user the session ended instead of silently rejecting; without
+      // this the callback loading indicator just stops with no feedback.
+      await this.ack(
+        env.TELEGRAM_BOT_TOKEN,
+        callbackQueryId,
+        "Sesi telah berakhir. Kirim prompt baru.",
+      );
       return { status: "rejected_expired" };
     }
 

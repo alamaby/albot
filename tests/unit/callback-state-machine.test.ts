@@ -131,7 +131,7 @@ describe("CallbackStateMachine", () => {
   it("rejects an expired session without transitions", async () => {
     withEnv();
     stubRpcTransition(null);
-    const { machine } = buildMachine();
+    const { machine, acks } = buildMachine();
     const outcome = await machine.handle({
       action: "generate",
       sessionId: "session-1",
@@ -141,6 +141,7 @@ describe("CallbackStateMachine", () => {
       origin: "https://test.origin",
     });
     expect(outcome.status).toBe("rejected_expired");
+    expect(acks.some((a) => a.text?.includes("Sesi telah berakhir"))).toBe(true);
   });
 
   it("rejects generate when session is not awaiting_confirmation", async () => {
