@@ -13,6 +13,8 @@ Milestone 6: Reliability, Security, and Observability (**IN PROGRESS** — lihat
 Plan: `plans/milestone-6-reliability-security-observability.md`
 
 - [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — **belum di-apply ke dev** (menunggu workflow migrate-development)
+- [x] Migration `20260819130000` (review fix: purge null-kan active pointers sebelum delete children + `telegram_updates` batch bounded; comment dokumentasi attempt double-count) — **belum di-apply ke dev**
+- [x] Review fix: hapus `setCorrelationId` dead code, contract test baru (purge dengan active pointers, cancelled revision-only, dead-job lease-expired max)
 - [x] Backoff full jitter (`src/server/jobs/backoff.ts`) + wire ke `EnhancementJobRetry`/`GenerationJobRetry`
 - [x] Observability: `logger.ts` (structured JSON + redaction), `redact.ts`, `correlation.ts` (AsyncLocalStorage + `x-correlation-id`)
 - [x] Recovery: `job-event.repository.ts`, `recovery.repository.ts`, `recovery.ts` (lease → dead → session → purge), `/api/recovery/run`
@@ -27,7 +29,7 @@ Plan: `plans/milestone-6-reliability-security-observability.md`
 
 **Langkah manual tersisa (catatan untuk closure):**
 
-- [ ] Apply migration `20260819120000` ke dev via workflow `migrate-development` (dev 15/15, prod 0) → lalu contract test recovery lulus (sekarang PGRST202 karena RPC belum ada di dev)
+- [ ] Apply migration `20260819120000` + `20260819130000` ke dev via workflow `migrate-development` (dev 16/16, prod 0) → lalu contract test recovery lulus (sekarang PGRST202 karena RPC belum ada di dev)
 - [ ] Deploy ke Vercel Preview (alias stabil `albot-git-main-alamaby.vercel.app`)
 - [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` (harus sama dengan Vercel Preview)
 - [ ] Verifikasi cron `recovery-development.yml` (1 run manual + schedule)

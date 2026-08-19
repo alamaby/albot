@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { logStructured, type LogFields } from "@/server/observability/logger";
-import { setCorrelationId, withCorrelation } from "@/server/observability/correlation";
+import { withCorrelation } from "@/server/observability/correlation";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -67,13 +67,5 @@ describe("logStructured", () => {
     const b = records.find((r) => r.event === "b");
     expect(a.correlationId).toBe("ctx-a");
     expect(b.correlationId).toBe("ctx-b");
-  });
-
-  it("setCorrelationId leaks into the current context (enterWith semantics)", () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    setCorrelationId("entered-id");
-    logStructured("info", "leaked", {});
-    const record = JSON.parse(info.mock.calls[0][0] as string);
-    expect(record.correlationId).toBe("entered-id");
   });
 });

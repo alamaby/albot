@@ -37,6 +37,11 @@ Urutan penghapusan child-first (FK semuanya `on delete restrict`):
 `prompt_revisions` → `callback_events` → `telegram_updates` →
 `prompt_sessions`.
 
+Sebelum children dihapus, `prompt_sessions` yang di-purge di-null-kan dulu
+`active_revision_id` dan `active_generation_attempt_id`-nya (FK `on delete
+restrict` ke children; sesi terminal yang pernah generate menyimpan pointer ini
+sampai purge).
+
 ## Cara mengubah
 
 1. Ubah konstanta `RETENTION_DAYS` di `src/server/jobs/recovery.ts`, atau
@@ -47,5 +52,12 @@ Urutan penghapusan child-first (FK semuanya `on delete restrict`):
 
 - Prompt teks adalah metadata; di-purge setelah 30 hari.
 - `telegram_updates` di-purge berdasarkan umur saja (tidak ada FK sesi);
-  dedupe update hanya butuh row di sekitar window delivery Telegram.
+  dedupe update hanya butuh row di sekitar window delivery Telegram. Per run
+  dibatasi `p_max_rows` (bounded, tidak menghapus semua row lama sekaligus).
+- **Lease recovery dan attempt_count:** setiap `expire_job_leases` menambah
+  `attempt_count` +1 (sweep), dan `claim_job` berikutnya menambah +1 lagi —
+  satu worker crash menghabiskan 2 attempt. Ini disengaja agar job yang
+  worker-nya sering crash mencapai `max_attempts` lebih cepat dan tidak
+  hot-loop selamanya; job `processing` dengan `attempt_count >= max_attempts`
+  dan lease expired akan di-`failed` (`dead_job`) oleh `mark_dead_jobs`.
 - Log Vercel tidak termasuk kebijakan ini (diatur oleh Vercel sendiri).

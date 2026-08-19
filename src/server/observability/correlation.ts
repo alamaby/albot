@@ -14,10 +14,6 @@ export function generateCorrelationId(): string {
   return randomUUID();
 }
 
-export function setCorrelationId(correlationId: string): void {
-  correlationStorage.enterWith(correlationId);
-}
-
 export function getCorrelationId(): string | undefined {
   return correlationStorage.getStore();
 }

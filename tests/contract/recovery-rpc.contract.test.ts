@@ -311,4 +311,209 @@ describe.skipIf(skip)("recovery RPC contract", () => {
       .single();
     expect(activeSession?.id).toBe(activeSessionId);
   });
+
+  it("purge_expired_metadata nulls active pointers before deleting children (FK fix)", async () => {
+    const admin = getAdminClient();
+    const oldDate = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+    const oldExpiry = new Date(Date.now() - 39 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Terminal session that generated an image: it retains active pointers to a
+    // revision and a generation attempt (FK on delete restrict).
+    const oldSessionId = await insertSession({
+      status: "completed",
+      created_at: oldDate,
+      expires_at: oldExpiry,
+    });
+
+    const { data: oldRevision } = await admin
+      .from("prompt_revisions")
+      .insert({
+        session_id: oldSessionId,
+        revision_number: 1,
+        source_prompt: "old prompt",
+        status: "completed",
+        created_at: oldDate,
+      } as never)
+      .select("id")
+      .single();
+    expect(oldRevision).toBeTruthy();
+    cleanup.push({ table: "prompt_revisions", id: oldRevision!.id });
+
+    const { data: oldAttempt } = await admin
+      .from("generation_attempts")
+      .insert({
+        session_id: oldSessionId,
+        revision_id: oldRevision!.id,
+        attempt_number: 1,
+        status: "succeeded",
+        created_at: oldDate,
+      } as never)
+      .select("id")
+      .single();
+    expect(oldAttempt).toBeTruthy();
+    cleanup.push({ table: "generation_attempts", id: oldAttempt!.id });
+
+    // Point the session at both children (the state a real completed session
+    // keeps until purge).
+    const { error: pointerError } = await admin
+      .from("prompt_sessions")
+      .update({
+        active_revision_id: oldRevision!.id,
+        active_generation_attempt_id: oldAttempt!.id,
+      })
+      .eq("id", oldSessionId);
+    expect(pointerError).toBeNull();
+
+    // Active session with a fresh revision must survive and keep its pointer.
+    const activeSessionId = await insertSession({
+      created_at: oldDate,
+      expires_at: "2099-01-01T00:00:00.000Z",
+    });
+    const { data: activeRevision } = await admin
+      .from("prompt_revisions")
+      .insert({
+        session_id: activeSessionId,
+        revision_number: 1,
+        source_prompt: "active prompt",
+        status: "completed",
+        created_at: oldDate,
+      } as never)
+      .select("id")
+      .single();
+    expect(activeRevision).toBeTruthy();
+    cleanup.push({ table: "prompt_revisions", id: activeRevision!.id });
+    const { error: activePointerError } = await admin
+      .from("prompt_sessions")
+      .update({ active_revision_id: activeRevision!.id })
+      .eq("id", activeSessionId);
+    expect(activePointerError).toBeNull();
+
+    const { data, error } = await admin.rpc(
+      "purge_expired_metadata" as never,
+      {
+        p_retention_days: 30,
+        p_max_rows: 100,
+      } as never,
+    );
+    expect(error).toBeNull();
+    expect(Number((data as unknown as { purged_rows: number }[])[0].purged_rows)).toBeGreaterThan(
+      0,
+    );
+
+    const { data: oldSession } = await admin
+      .from("prompt_sessions")
+      .select("id")
+      .eq("id", oldSessionId)
+      .maybeSingle();
+    expect(oldSession).toBeNull();
+
+    const { data: activeSession } = await admin
+      .from("prompt_sessions")
+      .select("id, active_revision_id")
+      .eq("id", activeSessionId)
+      .single();
+    expect(activeSession?.id).toBe(activeSessionId);
+    expect(activeSession?.active_revision_id).toBe(activeRevision!.id);
+  });
+
+  it("purge_expired_metadata handles a cancelled session with only an active revision", async () => {
+    const admin = getAdminClient();
+    const oldDate = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+    const oldExpiry = new Date(Date.now() - 39 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Cancelled before generation: session keeps active_revision_id only.
+    const cancelledId = await insertSession({
+      status: "cancelled",
+      created_at: oldDate,
+      expires_at: oldExpiry,
+    });
+
+    const { data: revision } = await admin
+      .from("prompt_revisions")
+      .insert({
+        session_id: cancelledId,
+        revision_number: 1,
+        source_prompt: "cancelled prompt",
+        status: "completed",
+        created_at: oldDate,
+      } as never)
+      .select("id")
+      .single();
+    expect(revision).toBeTruthy();
+    cleanup.push({ table: "prompt_revisions", id: revision!.id });
+
+    const { error: pointerError } = await admin
+      .from("prompt_sessions")
+      .update({ active_revision_id: revision!.id })
+      .eq("id", cancelledId);
+    expect(pointerError).toBeNull();
+
+    const { error } = await admin.rpc(
+      "purge_expired_metadata" as never,
+      {
+        p_retention_days: 30,
+        p_max_rows: 100,
+      } as never,
+    );
+    expect(error).toBeNull();
+
+    const { data: cancelledSession } = await admin
+      .from("prompt_sessions")
+      .select("id")
+      .eq("id", cancelledId)
+      .maybeSingle();
+    expect(cancelledSession).toBeNull();
+  });
+
+  it("mark_dead_jobs catches processing jobs with expired lease and exhausted attempts", async () => {
+    const admin = getAdminClient();
+    const past = new Date(Date.now() - 60_000).toISOString();
+
+    // Processing + expired lease + attempt_count == max_attempts: expire_job_leases
+    // must skip it (filter attempt_count < max_attempts), mark_dead_jobs must fail it.
+    const exhausted = await insertJob({
+      status: "processing",
+      locked_at: past,
+      locked_by: "stale-worker",
+      lease_expires_at: past,
+      attempt_count: 3,
+      max_attempts: 3,
+    });
+
+    // expire_job_leases first: must NOT touch the exhausted job.
+    const expire = await admin.rpc(
+      "expire_job_leases" as never,
+      {
+        p_max_jobs: 10,
+      } as never,
+    );
+    expect(expire.error).toBeNull();
+    const recovered = (expire.data as unknown as { id: string }[]) ?? [];
+    expect(recovered.map((r) => r.id)).not.toContain(exhausted);
+
+    const { data: stillProcessing } = await admin
+      .from("jobs")
+      .select("status")
+      .eq("id", exhausted)
+      .single();
+    expect(stillProcessing?.status).toBe("processing");
+
+    // mark_dead_jobs then: must terminal-fail it.
+    const dead = await admin.rpc(
+      "mark_dead_jobs" as never,
+      {
+        p_max_jobs: 10,
+      } as never,
+    );
+    expect(dead.error).toBeNull();
+    const marked = (dead.data as unknown as { id: string }[]) ?? [];
+    expect(marked.map((r) => r.id)).toContain(exhausted);
+
+    const { data: deadRow } = await admin
+      .from("jobs")
+      .select("status, last_error_code")
+      .eq("id", exhausted)
+      .single();
+    expect(deadRow).toMatchObject({ status: "failed", last_error_code: "dead_job" });
+  });
 });

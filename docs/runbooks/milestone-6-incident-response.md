@@ -74,6 +74,9 @@ tinggi dan tidak turun.
 3. Jika job `failed` dengan `last_error_code = dead_job`:
    - `attempt_count >= max_attempts` → ekspektasi; sesi sudah terminal
      (`generation_failed`/`enhancement_failed`).
+   - **Catatan attempt_count:** lease recovery menghabiskan 2 attempt (sweep +1,
+     re-claim +1) — job yang worker-nya crash berulang mencapai `max_attempts`
+     lebih cepat. Ini disengaja agar job tidak hot-loop selamanya.
    - Investigasi error asli dari `provider_requests`/`job_events` sesi terkait.
 4. Jika masih `queued` dengan `available_at` lewat: cek apakah processor
    `POST /api/jobs/process` merespons (dispatcher inline gagal?). Job akan
