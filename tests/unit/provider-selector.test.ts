@@ -77,7 +77,7 @@ describe("ProviderSelector", () => {
 
     await expect(
       selector.selectProvider("image_generation", configs, keys, "priority_failover"),
-    ).rejects.toThrow("no eligible keys");
+    ).rejects.toThrow("no provider config with an eligible key");
   });
 
   it("returns key when eligible", async () => {
@@ -92,6 +92,22 @@ describe("ProviderSelector", () => {
       "priority_failover",
     );
     expect(result.key.id).toBe("k1");
+  });
+
+  it("fails over to a config with an eligible key when the highest-priority one has none", async () => {
+    const selector = new ProviderSelector();
+    const configs = [makeConfig({ id: "a", priority: 0 }), makeConfig({ id: "b", priority: 1 })];
+    // Config "a" is active but has no key; config "b" has one.
+    const keys = new Map([["b", [makeKey({ id: "k-b", providerConfigId: "b" })]]]);
+
+    const result = await selector.selectProvider(
+      "image_generation",
+      configs,
+      keys,
+      "priority_failover",
+    );
+    expect(result.config.id).toBe("b");
+    expect(result.key.id).toBe("k-b");
   });
 
   it("weighted selection honors config weight via seed", async () => {

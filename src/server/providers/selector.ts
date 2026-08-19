@@ -65,25 +65,16 @@ export class ProviderSelector {
     }
 
     let selected: ProviderConfigSafe;
-
-    if (strategy === "priority_failover") {
-      // Sort by priority ascending (lower = higher priority), then by id for stability.
-      const sorted = [...active].sort((a, b) => {
-        if (a.priority !== b.priority) return a.priority - b.priority;
-        return a.id.localeCompare(b.id);
-      });
-      selected = sorted[0];
+    let keys: ProviderKeySafe[] = [];
+    const picked = this.pickConfigWithKey(active, keysByConfig, strategy, options?.seed);
+    if (picked) {
+      selected = picked.config;
+      keys = picked.keys;
     } else {
-      // Weighted selection: deterministic cumulative-prefix draw.
-      selected = this.selectWeighted(active, this.configSeed(active, options?.seed));
+      throw makeNonRetryable("provider_key_unavailable", "no provider config with an eligible key");
     }
 
-    const keys = keysByConfig.get(selected.id) ?? [];
     const eligible = keys.filter((k) => this.isKeyEligible(k));
-
-    if (eligible.length === 0) {
-      throw makeNonRetryable("provider_key_unavailable", "no eligible keys for selected provider");
-    }
 
     const key = this.selectKey(
       eligible,
@@ -91,6 +82,39 @@ export class ProviderSelector {
       this.keySeed(selected, options?.seed),
     );
     return { config: selected, key };
+  }
+
+  // Picks the first provider config that has at least one eligible key.
+  // For priority_failover the order is priority then id (deterministic);
+  // for weighted the drawn config comes first, then the remaining configs in
+  // priority order as fallback. Returns null when no config has an eligible
+  // key, so an active config without keys never blocks one that does.
+  private pickConfigWithKey(
+    active: ProviderConfigSafe[],
+    keysByConfig: Map<string, ProviderKeySafe[]>,
+    strategy: SelectionStrategy,
+    seed?: string,
+  ): { config: ProviderConfigSafe; keys: ProviderKeySafe[] } | null {
+    const priorityOrdered = [...active].sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return a.id.localeCompare(b.id);
+    });
+
+    const order =
+      strategy === "priority_failover"
+        ? priorityOrdered
+        : (() => {
+            const drawn = this.selectWeighted(active, this.configSeed(active, seed));
+            return [drawn, ...priorityOrdered.filter((c) => c.id !== drawn.id)];
+          })();
+
+    for (const candidate of order) {
+      const candidateKeys = keysByConfig.get(candidate.id) ?? [];
+      if (candidateKeys.some((k) => this.isKeyEligible(k))) {
+        return { config: candidate, keys: candidateKeys };
+      }
+    }
+    return null;
   }
 
   private isKeyEligible(key: ProviderKeySafe): boolean {
