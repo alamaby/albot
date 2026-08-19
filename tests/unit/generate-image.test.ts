@@ -169,7 +169,8 @@ type Harness = {
   useCase: GenerateImageUseCase;
   calls: {
     createAttempt: { sessionId: string; revisionId: string }[];
-    markProcessing: { attemptId: string; parameters?: Record<string, unknown> }[];
+    markProcessing: { attemptId: string }[];
+    attachProviderToAttempt: { attemptId: string; parameters?: Record<string, unknown> }[];
     sendPhoto: { imageUrl: string }[];
     markAttemptSucceeded: { attemptId: string; messageId: number | null }[];
     markProviderRequestSucceeded: { requestId: string }[];
@@ -194,6 +195,7 @@ function buildUseCase(
   const calls: Harness["calls"] = {
     createAttempt: [],
     markProcessing: [],
+    attachProviderToAttempt: [],
     sendPhoto: [],
     markAttemptSucceeded: [],
     markProviderRequestSucceeded: [],
@@ -221,9 +223,12 @@ function buildUseCase(
       calls.createAttempt.push(input);
       return { attemptId: "attempt-1", attemptNumber: overrides.attemptNumber ?? 1 };
     }),
-    markProcessing: vi.fn(
-      async (attemptId: string, _configId?: string, parameters?: Record<string, unknown>) => {
-        calls.markProcessing.push({ attemptId, parameters });
+    markProcessing: vi.fn(async (attemptId: string) => {
+      calls.markProcessing.push({ attemptId });
+    }),
+    attachProviderToAttempt: vi.fn(
+      async (attemptId: string, _configId: string, parameters?: Record<string, unknown>) => {
+        calls.attachProviderToAttempt.push({ attemptId, parameters });
       },
     ),
     markAttemptSucceeded: vi.fn(
@@ -318,9 +323,10 @@ describe("GenerateImageUseCase", () => {
 
     expect(outcome.status).toBe("completed");
     expect(calls.createAttempt).toEqual([{ sessionId: "session-1", revisionId: "revision-1" }]);
-    expect(calls.markProcessing).toHaveLength(1);
-    expect(calls.markProcessing[0].attemptId).toBe("attempt-1");
-    expect(calls.markProcessing[0].parameters).toHaveProperty("seed");
+    expect(calls.markProcessing).toEqual([{ attemptId: "attempt-1" }]);
+    expect(calls.attachProviderToAttempt).toHaveLength(1);
+    expect(calls.attachProviderToAttempt[0].attemptId).toBe("attempt-1");
+    expect(calls.attachProviderToAttempt[0].parameters).toHaveProperty("seed");
     expect(calls.sendPhoto).toHaveLength(1);
     expect(calls.sendPhoto[0].imageUrl).toBe("https://cdn.mock.example.com/image.png");
     expect(calls.markAttemptSucceeded).toEqual([{ attemptId: "attempt-1", messageId: 900 }]);

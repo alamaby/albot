@@ -89,21 +89,14 @@ export class GenerationRepository {
   }
 
   // Marks the attempt processing (guard: only from queued) so the guarded
-  // mark_*_failed RPCs cannot race a completed attempt. Records which provider
-  // config was selected for this attempt and the parameters used (e.g. seed).
-  async markProcessing(
-    attemptId: string,
-    imageProviderConfigId?: string,
-    parameters?: Record<string, unknown>,
-  ): Promise<void> {
+  // mark_*_failed RPCs cannot race a completed attempt.
+  async markProcessing(attemptId: string): Promise<void> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("generation_attempts")
       .update({
         status: "processing",
         started_at: new Date().toISOString(),
-        ...(imageProviderConfigId ? { image_provider_config_id: imageProviderConfigId } : {}),
-        ...(parameters ? { parameters } : {}),
       } as Database["public"]["Tables"]["generation_attempts"]["Update"])
       .eq("id", attemptId)
       .eq("status", "queued")
@@ -112,6 +105,30 @@ export class GenerationRepository {
     if (error) throw new Error(`generation attempt mark processing failed: ${error.message}`);
     if (!data || data.length === 0) {
       throw new Error("generation attempt mark processing: attempt not in queued state");
+    }
+  }
+
+  // Records which provider config was selected for this attempt and the
+  // parameters used (e.g. seed). Called after markProcessing, so no status
+  // guard is needed.
+  async attachProviderToAttempt(
+    attemptId: string,
+    imageProviderConfigId: string,
+    parameters?: Record<string, unknown>,
+  ): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("generation_attempts")
+      .update({
+        image_provider_config_id: imageProviderConfigId,
+        ...(parameters ? { parameters } : {}),
+      } as Database["public"]["Tables"]["generation_attempts"]["Update"])
+      .eq("id", attemptId)
+      .select("id");
+
+    if (error) throw new Error(`generation attempt attach provider failed: ${error.message}`);
+    if (!data || data.length === 0) {
+      throw new Error("generation attempt attach provider: attempt not found");
     }
   }
 

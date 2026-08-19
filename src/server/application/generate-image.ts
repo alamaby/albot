@@ -163,12 +163,14 @@ export class GenerateImageUseCase {
       return { status: "completed", session, attempt };
     }
 
-    // Create the attempt before any outbound call so the guarded mark_*_failed
-    // RPCs can later act without racing completion.
+    // Create the attempt and mark it processing before any outbound call so
+    // the guarded mark_*_failed RPCs can always act: whatever fails next, the
+    // attempt is in processing and can be marked failed (never left queued).
     const { attemptId } = await this.generationRepository.createAttempt({
       sessionId: session.id,
       revisionId: revision.id,
     });
+    await this.generationRepository.markProcessing(attemptId);
 
     // Persist the linkage job -> attempt so a retried claim can find it. This
     // is best-effort; a failed attach does not block generation (the attempt is
@@ -189,9 +191,12 @@ export class GenerateImageUseCase {
       selected = await this.selectProvider(session.id);
 
       // New seed per attempt so regenerate produces a different image from the
-      // same revision. Persisted on the attempt for audit.
+      // same revision. Persisted on the attempt for audit along with the
+      // selected provider config.
       const seed = this.now().getTime();
-      await this.generationRepository.markProcessing(attemptId, selected.config.id, { seed });
+      await this.generationRepository.attachProviderToAttempt(attemptId, selected.config.id, {
+        seed,
+      });
 
       const attempt = await this.generationRepository.getAttemptById(attemptId);
       if (!attempt) {
