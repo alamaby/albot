@@ -4,15 +4,14 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 4: Prompt Enhancement, Confirmation, and Revision (**CLOSED 2026-08-18** — lihat Completed)
+Milestone 5: Image Generation and Post-Result Actions (**CLOSED 2026-08-19** — lihat Completed)
 
 ## In Progress
 
-- (none) — Milestone 4 CLOSED 2026-08-18. Lihat bagian Completed.
+- (none) — Milestone 5 CLOSED 2026-08-19. Lihat bagian Completed.
 
 ## Pending
 
-- [ ] Implement Milestone 5 dan record verification evidence
 - [ ] Implement Milestone 6 dan record verification evidence
 - [ ] Implement Milestone 7 dan record verification evidence
 - [ ] Execute production release checklist dan operational handoff
@@ -22,6 +21,23 @@ Milestone 4: Prompt Enhancement, Confirmation, and Revision (**CLOSED 2026-08-18
 - (none)
 
 ## Completed
+
+### Milestone 5: Image Generation and Post-Result Actions (closed 2026-08-19)
+
+- [x] Migration `20260818100000`: RPC `create_generation_attempt` (monotonic + anti double-click guard), `mark_generation_attempt_failed/succeeded` (guard processing), `complete_prompt_session` (tolak terminal/in-flight) — dev 13/13, prod 0
+- [x] Migration `20260819100000`: session expiry 24 jam dari prompt pertama (forward-fix, ganti 30 menit)
+- [x] `GenerationRepository`: attempt lifecycle (create/processing/succeed/fail) + `attachProviderToAttempt` (config + seed persist) + provider request audit
+- [x] `GenerateImageUseCase`: select provider+key, sync-only Pixazo adapter, sendPhoto by URL, attempt `succeeded` hanya setelah delivery outcome, attempt selalu di-mark failed pada error path (tidak pernah stuck)
+- [x] `generate-image` job handler + `generation-retry` (bounded, non-retryable auth/content/response-invalid); terminal failure → session `generation_failed`
+- [x] Callback state machine: regenerate/complete/revise-after-result, retry dari `generation_failed`, dispatch processor setelah insert job, ack saat session expired
+- [x] Result keyboard [Regenerate] [Revise Prompt] [Selesai] + caption attempt/revision
+- [x] Selector failover: config aktif tanpa eligible key di-skip (fallback ke config berikutnya)
+- [x] Seed script `--capability image_generation` (pixazo_flux_schnell / pixazo_sdxl)
+- [x] 6 bug fixed selama E2E (dispatch callback, attempt lifecycle, generation_failed path, selector failover, expired ack, session expiry)
+- [x] E2E dev verified: generate → gambar muncul → regenerate (attempt 2, rev 1) → revise → generate (attempt 3, rev 2) → selesai (session `completed`) — session `66e96dfa`
+- [x] All verification: lint 0, typecheck clean, 306 tests (212 unit + hosted contract/integration/security), build clean, CI validate green, db checks clean
+- [x] Production untouched (0 migrations)
+- [x] Closure plan: `plans/2026-08-19-milestone-5-closure-plan.md`
 
 ### Milestone 4: Prompt Enhancement, Confirmation, and Revision (closed 2026-08-18)
 

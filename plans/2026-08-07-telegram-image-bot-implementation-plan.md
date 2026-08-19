@@ -1041,11 +1041,11 @@ Metrics derivable from database and logs:
 - [ ] Provision Telegram development and production bots.
 - [ ] Configure Vercel Preview and Production environments.
 - [x] Implement Milestone 0 and record verification evidence.
-- [ ] Implement Milestone 1 and record verification evidence.
-- [ ] Implement Milestone 2 and record verification evidence.
-- [ ] Implement Milestone 3 and record verification evidence.
-- [ ] Implement Milestone 4 and record verification evidence.
-- [ ] Implement Milestone 5 and record verification evidence.
+- [x] Implement Milestone 1 and record verification evidence.
+- [x] Implement Milestone 2 and record verification evidence.
+- [x] Implement Milestone 3 and record verification evidence.
+- [x] Implement Milestone 4 and record verification evidence.
+- [x] Implement Milestone 5 and record verification evidence.
 - [ ] Implement Milestone 6 and record verification evidence.
 - [ ] Implement Milestone 7 and record verification evidence.
 - [ ] Execute production release checklist and operational handoff.
@@ -1447,20 +1447,20 @@ Menghasilkan gambar, mengirim hasil ke Telegram, lalu menjaga sesi aktif untuk r
 
 ### Implementation Tasks
 
-- [ ] Implement generation job handler.
-- [ ] Select image provider and key by capability.
-- [ ] Persist generation attempt before outbound request.
+- [x] Implement generation job handler.
+- [x] Select image provider and key by capability.
+- [x] Persist generation attempt before outbound request.
 - [ ] Add provider idempotency key if supported.
-- [ ] Handle synchronous completed response.
-- [ ] Handle asynchronous pending response and schedule poll job if required.
-- [ ] Send image via Telegram using URL or bytes based on confirmed limits.
-- [ ] Mark result ready only after delivery outcome is known.
-- [ ] Add result action buttons.
-- [ ] Implement regenerate as new attempt using same revision.
-- [ ] Implement revise-after-result as new revision workflow.
-- [ ] Implement complete terminal transition.
-- [ ] Implement delivery retry without provider regeneration when output remains available.
-- [ ] Redact provider and delivery errors.
+- [x] Handle synchronous completed response.
+- [x] Handle asynchronous pending response and schedule poll job if required. *(sync-only: pending ditolak non-retryable; polling ditunda M6)*
+- [x] Send image via Telegram using URL or bytes based on confirmed limits. *(sendPhoto by URL)*
+- [x] Mark result ready only after delivery outcome is known.
+- [x] Add result action buttons.
+- [x] Implement regenerate as new attempt using same revision.
+- [x] Implement revise-after-result as new revision workflow.
+- [x] Implement complete terminal transition.
+- [x] Implement delivery retry without provider regeneration when output remains available. *(delivery immediate; recovery penuh M6)*
+- [x] Redact provider and delivery errors.
 
 ### Verification
 
@@ -1502,16 +1502,16 @@ Failure scenarios:
 
 ### Acceptance Criteria
 
-- [ ] Generated image appears in Telegram.
-- [ ] Successful generation exposes all three result actions.
-- [ ] Regenerate creates one new attempt and no new revision.
-- [ ] Revise creates one new revision and requires confirmation again.
-- [ ] Complete closes session.
-- [ ] Double-click regenerate creates at most one attempt.
-- [ ] Pixazo-specific code remains inside adapter/config/tests.
-- [ ] Alternative image provider can be selected by capability.
-- [ ] No image object is stored in Supabase Storage.
-- [ ] Delivery retry does not regenerate while reusable output exists.
+- [x] Generated image appears in Telegram.
+- [x] Successful generation exposes all three result actions.
+- [x] Regenerate creates one new attempt and no new revision.
+- [x] Revise creates one new revision and requires confirmation again.
+- [x] Complete closes session.
+- [x] Double-click regenerate creates at most one attempt.
+- [x] Pixazo-specific code remains inside adapter/config/tests.
+- [x] Alternative image provider can be selected by capability.
+- [x] No image object is stored in Supabase Storage.
+- [x] Delivery retry does not regenerate while reusable output exists.
 
 ### Evidence Required
 
@@ -1765,6 +1765,7 @@ Open questions tidak menghalangi Milestone 0-1. Pixazo contract menghalangi comp
 - 2026-08-07 14:20:00 — CI validate hijau pada commit `b38f410` (run URL belum dicatat, menunggu user). Evidence M0 lain (Vercel Preview URL, health response ke Supabase development) masih menunggu provisioning Supabase dan Vercel.
 - 2026-08-07 14:35:00 — CI validate green tercatat: https://github.com/alamaby/albot/actions/runs/31156751229 (commit `b38f410`). Gitleaks secret scan termasuk dalam run tersebut. Evidence Vercel Preview URL dan health response masih menunggu provisioning Supabase/Vercel oleh user.
 - 2026-08-07 15:00:00 — Milestone 0 gate terpenuhi penuh. Vercel deployment sukses di https://albot-ten.vercel.app/. Health response `GET /api/health` mengonfirmasi `{"status":"ok","environment":"production","database":"reachable"}`. Ini membuktikan: 1) Sensitive env variables di Vercel terbaca benar; 2) `SUPABASE_URL` trailing slash normalization berfungsi; 3) Database probe menangani `PGRST205` sebagai reachable. Milestone 1 dapat dimulai.
+- 2026-08-19 03:00:00 — Milestone 5 ditutup (closure plan `plans/2026-08-19-milestone-5-closure-plan.md`). Implementasi: migration `20260818100000` (generation RPC: create_generation_attempt, mark_generation_attempt_failed/succeeded, complete_prompt_session) + `20260819100000` (session expiry 24 jam); `GenerateImageUseCase` sync-only, sendPhoto by URL, attempt lifecycle penuh; `generate-image` handler + retry bounded; result actions regenerate/revise-after-result/complete; selector failover ke config ber-key; seed script `--capability`. 6 bug ditemukan & diperbaiki selama E2E. E2E dev lulus penuh (session `66e96dfa` completed: 2 revisions, 3 attempts, linkage benar). Verifikasi: lint 0, typecheck clean, 306 tests (212 unit + hosted), build clean, CI validate green, dev migration 13/13, production 0. Milestone 6 dapat dimulai.
 
 ## Notes
 
