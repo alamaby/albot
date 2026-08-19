@@ -196,25 +196,25 @@ describe.skipIf(skip)("recovery RPC contract", () => {
 
   it("recover_stale_sessions expires only non-terminal sessions past expires_at", async () => {
     const admin = getAdminClient();
-    const past = new Date(Date.now() - 60_000).toISOString();
-    const future = new Date(Date.now() + 60_000).toISOString();
-
-    // created_at must precede expires_at (check constraint), so stale sessions
-    // get an older created_at.
+    // The RPC selects the globally oldest expired sessions (limit p_max_sessions),
+    // so the stale fixture uses an expires_at far in the past to outrank any
+    // leftover dev data. created_at must precede expires_at (check constraint).
     const staleId = await insertSession({
-      created_at: new Date(Date.now() - 120_000).toISOString(),
-      expires_at: past,
+      created_at: new Date(Date.now() - 41 * 24 * 60 * 60 * 1000).toISOString(),
+      expires_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
     });
-    const liveId = await insertSession({ expires_at: future });
+    const liveId = await insertSession({
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
     // Terminal session past expiry must not be touched.
     const terminalId = await insertSession({
-      created_at: new Date(Date.now() - 120_000).toISOString(),
-      expires_at: past,
+      created_at: new Date(Date.now() - 41 * 24 * 60 * 60 * 1000).toISOString(),
+      expires_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
       status: "completed",
     });
 
     const { data, error } = await admin.rpc("recover_stale_sessions", {
-      p_max_sessions: 10,
+      p_max_sessions: 100,
     });
     expect(error).toBeNull();
     const expired = (data as unknown as { id: string }[]) ?? [];
