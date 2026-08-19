@@ -7,3 +7,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Commit Message Rules
+
+- Commit message tidak boleh mengandung trailer `Co-authored-by:` apa pun (termasuk bot/agent).
+- Commit message: subject ringkas (conventional commits) + body deskriptif bila perlu. Tidak ada signature/attribution tambahan.
