@@ -12,6 +12,7 @@ import { GenerateImageUseCase } from "@/server/application/generate-image";
 import { SessionRepository } from "@/server/repositories/session.repository";
 import { JobRepository, type JobSafe } from "@/server/repositories/job.repository";
 import { GenerationJobRetry } from "./generation-retry";
+import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
 
 export type GenerateImageHandlerDeps = {
@@ -92,9 +93,10 @@ export class GenerateImageHandler {
           await this.transitionSessionToFailed(sessionId);
         } catch (transitionError) {
           const detail = transitionError instanceof Error ? transitionError.message : "unknown";
-          console.error(
-            `generate-image: session transition to generation_failed failed (${detail})`,
-          );
+          logStructured("error", "generate.session_transition_failed", {
+            sessionId,
+            detail,
+          });
         }
       }
     }

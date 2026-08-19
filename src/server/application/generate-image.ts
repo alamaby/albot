@@ -16,6 +16,7 @@ import { getProviderRegistry } from "@/server/providers/registry";
 import { ProviderSelector, type SelectedProvider } from "@/server/providers/selector";
 import { ProviderError } from "@/server/providers/errors";
 import { isHttpsUrl } from "@/server/providers/http";
+import { logStructured } from "@/server/observability/logger";
 import { ProviderConfigRepository } from "@/server/repositories/provider-config.repository";
 import { ProviderKeyRepository } from "@/server/repositories/provider-key.repository";
 import { ProviderKeyVaultRepository } from "@/server/repositories/provider-key-vault.repository";
@@ -179,7 +180,7 @@ export class GenerateImageUseCase {
       await this.attachGenerationAttempt(job.id, attemptId);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`generate-image: attachGenerationAttempt failed (${detail})`);
+      logStructured("error", "generate.attach_attempt_failed", { attemptId, detail });
     }
 
     let requestId: string | null = null;
@@ -305,7 +306,7 @@ export class GenerateImageUseCase {
         );
       } catch (markError) {
         const detail = markError instanceof Error ? markError.message : "unknown";
-        console.error(`generate-image: markAttemptFailed failed (${detail})`);
+        logStructured("error", "generate.mark_attempt_failed_error", { attemptId, detail });
       }
 
       if (requestId && !requestMarkedSucceeded) {

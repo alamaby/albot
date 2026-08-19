@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyGenerationError,
-  computeGenerationBackoffDelayMs,
+  computeGenerationBackoffCapMs,
   GENERATION_MAX_ATTEMPTS,
   GENERATION_BASE_DELAY_MS,
   GENERATION_MAX_DELAY_MS,
 } from "@/server/jobs/generation-retry";
 import { makeRetryable, makeNonRetryable } from "@/server/providers/errors";
 
-describe("computeGenerationBackoffDelayMs", () => {
+describe("computeGenerationBackoffCapMs", () => {
   it("doubles the base delay per attempt and caps at the maximum", () => {
-    expect(computeGenerationBackoffDelayMs(1)).toBe(GENERATION_BASE_DELAY_MS);
-    expect(computeGenerationBackoffDelayMs(2)).toBe(GENERATION_BASE_DELAY_MS * 2);
-    expect(computeGenerationBackoffDelayMs(3)).toBe(GENERATION_BASE_DELAY_MS * 4);
-    expect(computeGenerationBackoffDelayMs(10)).toBe(GENERATION_MAX_DELAY_MS);
+    expect(computeGenerationBackoffCapMs(1)).toBe(GENERATION_BASE_DELAY_MS);
+    expect(computeGenerationBackoffCapMs(2)).toBe(GENERATION_BASE_DELAY_MS * 2);
+    expect(computeGenerationBackoffCapMs(3)).toBe(GENERATION_BASE_DELAY_MS * 4);
+    expect(computeGenerationBackoffCapMs(10)).toBe(GENERATION_MAX_DELAY_MS);
   });
 });
 

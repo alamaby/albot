@@ -5,6 +5,7 @@
 // follow bounded exponential backoff.
 
 import { JobRepository } from "@/server/repositories/job.repository";
+import { computeBackoffDelayMs } from "./backoff";
 import type { ProviderErrorShape } from "@/server/providers/errors";
 
 // Total attempts (initial claim + retries) before the job goes terminal.
@@ -19,8 +20,9 @@ export type GenerationRetryDecision = {
   delayMs: number;
 };
 
-// Exponential backoff: base * 2^(attempt-1), capped.
-export function computeGenerationBackoffDelayMs(attemptCount: number): number {
+// Exponential cap: base * 2^(attempt-1), capped. The classifier stays
+// deterministic; jitter is applied in the envelope (GenerationJobRetry.apply).
+export function computeGenerationBackoffCapMs(attemptCount: number): number {
   const exponent = Math.max(0, attemptCount - 1);
   const raw = GENERATION_BASE_DELAY_MS * 2 ** exponent;
   return Math.min(raw, GENERATION_MAX_DELAY_MS);
@@ -53,7 +55,7 @@ export function classifyGenerationError(
     shouldRetry: true,
     retryable: true,
     code,
-    delayMs: computeGenerationBackoffDelayMs(attemptCount),
+    delayMs: computeGenerationBackoffCapMs(attemptCount),
   };
 }
 
@@ -70,7 +72,12 @@ export class GenerationJobRetry {
     const decision = classifyGenerationError(error, job.attemptCount);
 
     if (decision.shouldRetry) {
-      const availableAt = new Date(Date.now() + decision.delayMs).toISOString();
+      // Full jitter on the retry delay: [0, min(base * 2^(attempt-1), max)].
+      const delayMs = computeBackoffDelayMs(job.attemptCount, {
+        baseMs: GENERATION_BASE_DELAY_MS,
+        maxMs: GENERATION_MAX_DELAY_MS,
+      });
+      const availableAt = new Date(Date.now() + delayMs).toISOString();
       await this.jobRepository.markRetryScheduled(job.id, workerId, availableAt, decision.code);
       return true;
     }

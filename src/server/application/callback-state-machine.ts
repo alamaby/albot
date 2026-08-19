@@ -11,6 +11,7 @@ import { bigintToDb } from "./bigint-helper";
 import { SessionRepository, type SessionSafe } from "@/server/repositories/session.repository";
 import { JobRepository } from "@/server/repositories/job.repository";
 import { isSessionExpired } from "./session-expiry-check";
+import { logStructured } from "@/server/observability/logger";
 
 export type CallbackAction = "generate" | "revise" | "cancel" | "regenerate" | "complete";
 
@@ -182,7 +183,10 @@ export class CallbackStateMachine {
       // Roll the session back so a failed enqueue does not strand it in
       // generating with no job.
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`callback: generate job insert failed (${detail})`);
+      logStructured("error", "callback.generate_job_insert_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
       try {
         const { data: rollback } = await supabase
           .rpc("transition_prompt_session", {
@@ -192,11 +196,16 @@ export class CallbackStateMachine {
           } as never)
           .maybeSingle();
         if (!rollback) {
-          console.error("callback: generate job rollback transition failed");
+          logStructured("error", "callback.generate_rollback_transition_failed", {
+            sessionId: input.sessionId,
+          });
         }
       } catch (rollbackError) {
         const rbDetail = rollbackError instanceof Error ? rollbackError.message : "unknown";
-        console.error(`callback: generate job rollback failed (${rbDetail})`);
+        logStructured("error", "callback.generate_rollback_failed", {
+          sessionId: input.sessionId,
+          detail: rbDetail,
+        });
       }
       await this.ack(token, callbackQueryId, "Gagal mengirim permintaan. Coba lagi.");
       return { status: "rejected_state" };
@@ -210,7 +219,7 @@ export class CallbackStateMachine {
       });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`callback: dispatcher failed (${detail})`);
+      logStructured("error", "callback.dispatcher_failed", { sessionId: input.sessionId, detail });
     }
 
     await this.ack(token, callbackQueryId, ackText);
@@ -305,7 +314,10 @@ export class CallbackStateMachine {
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`callback: telegram sendMessage failed (${detail})`);
+      logStructured("error", "callback.send_message_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
     }
     return { status: "accepted" };
   }
@@ -340,7 +352,10 @@ export class CallbackStateMachine {
       await this.sendTelegramMessage(token, input.session.telegramChatId, "Sesi dibatalkan.");
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`callback: telegram sendMessage failed (${detail})`);
+      logStructured("error", "callback.send_message_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
     }
     return { status: "accepted" };
   }
@@ -359,7 +374,7 @@ export class CallbackStateMachine {
       await this.completeSession(input.sessionId);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`callback: completeSession failed (${detail})`);
+      logStructured("error", "callback.complete_failed", { sessionId: input.sessionId, detail });
       await this.ack(token, callbackQueryId, "Gagal menyelesaikan sesi. Coba lagi.");
       return { status: "rejected_state" };
     }
@@ -373,7 +388,10 @@ export class CallbackStateMachine {
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`callback: telegram sendMessage failed (${detail})`);
+      logStructured("error", "callback.send_message_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
     }
     return { status: "accepted" };
   }
@@ -383,7 +401,7 @@ export class CallbackStateMachine {
       await this.answerCallbackQuery(token, callbackQueryId, { text });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`callback: answerCallbackQuery failed (${detail})`);
+      logStructured("error", "callback.answer_callback_failed", { detail });
     }
   }
 }

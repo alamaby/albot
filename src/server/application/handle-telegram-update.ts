@@ -16,6 +16,7 @@ import { TelegramUpdateRepository } from "@/server/repositories/telegram-update.
 import { CallbackEventRepository } from "@/server/repositories/callback-event.repository";
 import { InitialSessionRepository } from "@/server/repositories/initial-session.repository";
 import { SessionRepository } from "@/server/repositories/session.repository";
+import { logStructured } from "@/server/observability/logger";
 import { RevisionInputUseCase } from "./revision-input";
 import { CallbackStateMachine } from "./callback-state-machine";
 
@@ -87,7 +88,7 @@ async function trySendMessage(
     await deps.sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, text);
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
-    console.error(`webhook: telegram sendMessage failed (${detail})`);
+    logStructured("error", "webhook.send_message_failed", { detail });
   }
 }
 
@@ -111,11 +112,11 @@ export async function dispatchToProcessorUrl(
       signal: controller.signal,
     });
     if (!response.ok) {
-      console.error(`webhook: dispatcher returned HTTP ${response.status}`);
+      logStructured("error", "webhook.dispatcher_http_error", { status: response.status });
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
-    console.error(`webhook: dispatcher call failed (${detail})`);
+    logStructured("error", "webhook.dispatcher_failed", { detail });
   } finally {
     clearTimeout(timer);
   }
@@ -176,7 +177,7 @@ async function handleCallbackQuery(
       await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`webhook: telegram answerCallbackQuery failed (${detail})`);
+      logStructured("error", "webhook.answer_callback_failed", { detail });
     }
     return;
   }
@@ -202,12 +203,15 @@ async function handleCallbackQuery(
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`webhook: callback state machine failed (${detail})`);
+      logStructured("error", "webhook.callback_state_machine_failed", {
+        sessionId: sessionId ?? null,
+        detail,
+      });
       try {
         await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId);
       } catch (ackError) {
         const ackDetail = ackError instanceof Error ? ackError.message : "unknown";
-        console.error(`webhook: telegram answerCallbackQuery failed (${ackDetail})`);
+        logStructured("error", "webhook.answer_callback_failed", { detail: ackDetail });
       }
     }
   } else {
@@ -216,7 +220,7 @@ async function handleCallbackQuery(
       await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`webhook: telegram answerCallbackQuery failed (${detail})`);
+      logStructured("error", "webhook.answer_callback_failed", { detail });
     }
   }
 
@@ -309,6 +313,6 @@ async function handlePrivateTextMessage(
     await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, { sessionOrigin: "webhook" });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
-    console.error(`webhook: dispatcher failed (${detail})`);
+    logStructured("error", "webhook.dispatcher_failed", { detail });
   }
 }

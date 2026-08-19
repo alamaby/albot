@@ -45,6 +45,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node scripts/check-migration-immutability.mjs "${{ github.event.pull_request.base.sha }}"
 
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Build
         run: npm run build
 

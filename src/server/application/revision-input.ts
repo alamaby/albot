@@ -13,6 +13,7 @@ import { SessionRepository, type SessionSafe } from "@/server/repositories/sessi
 import { EnhancementRepository } from "@/server/repositories/enhancement.repository";
 import { JobRepository } from "@/server/repositories/job.repository";
 import { isSessionExpired } from "./session-expiry-check";
+import { logStructured } from "@/server/observability/logger";
 
 export const REVISION_INSTRUCTION_MAX_LENGTH = 4000;
 
@@ -140,7 +141,7 @@ export class RevisionInputUseCase {
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`revision-input: telegram sendMessage failed (${detail})`);
+      logStructured("error", "revision.send_message_failed", { sessionId: session.id, detail });
     }
 
     try {
@@ -150,7 +151,7 @@ export class RevisionInputUseCase {
       });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`revision-input: dispatcher failed (${detail})`);
+      logStructured("error", "revision.dispatcher_failed", { sessionId: session.id, detail });
     }
 
     return { status: "accepted", sessionId: session.id, revisionId, revisionNumber };

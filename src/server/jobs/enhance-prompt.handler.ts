@@ -11,6 +11,7 @@ import { EnhancementRepository } from "@/server/repositories/enhancement.reposit
 import { SessionRepository } from "@/server/repositories/session.repository";
 import { JobRepository, type JobSafe } from "@/server/repositories/job.repository";
 import { EnhancementJobRetry } from "./retry";
+import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
 
 export type EnhancePromptHandlerDeps = {
@@ -90,7 +91,7 @@ export class EnhancePromptHandler {
         );
       } catch (markError) {
         const detail = markError instanceof Error ? markError.message : "unknown";
-        console.error(`enhance-prompt: markRevisionFailed failed (${detail})`);
+        logStructured("error", "enhance.mark_revision_failed_error", { jobId: job.id, detail });
       }
 
       await this.retry.apply(

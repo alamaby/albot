@@ -3,6 +3,8 @@ import { getServerEnv } from "@/env";
 import { safeEqual } from "@/server/telegram/webhook-auth";
 import { parseTelegramUpdate, reduceTelegramUpdate } from "@/server/telegram/parser";
 import { handleTelegramUpdate } from "@/server/application/handle-telegram-update";
+import { withCorrelation } from "@/server/observability/correlation";
+import { logStructured } from "@/server/observability/logger";
 
 export const runtime = "nodejs";
 
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     body = JSON.parse(rawBody) as unknown;
   } catch {
     // Malformed JSON: Telegram expects a 200 to stop retrying; log and drop.
-    console.error("webhook: received malformed JSON body");
+    logStructured("error", "webhook.malformed_json", {});
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
@@ -40,21 +42,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch {
     // Unsupported/malformed update shape: acknowledge so Telegram stops
     // retrying; do not persist anything.
-    console.error("webhook: update failed validation");
+    logStructured("error", "webhook.invalid_update", {});
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
   const origin = request.nextUrl.origin;
   const parsed = reduceTelegramUpdate(update);
 
-  try {
-    await handleTelegramUpdate(parsed, origin);
-  } catch (error) {
-    // Never fail the webhook on an internal error; Telegram would retry and we
-    // prefer idempotent handling on the next delivery. Persist a sanitized log.
-    const detail = error instanceof Error ? error.message : "unknown";
-    console.error(`webhook: handler failed (${detail})`);
-  }
+  return withCorrelation(request.headers.get("x-correlation-id"), async () => {
+    try {
+      await handleTelegramUpdate(parsed, origin);
+      logStructured("info", "webhook.handled", {
+        updateType: parsed.kind,
+        updateId: parsed.kind === "unsupported" ? null : Number(parsed.updateId),
+      });
+    } catch (error) {
+      // Never fail the webhook on an internal error; Telegram would retry and we
+      // prefer idempotent handling on the next delivery. Persist a sanitized log.
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "webhook.handler_failed", { detail });
+    }
 
-  return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ ok: true }, { status: 200 });
+  });
 }

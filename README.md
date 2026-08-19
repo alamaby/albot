@@ -30,7 +30,10 @@ npm run build
 
 ## Routes
 
-- `GET /api/health` — health check dengan DB reachability yang sanitized.
+- `GET /api/health` — health check dengan DB reachability yang sanitized. Tambahkan `?include=readiness` untuk snapshot operasional (job counts, dead jobs, session expiry, key cooldown) tanpa biaya provider.
+- `POST /api/jobs/process` — internal job processor (Bearer `JOB_PROCESSOR_SECRET`).
+- `POST /api/recovery/run` — internal recovery sweep: lease-expiry recovery, dead-job marking, session expiry, retention purge (dijalankan oleh cron GitHub Actions tiap 5 menit di development).
+- `GET /api/admin/diagnostics` — internal read-only status operasional (Bearer `JOB_PROCESSOR_SECRET`).
 
 ## Docs
 

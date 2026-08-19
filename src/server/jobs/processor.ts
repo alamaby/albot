@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "@/server/supabase/admin";
 import { enhancePromptHandler } from "./enhance-prompt.handler";
 import { generateImageHandler } from "./generate-image.handler";
+import { logStructured } from "@/server/observability/logger";
 import type { Database } from "@/server/supabase/database.types";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
@@ -95,7 +96,11 @@ export async function processNextJob(): Promise<{ status: "processed" | "idle"; 
     // A handler that throws unexpectedly must not lose the durable job. The
     // worker ownership guard keeps the reschedule safe.
     const detail = error instanceof Error ? error.message : "unknown";
-    console.error(`job processor: handler failed for ${job.job_type} (${detail})`);
+    logStructured("error", "job.handler_failed", {
+      jobType: job.job_type,
+      jobId: job.id,
+      detail,
+    });
     await rescheduleUnhandledJob(job.id, workerId, "handler_error");
   }
   return { status: "processed", jobId: job.id };

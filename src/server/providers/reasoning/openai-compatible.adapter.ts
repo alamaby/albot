@@ -8,6 +8,7 @@ import type {
 } from "@/server/domain/provider";
 import { ProviderError, makeErrorFromHttpStatus, makeRetryable, makeNonRetryable } from "../errors";
 import { readProviderRequestId } from "../http";
+import { logStructured } from "@/server/observability/logger";
 
 export type OpenAICompatibleConfig = {
   baseUrl: string;
@@ -57,7 +58,10 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
         // failures like Cloudflare/OpenRouter 401s are diagnosable from logs.
         try {
           const errorBody = (await response.text()).slice(0, 500);
-          console.error(`openai-compatible provider error ${response.status}: ${errorBody}`);
+          logStructured("warn", "reasoning.upstream_error", {
+            httpStatus: response.status,
+            detail: errorBody,
+          });
         } catch {
           // ignore body read failure
         }

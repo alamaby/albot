@@ -6,9 +6,11 @@
 import { JobRepository } from "@/server/repositories/job.repository";
 import {
   classifyEnhancementError,
-  computeBackoffDelayMs,
   ENHANCEMENT_MAX_ATTEMPTS,
+  ENHANCEMENT_BASE_DELAY_MS,
+  ENHANCEMENT_MAX_DELAY_MS,
 } from "@/server/application/enhancement-retry";
+import { computeBackoffDelayMs } from "./backoff";
 import type { ProviderErrorShape } from "@/server/providers/errors";
 
 export class EnhancementJobRetry {
@@ -24,7 +26,13 @@ export class EnhancementJobRetry {
     const decision = classifyEnhancementError(error, job.attemptCount);
 
     if (decision.shouldRetry) {
-      const availableAt = new Date(Date.now() + decision.delayMs).toISOString();
+      // Full jitter on the retry delay so a burst of failures does not re-fire
+      // in lockstep: delay in [0, min(base * 2^(attempt-1), max)].
+      const delayMs = computeBackoffDelayMs(job.attemptCount, {
+        baseMs: ENHANCEMENT_BASE_DELAY_MS,
+        maxMs: ENHANCEMENT_MAX_DELAY_MS,
+      });
+      const availableAt = new Date(Date.now() + delayMs).toISOString();
       await this.jobRepository.markRetryScheduled(job.id, workerId, availableAt, decision.code);
       return true;
     }
@@ -43,4 +51,4 @@ export class EnhancementJobRetry {
   }
 }
 
-export { computeBackoffDelayMs, ENHANCEMENT_MAX_ATTEMPTS };
+export { ENHANCEMENT_MAX_ATTEMPTS };

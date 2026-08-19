@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerEnv } from "@/env";
 import { verifyProcessorSecret } from "@/server/jobs/auth";
-import { processNextJob } from "@/server/jobs/processor";
+import { runRecovery } from "@/server/jobs/recovery";
 import { withCorrelation } from "@/server/observability/correlation";
 import { logStructured } from "@/server/observability/logger";
 
@@ -18,13 +18,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const result = await withCorrelation(correlationId, async () => {
-      logStructured("info", "processor.requested", {});
-      return processNextJob();
+      logStructured("info", "recovery.start", {});
+      const outcome = await runRecovery();
+      return outcome;
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
-    logStructured("error", "processor.failed", { detail });
+    logStructured("error", "recovery.failed", { detail });
     return NextResponse.json({ ok: false, reason: "internal" }, { status: 500 });
   }
 }

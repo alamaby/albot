@@ -4,15 +4,39 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 5: Image Generation and Post-Result Actions (**CLOSED 2026-08-19** — lihat Completed)
+Milestone 6: Reliability, Security, and Observability (**IN PROGRESS** — lihat In Progress)
 
 ## In Progress
 
-- (none) — Milestone 5 CLOSED 2026-08-19. Lihat bagian Completed.
+### Milestone 6: Reliability, Security, and Observability (dibuka 2026-08-19)
+
+Plan: `plans/milestone-6-reliability-security-observability.md`
+
+- [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — **belum di-apply ke dev** (menunggu workflow migrate-development)
+- [x] Backoff full jitter (`src/server/jobs/backoff.ts`) + wire ke `EnhancementJobRetry`/`GenerationJobRetry`
+- [x] Observability: `logger.ts` (structured JSON + redaction), `redact.ts`, `correlation.ts` (AsyncLocalStorage + `x-correlation-id`)
+- [x] Recovery: `job-event.repository.ts`, `recovery.repository.ts`, `recovery.ts` (lease → dead → session → purge), `/api/recovery/run`
+- [x] Diagnostics: `/api/admin/diagnostics` (job/session/cooldown counts, Bearer `JOB_PROCESSOR_SECRET`)
+- [x] Health `?include=readiness` (`readiness.ts`, non-paid, zero provider call)
+- [x] Session expiry sweep otomatis + notifikasi user (`buildBotMessage("session_expired")` di recovery)
+- [x] Structured logging + correlation di semua routes/handlers (console.* di src sudah 0)
+- [x] Workflow `recovery-development.yml` (cron `*/5`, curl `/api/recovery/run` di alias Preview) + `npm audit` step di `validate.yml`
+- [x] Docs: `docs/retention.md`, `docs/runbooks/milestone-6-incident-response.md`, env-variables note, README routes
+- [x] Tests: `backoff.test.ts`, `redact.test.ts`, `logger.test.ts`, `recovery.test.ts` (unit), `recovery-rpc.contract.test.ts` (hosted), `recovery-auth.security.test.ts`
+- [x] Verifikasi lokal: lint 0, typecheck clean, build clean, format clean, db:lint/db:check-migrations (15)/db:types:check green; unit+security green
+
+**Langkah manual tersisa (catatan untuk closure):**
+
+- [ ] Apply migration `20260819120000` ke dev via workflow `migrate-development` (dev 15/15, prod 0) → lalu contract test recovery lulus (sekarang PGRST202 karena RPC belum ada di dev)
+- [ ] Deploy ke Vercel Preview (alias stabil `albot-git-main-alamaby.vercel.app`)
+- [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` (harus sama dengan Vercel Preview)
+- [ ] Verifikasi cron `recovery-development.yml` (1 run manual + schedule)
+- [ ] E2E fault injection (8 skenario: worker crash/lease, dead job, session expiry sweep, retention purge, jitter, redaction, diagnostics auth, health readiness)
+- [ ] Supabase advisor review + disposition
+- [ ] Closure plan `plans/2026-08-XX-milestone-6-closure-plan.md` (template master plan)
 
 ## Pending
 
-- [ ] Implement Milestone 6 dan record verification evidence
 - [ ] Implement Milestone 7 dan record verification evidence
 - [ ] Execute production release checklist dan operational handoff
 

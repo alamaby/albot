@@ -13,6 +13,7 @@ import { getServerEnv } from "@/env";
 import "@/server/providers/index";
 import { getProviderRegistry } from "@/server/providers/registry";
 import { ProviderSelector, type SelectedProvider } from "@/server/providers/selector";
+import { logStructured } from "@/server/observability/logger";
 import { ProviderError } from "@/server/providers/errors";
 import {
   parseEnhancedPromptContent,
@@ -125,7 +126,10 @@ export class EnhancePromptUseCase {
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
-      console.error(`enhance-prompt: confirmation send failed (${detail})`);
+      logStructured("error", "enhance.confirmation_send_failed", {
+        sessionId: input.session.id,
+        detail,
+      });
     }
   }
 
