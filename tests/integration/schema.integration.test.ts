@@ -149,6 +149,7 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
     update_id: ["bigint", "NO", null],
     telegram_user_id: ["bigint", "YES", null],
     telegram_chat_id: ["bigint", "YES", null],
+    telegram_message_id: ["bigint", "YES", null],
     update_type: ["text", "NO", null],
     received_at: ["timestamp with time zone", "NO", "now()"],
     processed_at: ["timestamp with time zone", "YES", null],
@@ -345,6 +346,7 @@ const EXPECTED_MIGRATIONS = [
   "20260813100000",
   "20260818100000",
   "20260819100000",
+  "20260819110000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

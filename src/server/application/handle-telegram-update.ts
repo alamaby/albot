@@ -232,11 +232,14 @@ async function handlePrivateTextMessage(
   origin: string,
 ): Promise<void> {
   // 1. Dedupe the update. A duplicate update_id means Telegram retried a
-  //    delivery we already handled; acknowledge silently.
+  //    delivery we already handled; a duplicate telegram_message_id means this
+  //    is a later part of a Telegram-split long message. Both are acknowledged
+  //    silently so a split message is never treated as multiple prompts.
   const inserted = await deps.telegramUpdateRepository.insertIfAbsent({
     updateId: message.updateId,
     telegramUserId: message.userId,
     telegramChatId: message.chatId,
+    telegramMessageId: message.messageId,
     updateType: "message",
   });
   if (!inserted) return;

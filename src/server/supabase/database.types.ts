@@ -650,6 +650,7 @@ export type Database = {
           processed_at: string | null
           received_at: string
           telegram_chat_id: number | null
+          telegram_message_id: number | null
           telegram_user_id: number | null
           update_id: number
           update_type: string
@@ -659,6 +660,7 @@ export type Database = {
           processed_at?: string | null
           received_at?: string
           telegram_chat_id?: number | null
+          telegram_message_id?: number | null
           telegram_user_id?: number | null
           update_id: number
           update_type: string
@@ -668,6 +670,7 @@ export type Database = {
           processed_at?: string | null
           received_at?: string
           telegram_chat_id?: number | null
+          telegram_message_id?: number | null
           telegram_user_id?: number | null
           update_id?: number
           update_type?: string

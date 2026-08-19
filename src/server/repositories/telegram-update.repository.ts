@@ -12,12 +12,14 @@ export type InsertTelegramUpdateInput = {
   updateId: bigint;
   telegramUserId?: bigint;
   telegramChatId?: bigint;
+  telegramMessageId?: number;
   updateType: "message" | "callback_query";
 };
 
 export class TelegramUpdateRepository {
-  // Inserts the row unless an identical update_id already exists.
-  // Returns the new row id, or null when the update is a duplicate.
+  // Inserts the row unless an identical update_id OR (for split messages) the
+  // same telegram_message_id already exists. Returns the new row id, or null
+  // when the update is a duplicate.
   async insertIfAbsent(input: InsertTelegramUpdateInput): Promise<string | null> {
     const supabase = getSupabaseAdmin();
     // Telegram ids are 64-bit; they are stored as decimal strings so precision
@@ -29,14 +31,16 @@ export class TelegramUpdateRepository {
         update_id: bigintToDb(input.updateId),
         telegram_user_id: input.telegramUserId ? bigintToDb(input.telegramUserId) : null,
         telegram_chat_id: input.telegramChatId ? bigintToDb(input.telegramChatId) : null,
+        telegram_message_id: input.telegramMessageId ?? null,
         update_type: input.updateType,
       } as unknown as TelegramUpdateInsert)
       .select("id")
       .maybeSingle();
 
     if (error) {
-      // 23505 = unique_violation on update_id: a concurrent/duplicate delivery
-      // already inserted this update. Treat as duplicate, not failure.
+      // 23505 = unique_violation on update_id (concurrent/duplicate delivery)
+      // or on telegram_message_id (a later part of a Telegram-split message).
+      // Treat as duplicate, not failure.
       if (error.code === "23505") return null;
       throw new Error(`telegram update insert failed: ${error.message}`);
     }

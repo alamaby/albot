@@ -135,6 +135,7 @@ describe("handleTelegramUpdate - private text message", () => {
       updateId: 42n,
       telegramUserId: 123n,
       telegramChatId: 456n,
+      telegramMessageId: 7,
       updateType: "message",
     });
     expect(deps.initialSessionRepository.create).toHaveBeenCalledWith({
