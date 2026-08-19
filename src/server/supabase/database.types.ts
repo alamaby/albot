@@ -748,6 +748,35 @@ export type Database = {
           revision_number: number
         }[]
       }
+      expire_job_leases: {
+        Args: { p_max_jobs?: number }
+        Returns: {
+          attempt_count: number
+          available_at: string
+          completed_at: string | null
+          created_at: string
+          generation_attempt_id: string | null
+          id: string
+          job_type: string
+          last_error_code: string | null
+          last_error_message_redacted: string | null
+          lease_expires_at: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          payload: Json
+          prompt_revision_id: string | null
+          prompt_session_id: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       increment_provider_key_failure: {
         Args: {
           p_key_id: string
@@ -777,6 +806,35 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      mark_dead_jobs: {
+        Args: { p_max_jobs?: number }
+        Returns: {
+          attempt_count: number
+          available_at: string
+          completed_at: string | null
+          created_at: string
+          generation_attempt_id: string | null
+          id: string
+          job_type: string
+          last_error_code: string | null
+          last_error_message_redacted: string | null
+          lease_expires_at: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          payload: Json
+          prompt_revision_id: string | null
+          prompt_session_id: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       mark_generation_attempt_failed: {
         Args: {
           p_attempt_id: string
@@ -800,6 +858,34 @@ export type Database = {
           p_revision_id: string
         }
         Returns: undefined
+      }
+      purge_expired_metadata: {
+        Args: { p_max_rows?: number; p_retention_days?: number }
+        Returns: {
+          purged_rows: number
+        }[]
+      }
+      recover_stale_sessions: {
+        Args: { p_max_sessions?: number }
+        Returns: {
+          active_generation_attempt_id: string | null
+          active_revision_id: string | null
+          completed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          status: string
+          telegram_chat_id: number
+          telegram_status_message_id: number | null
+          telegram_user_id: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "prompt_sessions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       transition_prompt_session: {
         Args: {

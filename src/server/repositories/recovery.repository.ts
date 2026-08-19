@@ -16,7 +16,7 @@ export class RecoveryRepository {
   async expireStaleLeases(maxJobs = 5): Promise<JobRow[]> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
-      .rpc("expire_job_leases" as never, { p_max_jobs: maxJobs } as never)
+      .rpc("expire_job_leases", { p_max_jobs: maxJobs })
       .select("*");
     if (error) throw new Error(`expire job leases failed: ${error.message}`);
     return (data as JobRow[] | null) ?? [];
@@ -26,7 +26,7 @@ export class RecoveryRepository {
   async markDeadJobs(maxJobs = 25): Promise<JobRow[]> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
-      .rpc("mark_dead_jobs" as never, { p_max_jobs: maxJobs } as never)
+      .rpc("mark_dead_jobs", { p_max_jobs: maxJobs })
       .select("*");
     if (error) throw new Error(`mark dead jobs failed: ${error.message}`);
     return (data as JobRow[] | null) ?? [];
@@ -37,7 +37,7 @@ export class RecoveryRepository {
   async recoverStaleSessions(maxSessions = 100): Promise<SessionRow[]> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
-      .rpc("recover_stale_sessions" as never, { p_max_sessions: maxSessions } as never)
+      .rpc("recover_stale_sessions", { p_max_sessions: maxSessions })
       .select("*");
     if (error) throw new Error(`recover stale sessions failed: ${error.message}`);
     return (data as SessionRow[] | null) ?? [];
@@ -47,13 +47,10 @@ export class RecoveryRepository {
   async purgeExpiredMetadata(retentionDays = 30, maxRows = 1000): Promise<PurgeResult> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
-      .rpc(
-        "purge_expired_metadata" as never,
-        {
-          p_retention_days: retentionDays,
-          p_max_rows: maxRows,
-        } as never,
-      )
+      .rpc("purge_expired_metadata", {
+        p_retention_days: retentionDays,
+        p_max_rows: maxRows,
+      })
       .single();
     if (error) throw new Error(`purge expired metadata failed: ${error.message}`);
     const purgedRows = Number(

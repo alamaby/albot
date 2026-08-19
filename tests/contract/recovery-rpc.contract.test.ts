@@ -123,12 +123,9 @@ describe.skipIf(skip)("recovery RPC contract", () => {
       attempt_count: 1,
     });
 
-    const { data, error } = await admin.rpc(
-      "expire_job_leases" as never,
-      {
-        p_max_jobs: 10,
-      } as never,
-    );
+    const { data, error } = await admin.rpc("expire_job_leases", {
+      p_max_jobs: 10,
+    });
     expect(error).toBeNull();
     const recovered = (data as unknown as { id: string }[]) ?? [];
     expect(recovered.map((r) => r.id)).toContain(expiredJob);
@@ -170,12 +167,9 @@ describe.skipIf(skip)("recovery RPC contract", () => {
       available_at: new Date(Date.now() - 60_000).toISOString(),
     });
 
-    const { data, error } = await admin.rpc(
-      "mark_dead_jobs" as never,
-      {
-        p_max_jobs: 10,
-      } as never,
-    );
+    const { data, error } = await admin.rpc("mark_dead_jobs", {
+      p_max_jobs: 10,
+    });
     expect(error).toBeNull();
     const marked = (data as unknown as { id: string }[]) ?? [];
     expect(marked.map((r) => r.id)).toContain(maxed);
@@ -219,12 +213,9 @@ describe.skipIf(skip)("recovery RPC contract", () => {
       status: "completed",
     });
 
-    const { data, error } = await admin.rpc(
-      "recover_stale_sessions" as never,
-      {
-        p_max_sessions: 10,
-      } as never,
-    );
+    const { data, error } = await admin.rpc("recover_stale_sessions", {
+      p_max_sessions: 10,
+    });
     expect(error).toBeNull();
     const expired = (data as unknown as { id: string }[]) ?? [];
     expect(expired.map((r) => r.id)).toContain(staleId);
@@ -285,13 +276,10 @@ describe.skipIf(skip)("recovery RPC contract", () => {
       max_attempts: 3,
     });
 
-    const { data, error } = await admin.rpc(
-      "purge_expired_metadata" as never,
-      {
-        p_retention_days: 30,
-        p_max_rows: 100,
-      } as never,
-    );
+    const { data, error } = await admin.rpc("purge_expired_metadata", {
+      p_retention_days: 30,
+      p_max_rows: 100,
+    });
     expect(error).toBeNull();
     expect(Number((data as unknown as { purged_rows: number }[])[0].purged_rows)).toBeGreaterThan(
       0,
@@ -388,13 +376,10 @@ describe.skipIf(skip)("recovery RPC contract", () => {
       .eq("id", activeSessionId);
     expect(activePointerError).toBeNull();
 
-    const { data, error } = await admin.rpc(
-      "purge_expired_metadata" as never,
-      {
-        p_retention_days: 30,
-        p_max_rows: 100,
-      } as never,
-    );
+    const { data, error } = await admin.rpc("purge_expired_metadata", {
+      p_retention_days: 30,
+      p_max_rows: 100,
+    });
     expect(error).toBeNull();
     expect(Number((data as unknown as { purged_rows: number }[])[0].purged_rows)).toBeGreaterThan(
       0,
@@ -448,13 +433,10 @@ describe.skipIf(skip)("recovery RPC contract", () => {
       .eq("id", cancelledId);
     expect(pointerError).toBeNull();
 
-    const { error } = await admin.rpc(
-      "purge_expired_metadata" as never,
-      {
-        p_retention_days: 30,
-        p_max_rows: 100,
-      } as never,
-    );
+    const { error } = await admin.rpc("purge_expired_metadata", {
+      p_retention_days: 30,
+      p_max_rows: 100,
+    });
     expect(error).toBeNull();
 
     const { data: cancelledSession } = await admin
@@ -481,12 +463,9 @@ describe.skipIf(skip)("recovery RPC contract", () => {
     });
 
     // expire_job_leases first: must NOT touch the exhausted job.
-    const expire = await admin.rpc(
-      "expire_job_leases" as never,
-      {
-        p_max_jobs: 10,
-      } as never,
-    );
+    const expire = await admin.rpc("expire_job_leases", {
+      p_max_jobs: 10,
+    });
     expect(expire.error).toBeNull();
     const recovered = (expire.data as unknown as { id: string }[]) ?? [];
     expect(recovered.map((r) => r.id)).not.toContain(exhausted);
@@ -499,12 +478,9 @@ describe.skipIf(skip)("recovery RPC contract", () => {
     expect(stillProcessing?.status).toBe("processing");
 
     // mark_dead_jobs then: must terminal-fail it.
-    const dead = await admin.rpc(
-      "mark_dead_jobs" as never,
-      {
-        p_max_jobs: 10,
-      } as never,
-    );
+    const dead = await admin.rpc("mark_dead_jobs", {
+      p_max_jobs: 10,
+    });
     expect(dead.error).toBeNull();
     const marked = (dead.data as unknown as { id: string }[]) ?? [];
     expect(marked.map((r) => r.id)).toContain(exhausted);
