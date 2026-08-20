@@ -31,7 +31,7 @@ Plan: `plans/milestone-6-reliability-security-observability.md`
 
 **Langkah manual tersisa (catatan untuk closure):**
 
-- [ ] Deploy ke Vercel Preview (alias stabil `albot-git-main-alamaby.vercel.app`)
+- [ ] Deploy ke Vercel Preview — **DONE**: alias stabil `albot-dev.vercel.app` → Preview `albot-fl8otmt38-...`; health `{"status":"ok","environment":"development","database":"reachable"}`; readiness OK (expiredSessions 39, deadJobs 0)
 - [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` (harus sama dengan Vercel Preview)
 - [ ] Verifikasi cron `recovery-development.yml` (1 run manual + schedule)
 - [ ] E2E fault injection (8 skenario: worker crash/lease, dead job, session expiry sweep, retention purge, jitter, redaction, diagnostics auth, health readiness)

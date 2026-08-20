@@ -16,7 +16,7 @@ Contoh panggilan:
 
 ```bash
 curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
-  https://albot-git-main-alamaby.vercel.app/api/admin/diagnostics
+  https://albot-dev.vercel.app/api/admin/diagnostics
 ```
 
 ## 1. Provider key invalid (401/403)
@@ -48,7 +48,7 @@ atau `provider_authorization_failed`; `provider_keys.failure_count` naik.
 
 1. `node scripts/set-telegram-webhook.mjs get <TOKEN>` — periksa URL, secret,
    `allowed_updates`, `last_error`.
-2. Pastikan URL webhook adalah alias stabil (`https://albot-git-main-alamaby.vercel.app/api/telegram/webhook`),
+2. Pastikan URL webhook adalah alias stabil (`https://albot-dev.vercel.app/api/telegram/webhook`),
    bukan URL deployment acak, dan Deployment Protection Preview dimatikan.
 3. Jika URL salah: `set` ulang dengan secret yang sama (secret harus cocok
    dengan `TELEGRAM_WEBHOOK_SECRET` di Vercel).

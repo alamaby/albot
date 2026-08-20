@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
     inputs:
       recovery_url:
-        description: "Development recovery endpoint URL (default: stable Preview alias)"
+        description: "Development recovery endpoint URL (default: stable dev alias)"
         type: string
         required: false
-        default: "https://albot-git-main-alamaby.vercel.app/api/recovery/run"
+        default: "https://albot-dev.vercel.app/api/recovery/run"
 
 permissions:
   contents: read
@@ -43,7 +43,7 @@ jobs:
           if [ -n "${{ inputs.recovery_url }}" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "url=${{ inputs.recovery_url }}" >> "$GITHUB_OUTPUT"
           else
-            echo "url=https://albot-git-main-alamaby.vercel.app/api/recovery/run" >> "$GITHUB_OUTPUT"
+            echo "url=https://albot-dev.vercel.app/api/recovery/run" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Invoke recovery endpoint
