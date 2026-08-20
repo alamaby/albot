@@ -129,7 +129,7 @@ Satu "fail" di script (lease_expired event saat direct-RPC) adalah artefak mode 
 
 ## Decision
 
-- [ ] Accepted
+- [x] Accepted
 - [ ] Blocked
 
 Approver: @alamaby

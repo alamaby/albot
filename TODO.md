@@ -4,40 +4,11 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 6: Reliability, Security, and Observability (**IN PROGRESS** — lihat In Progress)
+Milestone 6: Reliability, Security, and Observability (**CLOSED 2026-08-20** — lihat Completed)
 
 ## In Progress
 
-### Milestone 6: Reliability, Security, and Observability (dibuka 2026-08-19)
-
-Plan: `plans/milestone-6-reliability-security-observability.md`
-
-- [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — **DITERAPKAN ke dev (17/17), prod 0**
-- [x] Migration `20260819130000` (review fix: purge null-kan active pointers sebelum delete children + `telegram_updates` batch bounded; comment dokumentasi attempt double-count) — **DITERAPKAN ke dev (17/17), prod 0**
-- [x] Migration `20260820100000` (advisor remediation: revoke EXECUTE `rls_auto_enable` dari anon/authenticated) — **DITERAPKAN ke dev (17/17), prod 0**
-- [x] Review fix: hapus `setCorrelationId` dead code, contract test baru (purge dengan active pointers, cancelled revision-only, dead-job lease-expired max)
-- [x] Backoff full jitter (`src/server/jobs/backoff.ts`) + wire ke `EnhancementJobRetry`/`GenerationJobRetry`
-- [x] Observability: `logger.ts` (structured JSON + redaction), `redact.ts`, `correlation.ts` (AsyncLocalStorage + `x-correlation-id`)
-- [x] Recovery: `job-event.repository.ts`, `recovery.repository.ts`, `recovery.ts` (lease → dead → session → purge), `/api/recovery/run`
-- [x] Diagnostics: `/api/admin/diagnostics` (job/session/cooldown counts, Bearer `JOB_PROCESSOR_SECRET`)
-- [x] Health `?include=readiness` (`readiness.ts`, non-paid, zero provider call)
-- [x] Session expiry sweep otomatis + notifikasi user (`buildBotMessage("session_expired")` di recovery)
-- [x] Structured logging + correlation di semua routes/handlers (console.* di src sudah 0)
-- [x] Workflow `recovery-development.yml` (cron `*/5`, curl `/api/recovery/run` di alias `albot-dev.vercel.app`) + `npm audit` step di `validate.yml`
-- [x] Docs: `docs/retention.md`, `docs/runbooks/milestone-6-incident-response.md`, env-variables note, README routes
-- [x] Tests: `backoff.test.ts`, `redact.test.ts`, `logger.test.ts`, `recovery.test.ts` (unit), `recovery-rpc.contract.test.ts` (hosted), `recovery-auth.security.test.ts`
-- [x] Regenerasi `database.types.ts` (commit `859ca48`) setelah migration dev di-apply — `as never` dihapus, typed RPC calls
-- [x] Fix hosted suite (commit `534dee3` + `219141e`): `EXPECTED_MIGRATIONS` 17 + fixture `recover_stale_sessions` deterministik — full hosted 106 tests hijau
-- [x] Verifikasi lokal: lint 0, typecheck clean, build clean, format clean, db:lint/db:check-migrations (17)/db:types:check green; unit 235 + hosted 106 hijau
-
-**Langkah manual tersisa (catatan untuk closure):**
-
-- [ ] Deploy ke Vercel Preview — **DONE**: alias stabil `albot-dev.vercel.app` → Preview `albot-fl8otmt38-...`; health `{"status":"ok","environment":"development","database":"reachable"}`; readiness OK (expiredSessions 39, deadJobs 0)
-- [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` — **DONE via environment `recovery-development`** (tanpa protection rules, khusus cron)
-- [ ] Verifikasi cron `recovery-development.yml` — **DONE**: run manual HTTP 200 `{ok:true,...}`; schedule otomatis aktif (run scheduled sukses; interval normal GitHub Actions tidak persis 5 menit)
-- [ ] E2E fault injection — **DONE** (`scripts/e2e-m6-fault-injection.mjs`): 19/20 lulus — lease recovery ✓, dead job ✓, session sweep ✓, retention purge (FK pointer fix) ✓, diagnostics 401 ✓, health readiness ✓. Event `lease_expired` end-to-end terbukti via cron scheduled (seeded job `b12421c6` → `queued` + `lease_expired` event dengan `correlationId "gh-32327141382"`).
-- [ ] Supabase advisor review — **DONE**: 2 WARN (`rls_auto_enable` SECURITY DEFINER executable anon/authenticated) → **Fixed** migration `20260820100000`; 10 INFO (`rls_enabled_no_policy`) → **Accepted by design** (deny-by-default, diverifikasi security tests)
-- [ ] Closure plan — **DIBUAT**: `plans/2026-08-20-milestone-6-closure-plan.md` — menunggu approval @alamaby (tandai Accepted + date)
+- (none) — Milestone 6 CLOSED 2026-08-20. Lihat bagian Completed.
 
 ## Pending
 
@@ -49,6 +20,25 @@ Plan: `plans/milestone-6-reliability-security-observability.md`
 - (none)
 
 ## Completed
+
+### Milestone 6: Reliability, Security, and Observability (closed 2026-08-20)
+
+Plan: `plans/milestone-6-reliability-security-observability.md`; closure: `plans/2026-08-20-milestone-6-closure-plan.md` (**ACCEPTED** @alamaby)
+
+- [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — dev 17/17, prod 0
+- [x] Migration `20260819130000` (review fix: purge null-kan active pointers sebelum delete children + `telegram_updates` batch bounded; comment dokumentasi attempt double-count) — dev 17/17, prod 0
+- [x] Migration `20260820100000` (advisor remediation: revoke EXECUTE `rls_auto_enable` dari anon/authenticated) — dev 17/17, prod 0
+- [x] Backoff full jitter (`src/server/jobs/backoff.ts`) + wire ke `EnhancementJobRetry`/`GenerationJobRetry`
+- [x] Observability: `logger.ts` (structured JSON + redaction), `redact.ts`, `correlation.ts` (AsyncLocalStorage + `x-correlation-id`); console.* di src 0
+- [x] Recovery: `job-event.repository.ts`, `recovery.repository.ts`, `recovery.ts` (lease → dead → session → purge), `/api/recovery/run` + cron `recovery-development.yml` (alias `albot-dev.vercel.app`, environment `recovery-development` tanpa approval)
+- [x] Diagnostics `/api/admin/diagnostics` + health `?include=readiness` (non-paid) + session expiry sweep + notifikasi user
+- [x] Docs: `docs/retention.md`, `docs/runbooks/milestone-6-incident-response.md`, env-variables, README; `npm audit` di validate.yml
+- [x] Tests: unit 235 + hosted 106 hijau; backoff/redact/logger/recovery (unit), recovery-rpc (contract), recovery-auth (security)
+- [x] Regenerasi `database.types.ts` (RPC M6 typed, `as never` dihapus)
+- [x] E2E fault injection: lease recovery (event `lease_expired` via cron scheduled, correlationId `gh-32327141382`), dead job, session sweep, retention purge (FK fix), diagnostics 401, health readiness — `scripts/e2e-m6-fault-injection.mjs`
+- [x] Supabase advisor: 2 WARN fixed (migration `20260820100000`), 10 INFO `rls_enabled_no_policy` accepted by design
+- [x] Deploy Preview + alias stabil `albot-dev.vercel.app`; recovery cron berjalan otomatis
+- [x] Closure plan accepted (2026-08-20)
 
 ### Milestone 5: Image Generation and Post-Result Actions (closed 2026-08-19)
 
