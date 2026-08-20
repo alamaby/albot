@@ -32,8 +32,8 @@ Plan: `plans/milestone-6-reliability-security-observability.md`
 **Langkah manual tersisa (catatan untuk closure):**
 
 - [ ] Deploy ke Vercel Preview — **DONE**: alias stabil `albot-dev.vercel.app` → Preview `albot-fl8otmt38-...`; health `{"status":"ok","environment":"development","database":"reachable"}`; readiness OK (expiredSessions 39, deadJobs 0)
-- [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` (harus sama dengan Vercel Preview)
-- [ ] Verifikasi cron `recovery-development.yml` (1 run manual + schedule)
+- [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` — **DONE via environment `recovery-development`** (tanpa protection rules, khusus cron)
+- [ ] Verifikasi cron `recovery-development.yml` — **DONE**: run manual HTTP 200 `{ok:true,recoveredLeases:0,deadJobsMarked:0,staleSessionsExpired:0,purgedRows:0}`; schedule `*/5` aktif tanpa approval
 - [ ] E2E fault injection (8 skenario: worker crash/lease, dead job, session expiry sweep, retention purge, jitter, redaction, diagnostics auth, health readiness)
 - [ ] Supabase advisor review + disposition
 - [ ] Closure plan `plans/2026-08-XX-milestone-6-closure-plan.md` (template master plan)
