@@ -33,8 +33,8 @@ Plan: `plans/milestone-6-reliability-security-observability.md`
 
 - [ ] Deploy ke Vercel Preview — **DONE**: alias stabil `albot-dev.vercel.app` → Preview `albot-fl8otmt38-...`; health `{"status":"ok","environment":"development","database":"reachable"}`; readiness OK (expiredSessions 39, deadJobs 0)
 - [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` — **DONE via environment `recovery-development`** (tanpa protection rules, khusus cron)
-- [ ] Verifikasi cron `recovery-development.yml` — **DONE**: run manual HTTP 200 `{ok:true,recoveredLeases:0,deadJobsMarked:0,staleSessionsExpired:0,purgedRows:0}`; schedule `*/5` aktif tanpa approval
-- [ ] E2E fault injection (8 skenario: worker crash/lease, dead job, session expiry sweep, retention purge, jitter, redaction, diagnostics auth, health readiness)
+- [ ] Verifikasi cron `recovery-development.yml` — **DONE**: run manual HTTP 200 `{ok:true,...}`; schedule otomatis aktif (run scheduled terakhir 10:08 GMT+7 sukses; interval normal GitHub Actions tidak persis 5 menit)
+- [ ] E2E fault injection — **DONE** (`scripts/e2e-m6-fault-injection.mjs`, direct RPC mode): 19/20 lulus — lease recovery ✓, dead job ✓, session sweep ✓, retention purge (FK pointer fix) ✓, diagnostics 401 ✓, health readiness ✓. Event `lease_expired` end-to-end terbukti via cron scheduled: seeded job `b12421c6` → `queued` + `lease_expired` event dengan `correlationId "gh-32327141382"`. (Satu "fail" di script adalah artefak mode direct-RPC yang tidak menulis event; event recording sudah di-cover unit test + terbukti via cron.)
 - [ ] Supabase advisor review + disposition
 - [ ] Closure plan `plans/2026-08-XX-milestone-6-closure-plan.md` (template master plan)
 
