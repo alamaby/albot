@@ -12,8 +12,8 @@ Milestone 6: Reliability, Security, and Observability (**IN PROGRESS** — lihat
 
 Plan: `plans/milestone-6-reliability-security-observability.md`
 
-- [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — **belum di-apply ke dev** (menunggu workflow migrate-development)
-- [x] Migration `20260819130000` (review fix: purge null-kan active pointers sebelum delete children + `telegram_updates` batch bounded; comment dokumentasi attempt double-count) — **belum di-apply ke dev**
+- [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — **DITERAPKAN ke dev (16/16), prod 0**
+- [x] Migration `20260819130000` (review fix: purge null-kan active pointers sebelum delete children + `telegram_updates` batch bounded; comment dokumentasi attempt double-count) — **DITERAPKAN ke dev (16/16), prod 0**
 - [x] Review fix: hapus `setCorrelationId` dead code, contract test baru (purge dengan active pointers, cancelled revision-only, dead-job lease-expired max)
 - [x] Backoff full jitter (`src/server/jobs/backoff.ts`) + wire ke `EnhancementJobRetry`/`GenerationJobRetry`
 - [x] Observability: `logger.ts` (structured JSON + redaction), `redact.ts`, `correlation.ts` (AsyncLocalStorage + `x-correlation-id`)
@@ -25,11 +25,12 @@ Plan: `plans/milestone-6-reliability-security-observability.md`
 - [x] Workflow `recovery-development.yml` (cron `*/5`, curl `/api/recovery/run` di alias Preview) + `npm audit` step di `validate.yml`
 - [x] Docs: `docs/retention.md`, `docs/runbooks/milestone-6-incident-response.md`, env-variables note, README routes
 - [x] Tests: `backoff.test.ts`, `redact.test.ts`, `logger.test.ts`, `recovery.test.ts` (unit), `recovery-rpc.contract.test.ts` (hosted), `recovery-auth.security.test.ts`
-- [x] Verifikasi lokal: lint 0, typecheck clean, build clean, format clean, db:lint/db:check-migrations (15)/db:types:check green; unit+security green
+- [x] Regenerasi `database.types.ts` (commit `859ca48`) setelah migration dev di-apply — `as never` dihapus, typed RPC calls
+- [x] Fix hosted suite (commit `534dee3`): `EXPECTED_MIGRATIONS` 16 + fixture `recover_stale_sessions` deterministik — full hosted 106 tests hijau
+- [x] Verifikasi lokal: lint 0, typecheck clean, build clean, format clean, db:lint/db:check-migrations (16)/db:types:check green; unit 235 + hosted 106 hijau
 
 **Langkah manual tersisa (catatan untuk closure):**
 
-- [ ] Apply migration `20260819120000` + `20260819130000` ke dev via workflow `migrate-development` (dev 16/16, prod 0) → lalu contract test recovery lulus (sekarang PGRST202 karena RPC belum ada di dev)
 - [ ] Deploy ke Vercel Preview (alias stabil `albot-git-main-alamaby.vercel.app`)
 - [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` (harus sama dengan Vercel Preview)
 - [ ] Verifikasi cron `recovery-development.yml` (1 run manual + schedule)
