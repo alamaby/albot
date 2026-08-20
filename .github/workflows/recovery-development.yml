@@ -22,7 +22,9 @@ jobs:
   recovery-development:
     name: Run recovery sweep (development)
     runs-on: ubuntu-latest
-    environment: development
+    # Dedicated environment WITHOUT protection rules so the 5-minute cron can
+    # run unattended. Holds only JOB_PROCESSOR_SECRET (dev value).
+    environment: recovery-development
     timeout-minutes: 10
     steps:
       - name: Checkout
