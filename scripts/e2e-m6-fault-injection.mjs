@@ -31,7 +31,8 @@ const SKIP_TELEGRAM = args.includes("--skip-telegram");
 
 const SUPABASE_URL = process.env.SUPABASE_URL_DEV;
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY_DEV;
-const JOB_PROCESSOR_SECRET = process.env.JOB_PROCESSOR_SECRET_DEV ?? process.env.JOB_PROCESSOR_SECRET;
+const JOB_PROCESSOR_SECRET =
+  process.env.JOB_PROCESSOR_SECRET_DEV ?? process.env.JOB_PROCESSOR_SECRET;
 
 if (!SUPABASE_URL || !SERVICE_ROLE) {
   console.error("missing SUPABASE_URL_DEV / SUPABASE_SERVICE_ROLE_KEY_DEV");
@@ -84,7 +85,9 @@ async function cleanupSession(sessionId) {
 const testUserId = 557999000 + Math.floor(Math.random() * 1000);
 
 async function main() {
-  console.log(`E2E M6 fault injection (dev) — recovery: ${RECOVERY_URL ?? "(not provided, trigger skipped)"}`);
+  console.log(
+    `E2E M6 fault injection (dev) — recovery: ${RECOVERY_URL ?? "(not provided, trigger skipped)"}`,
+  );
 
   // ---- 1. Worker crash / lease expiry ----
   console.log("\n[1] Lease expiry recovery");
@@ -133,7 +136,11 @@ async function main() {
         after?.lease_expires_at === null,
       JSON.stringify(after),
     );
-    report("attempt_count incremented by sweep", after?.attempt_count === 2, `count=${after?.attempt_count}`);
+    report(
+      "attempt_count incremented by sweep",
+      after?.attempt_count === 2,
+      `count=${after?.attempt_count}`,
+    );
 
     const { data: events } = await admin
       .from("job_events")
@@ -250,10 +257,7 @@ async function main() {
       .single();
     report("insert old revision", !re, re?.message);
     // Point the session at the revision (real state) to prove the FK fix.
-    await admin
-      .from("prompt_sessions")
-      .update({ active_revision_id: rev.id })
-      .eq("id", session.id);
+    await admin.from("prompt_sessions").update({ active_revision_id: rev.id }).eq("id", session.id);
 
     // Active session must survive.
     const { data: activeSession, error: ase } = await admin
@@ -268,7 +272,11 @@ async function main() {
     report("insert active session", !ase, ase?.message);
 
     const purgeResult = await triggerRecovery();
-    report("purge ran", typeof purgeResult.purgedRows === "number", `purgedRows=${purgeResult.purgedRows}`);
+    report(
+      "purge ran",
+      typeof purgeResult.purgedRows === "number",
+      `purgedRows=${purgeResult.purgedRows}`,
+    );
 
     const { data: oldCheck } = await admin
       .from("prompt_sessions")
@@ -312,17 +320,21 @@ async function main() {
   // ---- 6. Health readiness ----
   console.log("\n[6] Health readiness (non-paid)");
   {
-    const base = RECOVERY_URL?.replace(/\/api\/recovery\/run$/, "") ?? `https://${SUPABASE_URL.replace("https://", "").split(".")[0]}-mock`;
-    const healthUrl = RECOVERY_URL
-      ? `${base}/api/health?include=readiness`
-      : null;
+    const base =
+      RECOVERY_URL?.replace(/\/api\/recovery\/run$/, "") ??
+      `https://${SUPABASE_URL.replace("https://", "").split(".")[0]}-mock`;
+    const healthUrl = RECOVERY_URL ? `${base}/api/health?include=readiness` : null;
     if (healthUrl) {
       const res = await fetch(healthUrl);
       const body = await res.json();
       report(
         "health includes readiness block",
         res.status === 200 && body.readiness && typeof body.readiness.jobs === "object",
-        JSON.stringify(body.readiness ? { deadJobs: body.readiness.deadJobs, expiredSessions: body.readiness.expiredSessions } : null),
+        JSON.stringify(
+          body.readiness
+            ? { deadJobs: body.readiness.deadJobs, expiredSessions: body.readiness.expiredSessions }
+            : null,
+        ),
       );
     } else {
       report("health readiness (skipped, no RECOVERY_URL)", true, "no URL");
