@@ -12,8 +12,9 @@ Milestone 6: Reliability, Security, and Observability (**IN PROGRESS** — lihat
 
 Plan: `plans/milestone-6-reliability-security-observability.md`
 
-- [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — **DITERAPKAN ke dev (16/16), prod 0**
-- [x] Migration `20260819130000` (review fix: purge null-kan active pointers sebelum delete children + `telegram_updates` batch bounded; comment dokumentasi attempt double-count) — **DITERAPKAN ke dev (16/16), prod 0**
+- [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — **DITERAPKAN ke dev (17/17), prod 0**
+- [x] Migration `20260819130000` (review fix: purge null-kan active pointers sebelum delete children + `telegram_updates` batch bounded; comment dokumentasi attempt double-count) — **DITERAPKAN ke dev (17/17), prod 0**
+- [x] Migration `20260820100000` (advisor remediation: revoke EXECUTE `rls_auto_enable` dari anon/authenticated) — **DITERAPKAN ke dev (17/17), prod 0**
 - [x] Review fix: hapus `setCorrelationId` dead code, contract test baru (purge dengan active pointers, cancelled revision-only, dead-job lease-expired max)
 - [x] Backoff full jitter (`src/server/jobs/backoff.ts`) + wire ke `EnhancementJobRetry`/`GenerationJobRetry`
 - [x] Observability: `logger.ts` (structured JSON + redaction), `redact.ts`, `correlation.ts` (AsyncLocalStorage + `x-correlation-id`)
@@ -22,21 +23,21 @@ Plan: `plans/milestone-6-reliability-security-observability.md`
 - [x] Health `?include=readiness` (`readiness.ts`, non-paid, zero provider call)
 - [x] Session expiry sweep otomatis + notifikasi user (`buildBotMessage("session_expired")` di recovery)
 - [x] Structured logging + correlation di semua routes/handlers (console.* di src sudah 0)
-- [x] Workflow `recovery-development.yml` (cron `*/5`, curl `/api/recovery/run` di alias Preview) + `npm audit` step di `validate.yml`
+- [x] Workflow `recovery-development.yml` (cron `*/5`, curl `/api/recovery/run` di alias `albot-dev.vercel.app`) + `npm audit` step di `validate.yml`
 - [x] Docs: `docs/retention.md`, `docs/runbooks/milestone-6-incident-response.md`, env-variables note, README routes
 - [x] Tests: `backoff.test.ts`, `redact.test.ts`, `logger.test.ts`, `recovery.test.ts` (unit), `recovery-rpc.contract.test.ts` (hosted), `recovery-auth.security.test.ts`
 - [x] Regenerasi `database.types.ts` (commit `859ca48`) setelah migration dev di-apply — `as never` dihapus, typed RPC calls
-- [x] Fix hosted suite (commit `534dee3`): `EXPECTED_MIGRATIONS` 16 + fixture `recover_stale_sessions` deterministik — full hosted 106 tests hijau
-- [x] Verifikasi lokal: lint 0, typecheck clean, build clean, format clean, db:lint/db:check-migrations (16)/db:types:check green; unit 235 + hosted 106 hijau
+- [x] Fix hosted suite (commit `534dee3` + `219141e`): `EXPECTED_MIGRATIONS` 17 + fixture `recover_stale_sessions` deterministik — full hosted 106 tests hijau
+- [x] Verifikasi lokal: lint 0, typecheck clean, build clean, format clean, db:lint/db:check-migrations (17)/db:types:check green; unit 235 + hosted 106 hijau
 
 **Langkah manual tersisa (catatan untuk closure):**
 
 - [ ] Deploy ke Vercel Preview — **DONE**: alias stabil `albot-dev.vercel.app` → Preview `albot-fl8otmt38-...`; health `{"status":"ok","environment":"development","database":"reachable"}`; readiness OK (expiredSessions 39, deadJobs 0)
 - [ ] Set GitHub Environment `development` secret `JOB_PROCESSOR_SECRET` — **DONE via environment `recovery-development`** (tanpa protection rules, khusus cron)
-- [ ] Verifikasi cron `recovery-development.yml` — **DONE**: run manual HTTP 200 `{ok:true,...}`; schedule otomatis aktif (run scheduled terakhir 10:08 GMT+7 sukses; interval normal GitHub Actions tidak persis 5 menit)
-- [ ] E2E fault injection — **DONE** (`scripts/e2e-m6-fault-injection.mjs`, direct RPC mode): 19/20 lulus — lease recovery ✓, dead job ✓, session sweep ✓, retention purge (FK pointer fix) ✓, diagnostics 401 ✓, health readiness ✓. Event `lease_expired` end-to-end terbukti via cron scheduled: seeded job `b12421c6` → `queued` + `lease_expired` event dengan `correlationId "gh-32327141382"`. (Satu "fail" di script adalah artefak mode direct-RPC yang tidak menulis event; event recording sudah di-cover unit test + terbukti via cron.)
-- [ ] Supabase advisor review + disposition
-- [ ] Closure plan `plans/2026-08-XX-milestone-6-closure-plan.md` (template master plan)
+- [ ] Verifikasi cron `recovery-development.yml` — **DONE**: run manual HTTP 200 `{ok:true,...}`; schedule otomatis aktif (run scheduled sukses; interval normal GitHub Actions tidak persis 5 menit)
+- [ ] E2E fault injection — **DONE** (`scripts/e2e-m6-fault-injection.mjs`): 19/20 lulus — lease recovery ✓, dead job ✓, session sweep ✓, retention purge (FK pointer fix) ✓, diagnostics 401 ✓, health readiness ✓. Event `lease_expired` end-to-end terbukti via cron scheduled (seeded job `b12421c6` → `queued` + `lease_expired` event dengan `correlationId "gh-32327141382"`).
+- [ ] Supabase advisor review — **DONE**: 2 WARN (`rls_auto_enable` SECURITY DEFINER executable anon/authenticated) → **Fixed** migration `20260820100000`; 10 INFO (`rls_enabled_no_policy`) → **Accepted by design** (deny-by-default, diverifikasi security tests)
+- [ ] Closure plan — **DIBUAT**: `plans/2026-08-20-milestone-6-closure-plan.md` — menunggu approval @alamaby (tandai Accepted + date)
 
 ## Pending
 
