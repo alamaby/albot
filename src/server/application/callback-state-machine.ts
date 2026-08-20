@@ -12,6 +12,7 @@ import { SessionRepository, type SessionSafe } from "@/server/repositories/sessi
 import { JobRepository } from "@/server/repositories/job.repository";
 import { isSessionExpired } from "./session-expiry-check";
 import { logStructured } from "@/server/observability/logger";
+import { buildGenerationStatusMessage } from "@/server/telegram/messages";
 
 export type CallbackAction = "generate" | "revise" | "cancel" | "regenerate" | "complete";
 
@@ -38,6 +39,10 @@ export type CallbackStateMachineDeps = {
     callbackQueryId: string,
     options?: { text?: string; showAlert?: boolean },
   ) => Promise<unknown>;
+  // Persists the Telegram message id of the generation status message so the
+  // job worker can edit it to the final outcome. Defaults to the real
+  // SessionRepository; injected in tests.
+  saveStatusMessageId?: (sessionId: string, messageId: number) => Promise<void>;
 };
 
 export class CallbackStateMachine {
@@ -59,6 +64,7 @@ export class CallbackStateMachine {
     callbackQueryId: string,
     options?: { text?: string; showAlert?: boolean },
   ) => Promise<unknown>;
+  private readonly saveStatusMessageId: (sessionId: string, messageId: number) => Promise<void>;
 
   constructor(deps: CallbackStateMachineDeps = {}) {
     this.sessionRepository = deps.sessionRepository ?? new SessionRepository();
@@ -84,6 +90,11 @@ export class CallbackStateMachine {
       deps.answerCallbackQuery ??
       (async () => {
         throw new Error("answerCallbackQuery not wired");
+      });
+    this.saveStatusMessageId =
+      deps.saveStatusMessageId ??
+      (async (sessionId, messageId) => {
+        await this.sessionRepository.saveStatusMessageId(sessionId, messageId);
       });
   }
 
@@ -220,6 +231,27 @@ export class CallbackStateMachine {
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
       logStructured("error", "callback.dispatcher_failed", { sessionId: input.sessionId, detail });
+    }
+
+    // Persist a status message the user can see while the job runs; the worker
+    // edits it to the final outcome. Best-effort: a failure here must not
+    // reject an accepted generation.
+    try {
+      const result = await this.sendTelegramMessage(
+        token,
+        input.session.telegramChatId,
+        buildGenerationStatusMessage("generating"),
+      );
+      const messageId = extractMessageId(result);
+      if (messageId !== null) {
+        await this.saveStatusMessageId(input.sessionId, messageId);
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.status_message_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
     }
 
     await this.ack(token, callbackQueryId, ackText);
@@ -404,4 +436,14 @@ export class CallbackStateMachine {
       logStructured("error", "callback.answer_callback_failed", { detail });
     }
   }
+}
+
+// The sendTelegramMessage dep is typed Promise<unknown> so tests can return
+// anything; production sendMessage returns { messageId }. Tolerate both.
+function extractMessageId(result: unknown): number | null {
+  if (typeof result === "object" && result !== null) {
+    const candidate = (result as { messageId?: unknown }).messageId;
+    if (typeof candidate === "number" && Number.isInteger(candidate)) return candidate;
+  }
+  return null;
 }

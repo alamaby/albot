@@ -32,6 +32,7 @@ import {
 import { SessionRepository, type SessionSafe } from "@/server/repositories/session.repository";
 import type { JobSafe } from "@/server/repositories/job.repository";
 import { isSessionExpired } from "./session-expiry-check";
+import { buildGenerationStatusMessage } from "@/server/telegram/messages";
 
 export type GenerateImageOutcome =
   | { status: "completed"; session: SessionSafe; attempt: GenerationAttemptSafe }
@@ -60,6 +61,10 @@ export type GenerateImageDeps = {
     attempt: GenerationAttemptSafe;
     imageUrl: string;
   }) => Promise<{ messageId: number }>;
+  // Edits the persisted "Sedang membuat gambar..." message to the final
+  // outcome. Best-effort: a failure must not fail generation. Injected for
+  // tests; production default edits via Telegram editMessageText.
+  editStatusMessage?: (input: { session: SessionSafe; text: string }) => Promise<void>;
 };
 
 function parseEncryptionKeyFromEnv(): Buffer {
@@ -83,6 +88,10 @@ export class GenerateImageUseCase {
     attempt: GenerationAttemptSafe;
     imageUrl: string;
   }) => Promise<{ messageId: number }>;
+  private readonly editStatusMessage: (input: {
+    session: SessionSafe;
+    text: string;
+  }) => Promise<void>;
 
   constructor(deps: GenerateImageDeps = {}) {
     this.providerConfigRepository = deps.providerConfigRepository ?? new ProviderConfigRepository();
@@ -103,6 +112,7 @@ export class GenerateImageUseCase {
         await new JobRepository().attachGenerationAttempt(jobId, attemptId);
       });
     this.sendPhoto = deps.sendPhoto ?? this.defaultSendPhoto;
+    this.editStatusMessage = deps.editStatusMessage ?? this.defaultEditStatusMessage;
   }
 
   // Production default: send the photo with the result action keyboard.
@@ -124,6 +134,23 @@ export class GenerateImageUseCase {
       }),
       replyMarkup: resultKeyboard(input.session.id),
     });
+  }
+
+  // Production default: edit the persisted status message to the outcome. A
+  // no-op when the session has no status message id (e.g. a legacy session).
+  private async defaultEditStatusMessage(input: {
+    session: SessionSafe;
+    text: string;
+  }): Promise<void> {
+    if (input.session.telegramStatusMessageId === null) return;
+    const env = getServerEnv();
+    const { editMessageText } = await import("@/server/telegram/client");
+    await editMessageText(
+      env.TELEGRAM_BOT_TOKEN,
+      input.session.telegramChatId,
+      input.session.telegramStatusMessageId,
+      input.text,
+    );
   }
 
   async execute(job: JobSafe): Promise<GenerateImageOutcome> {
@@ -160,6 +187,21 @@ export class GenerateImageUseCase {
         : null;
       if (!attempt) {
         throw new Error("generate-image: stale claim without a generation attempt");
+      }
+      // The real worker already delivered the photo and edited the status
+      // message; only a session that still has an unedited status message needs
+      // a generic update. Best-effort.
+      try {
+        await this.editStatusMessage({
+          session,
+          text: buildGenerationStatusMessage("succeeded_generic"),
+        });
+      } catch (editError) {
+        const detail = editError instanceof Error ? editError.message : "unknown";
+        logStructured("error", "generate.stale_status_edit_failed", {
+          sessionId: session.id,
+          detail,
+        });
       }
       return { status: "completed", session, attempt };
     }
@@ -248,6 +290,24 @@ export class GenerateImageUseCase {
       // Delivery outcome must be known before the attempt is marked succeeded.
       let sent: { messageId: number };
       try {
+        // Update the "Sedang membuat gambar..." message to the success outcome
+        // before sending the photo. Best-effort: a failed edit (e.g. message
+        // deleted) must not block delivery.
+        try {
+          await this.editStatusMessage({
+            session,
+            text: buildGenerationStatusMessage("succeeded", {
+              attemptNumber: attempt.attemptNumber,
+              revisionNumber: revision.revisionNumber,
+            }),
+          });
+        } catch (editError) {
+          const detail = editError instanceof Error ? editError.message : "unknown";
+          logStructured("error", "generate.status_edit_failed", {
+            sessionId: session.id,
+            detail,
+          });
+        }
         sent = await this.sendPhoto({ session, revision, attempt, imageUrl });
       } catch (error) {
         // Delivery failure is terminal for this attempt; the session moves to

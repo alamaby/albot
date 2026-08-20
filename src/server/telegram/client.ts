@@ -107,6 +107,26 @@ export async function sendPhotoByUrl(
   return { messageId: result.result.message_id };
 }
 
+// Edits a previously sent message in place. Used for the generation status
+// message: sent once as "Sedang membuat gambar..." and edited to the final
+// outcome so the chat does not fill with one-off status bubbles.
+export async function editMessageText(
+  token: string,
+  chatId: bigint,
+  messageId: number,
+  text: string,
+): Promise<SendMessageResult> {
+  const result = await callApi<{ message_id: number }>(token, "editMessageText", {
+    chat_id: chatId.toString(),
+    message_id: messageId,
+    text,
+  });
+  if (!result.ok) {
+    throw new Error(`telegram editMessageText failed: ${redactTelegramError(result)}`);
+  }
+  return { messageId: result.result.message_id };
+}
+
 export async function answerCallbackQuery(
   token: string,
   callbackQueryId: string,

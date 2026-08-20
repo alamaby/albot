@@ -62,6 +62,7 @@ function session(overrides: Partial<SessionSafe> = {}): SessionSafe {
     status: "generating",
     activeRevisionId: "revision-1",
     activeGenerationAttemptId: null,
+    telegramStatusMessageId: 777,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     expiresAt: "2099-01-01T00:00:00Z",
@@ -172,6 +173,7 @@ type Harness = {
     markProcessing: { attemptId: string }[];
     attachProviderToAttempt: { attemptId: string; parameters?: Record<string, unknown> }[];
     sendPhoto: { imageUrl: string }[];
+    editStatusMessage: { text: string }[];
     markAttemptSucceeded: { attemptId: string; messageId: number | null }[];
     markProviderRequestSucceeded: { requestId: string }[];
     markProviderRequestFailed: { requestId: string; errorCode: string }[];
@@ -197,6 +199,7 @@ function buildUseCase(
     markProcessing: [],
     attachProviderToAttempt: [],
     sendPhoto: [],
+    editStatusMessage: [],
     markAttemptSucceeded: [],
     markProviderRequestSucceeded: [],
     markProviderRequestFailed: [],
@@ -288,6 +291,10 @@ function buildUseCase(
           return overrides.sendPhotoResult ?? { messageId: 900 };
         });
 
+  const editStatusMessage = vi.fn(async (input: { text: string }) => {
+    calls.editStatusMessage.push(input);
+  });
+
   const transitionSuccess = overrides.transitionSuccess ?? true;
   rpcMock.transition = transitionSuccess ? { id: "session-1" } : null;
 
@@ -300,6 +307,7 @@ function buildUseCase(
     sessionRepository: sessionRepo as never,
     attachGenerationAttempt: vi.fn(async () => {}),
     sendPhoto,
+    editStatusMessage,
   });
 
   return { useCase, calls };
@@ -329,6 +337,9 @@ describe("GenerateImageUseCase", () => {
     expect(calls.attachProviderToAttempt[0].parameters).toHaveProperty("seed");
     expect(calls.sendPhoto).toHaveLength(1);
     expect(calls.sendPhoto[0].imageUrl).toBe("https://cdn.mock.example.com/image.png");
+    expect(calls.editStatusMessage).toEqual([
+      expect.objectContaining({ text: "Gambar 1 dari revisi 1 berhasil dibuat." }),
+    ]);
     expect(calls.markAttemptSucceeded).toEqual([{ attemptId: "attempt-1", messageId: 900 }]);
     expect(calls.markProviderRequestSucceeded).toHaveLength(1);
     expect(calls.markKeySuccess).toEqual([{ keyId: "key-1", providerConfigId: "config-image" }]);
@@ -450,6 +461,9 @@ describe("GenerateImageUseCase", () => {
     expect(outcome.status).toBe("completed");
     expect(calls.createAttempt).toHaveLength(0);
     expect(calls.sendPhoto).toHaveLength(0);
+    expect(calls.editStatusMessage).toEqual([
+      expect.objectContaining({ text: "Gambar berhasil dibuat." }),
+    ]);
   });
 
   it("marks the attempt failed when provider selection fails", async () => {

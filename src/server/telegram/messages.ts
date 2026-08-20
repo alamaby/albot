@@ -77,3 +77,27 @@ export function buildResultCaption(input: {
 }): string {
   return `Gambar ${input.attemptNumber} dari revisi ${input.revisionNumber}.`;
 }
+
+// Single persisted status message for image generation: sent once when the
+// user taps Generate/Regenerate and edited to the final outcome so the user
+// always knows the job is running, done, or failed.
+export type GenerationStatusKind =
+  "generating" | "succeeded" | "failed" | "expired" | "succeeded_generic";
+
+export function buildGenerationStatusMessage(
+  kind: GenerationStatusKind,
+  input?: { attemptNumber: number; revisionNumber: number },
+): string {
+  switch (kind) {
+    case "generating":
+      return "Sedang membuat gambar, mohon tunggu...";
+    case "succeeded":
+      return `Gambar ${input?.attemptNumber} dari revisi ${input?.revisionNumber} berhasil dibuat.`;
+    case "succeeded_generic":
+      return "Gambar berhasil dibuat.";
+    case "failed":
+      return "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.";
+    case "expired":
+      return "Sesi telah berakhir. Kirim prompt baru untuk memulai sesi baru.";
+  }
+}

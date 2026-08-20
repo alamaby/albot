@@ -10,7 +10,7 @@ import type { Database } from "@/server/supabase/database.types";
 type SessionRow = Database["public"]["Tables"]["prompt_sessions"]["Row"];
 
 const SESSION_COLUMNS =
-  "id, telegram_user_id, telegram_chat_id, status, active_revision_id, active_generation_attempt_id, created_at, updated_at, expires_at, completed_at";
+  "id, telegram_user_id, telegram_chat_id, status, active_revision_id, active_generation_attempt_id, telegram_status_message_id, created_at, updated_at, expires_at, completed_at";
 
 export type SessionSafe = {
   id: string;
@@ -19,6 +19,7 @@ export type SessionSafe = {
   status: string;
   activeRevisionId: string | null;
   activeGenerationAttemptId: string | null;
+  telegramStatusMessageId: number | null;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
@@ -33,6 +34,8 @@ function mapRow(row: WideSessionRow): SessionSafe {
     status: row.status,
     activeRevisionId: row.active_revision_id,
     activeGenerationAttemptId: row.active_generation_attempt_id,
+    telegramStatusMessageId:
+      row.telegram_status_message_id === null ? null : Number(row.telegram_status_message_id),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     expiresAt: row.expires_at,
@@ -79,5 +82,17 @@ export class SessionRepository {
 
     if (error) throw new Error(`active session lookup failed: ${error.message}`);
     return data ? mapRow(data as unknown as WideSessionRow) : null;
+  }
+
+  // Persists the Telegram message id of the generation status message so the
+  // job worker can edit it to the final outcome. Non-status bookkeeping; a
+  // plain update (no CAS) matches the other non-status writes in this repo.
+  async saveStatusMessageId(sessionId: string, messageId: number): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase
+      .from("prompt_sessions")
+      .update({ telegram_status_message_id: messageId })
+      .eq("id", sessionId);
+    if (error) throw new Error(`save status message id failed: ${error.message}`);
   }
 }

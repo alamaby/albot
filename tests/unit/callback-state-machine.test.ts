@@ -38,6 +38,7 @@ function session(overrides: Partial<SessionSafe> = {}): SessionSafe {
     status: "awaiting_confirmation",
     activeRevisionId: "revision-1",
     activeGenerationAttemptId: null,
+    telegramStatusMessageId: null,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     expiresAt: "2099-01-01T00:00:00Z",
@@ -55,6 +56,7 @@ function buildMachine(overrides: Partial<CallbackStateMachineDeps> = {}) {
   const sentMessages: { chatId: bigint; text: string }[] = [];
   const acks: { callbackQueryId: string; text?: string }[] = [];
   const dispatched: { origin: string; payload?: Record<string, unknown> }[] = [];
+  const savedStatusMessageIds: { sessionId: string; messageId: number }[] = [];
 
   const machine = new CallbackStateMachine({
     sessionRepository: {} as CallbackStateMachineDeps["sessionRepository"],
@@ -68,14 +70,20 @@ function buildMachine(overrides: Partial<CallbackStateMachineDeps> = {}) {
     }),
     sendTelegramMessage: vi.fn(async (_token, chatId, text) => {
       sentMessages.push({ chatId, text });
+      // Mirror the production sendMessage return shape so extractMessageId
+      // persists the status message id.
+      return { messageId: 100 + sentMessages.length };
     }),
     answerCallbackQuery: vi.fn(async (_token, callbackQueryId, options) => {
       acks.push({ callbackQueryId, text: options?.text });
     }),
+    saveStatusMessageId: vi.fn(async (sessionId: string, messageId: number) => {
+      savedStatusMessageIds.push({ sessionId, messageId });
+    }),
     ...overrides,
   });
 
-  return { machine, sentMessages, acks, dispatched };
+  return { machine, sentMessages, acks, dispatched, savedStatusMessageIds };
 }
 
 describe("CallbackStateMachine", () => {
@@ -111,6 +119,27 @@ describe("CallbackStateMachine", () => {
       },
     ]);
     expect(acks).toEqual([{ callbackQueryId: "cb-1", text: "Mulai membuat gambar..." }]);
+  });
+
+  it("sends and persists a generation status message on generate", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "generating" });
+    const { machine, sentMessages, savedStatusMessageIds } = buildMachine();
+
+    const outcome = await machine.handle({
+      action: "generate",
+      sessionId: "session-1",
+      session: session(),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-1",
+      origin: "https://test.origin",
+    });
+
+    expect(outcome.status).toBe("accepted");
+    expect(sentMessages.some((m) => m.text === "Sedang membuat gambar, mohon tunggu...")).toBe(
+      true,
+    );
+    expect(savedStatusMessageIds).toEqual([{ sessionId: "session-1", messageId: 101 }]);
   });
 
   it("rejects a callback from another user", async () => {

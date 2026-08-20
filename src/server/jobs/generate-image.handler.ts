@@ -14,12 +14,17 @@ import { JobRepository, type JobSafe } from "@/server/repositories/job.repositor
 import { GenerationJobRetry } from "./generation-retry";
 import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
+import type { SessionSafe } from "@/server/repositories/session.repository";
+import { buildGenerationStatusMessage } from "@/server/telegram/messages";
 
 export type GenerateImageHandlerDeps = {
   generateImage?: GenerateImageUseCase;
   sessionRepository?: SessionRepository;
   jobRepository?: JobRepository;
   retry?: GenerationJobRetry;
+  // Edits the persisted generation status message to a terminal outcome
+  // (failed / expired). Best-effort; injected for tests.
+  editStatusMessage?: (input: { session: SessionSafe; text: string }) => Promise<void>;
 };
 
 export class GenerateImageHandler {
@@ -27,12 +32,29 @@ export class GenerateImageHandler {
   private readonly sessionRepository: SessionRepository;
   private readonly jobRepository: JobRepository;
   private readonly retry: GenerationJobRetry;
+  private readonly editStatusMessage: (input: {
+    session: SessionSafe;
+    text: string;
+  }) => Promise<void>;
 
   constructor(deps: GenerateImageHandlerDeps = {}) {
     this.generateImage = deps.generateImage ?? new GenerateImageUseCase();
     this.sessionRepository = deps.sessionRepository ?? new SessionRepository();
     this.jobRepository = deps.jobRepository ?? new JobRepository();
     this.retry = deps.retry ?? new GenerationJobRetry(this.jobRepository);
+    this.editStatusMessage =
+      deps.editStatusMessage ??
+      (async (input) => {
+        if (input.session.telegramStatusMessageId === null) return;
+        const env = (await import("@/env")).getServerEnv();
+        const { editMessageText } = await import("@/server/telegram/client");
+        await editMessageText(
+          env.TELEGRAM_BOT_TOKEN,
+          input.session.telegramChatId,
+          input.session.telegramStatusMessageId,
+          input.text,
+        );
+      });
   }
 
   async handle(job: JobRow, workerId: string): Promise<void> {
@@ -70,6 +92,7 @@ export class GenerateImageHandler {
           errorCode: "session_expired",
           errorMessageRedacted: "session expired before generation",
         });
+        await this.editStatusTo(sessionId, buildGenerationStatusMessage("expired"));
         return;
       }
 
@@ -98,6 +121,8 @@ export class GenerateImageHandler {
             detail,
           });
         }
+        // Tell the user the outcome on the same status message. Best-effort.
+        await this.editStatusTo(sessionId, buildGenerationStatusMessage("failed"));
       }
     }
   }
@@ -119,6 +144,19 @@ export class GenerateImageHandler {
       // The session moved on (e.g. another worker already completed it). This
       // is fine; nothing to do.
       return;
+    }
+  }
+
+  // Best-effort edit of the persisted generation status message to a terminal
+  // outcome. Loads the session fresh so it can never act on stale ids.
+  private async editStatusTo(sessionId: string, text: string): Promise<void> {
+    try {
+      const session = await this.sessionRepository.getById(sessionId);
+      if (!session) return;
+      await this.editStatusMessage({ session, text });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "generate.status_edit_failed", { sessionId, detail });
     }
   }
 }

@@ -44,6 +44,7 @@ function session(overrides: Partial<SessionSafe> = {}): SessionSafe {
     status: "awaiting_revision_input",
     activeRevisionId: "revision-1",
     activeGenerationAttemptId: null,
+    telegramStatusMessageId: null,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     expiresAt: "2099-01-01T00:00:00Z",

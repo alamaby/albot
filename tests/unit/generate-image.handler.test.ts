@@ -69,6 +69,7 @@ function buildHandler(
     markRetryScheduled?: ReturnType<typeof vi.fn>;
     markSucceeded?: ReturnType<typeof vi.fn>;
     retryResult?: boolean;
+    session?: { id: string; telegramStatusMessageId: number | null };
   } = {},
 ) {
   const generateImage = {
@@ -96,14 +97,34 @@ function buildHandler(
     apply: vi.fn(async () => overrides.retryResult ?? true),
   } as unknown as { apply: ReturnType<typeof vi.fn> };
 
+  const editStatusMessage = vi.fn(async () => {});
+
   const handler = new GenerateImageHandler({
     generateImage: generateImage as never,
-    sessionRepository: {} as never,
+    sessionRepository: {
+      getById: vi.fn(
+        async () =>
+          overrides.session ?? {
+            id: "session-1",
+            telegramUserId: 123n,
+            telegramChatId: 456n,
+            status: "generating",
+            activeRevisionId: null,
+            activeGenerationAttemptId: null,
+            telegramStatusMessageId: 777,
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+            expiresAt: "2099-01-01T00:00:00Z",
+            completedAt: null,
+          },
+      ),
+    } as never,
     jobRepository: jobRepository as never,
     retry: retry as never,
+    editStatusMessage,
   });
 
-  return { handler, generateImage, jobRepository, retry };
+  return { handler, generateImage, jobRepository, retry, editStatusMessage };
 }
 
 describe("GenerateImageHandler", () => {
@@ -116,7 +137,7 @@ describe("GenerateImageHandler", () => {
 
   it("marks the job failed (terminal) on an expired session without provider call", async () => {
     withEnv();
-    const { handler, generateImage, jobRepository } = buildHandler({
+    const { handler, generateImage, jobRepository, editStatusMessage } = buildHandler({
       outcome: { status: "expired" },
     });
     await handler.handle(jobRow({ generation_attempt_id: "attempt-1" }), "processor-abc");
@@ -125,6 +146,11 @@ describe("GenerateImageHandler", () => {
       "job-1",
       "processor-abc",
       expect.objectContaining({ errorCode: "session_expired" }),
+    );
+    expect(editStatusMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Sesi telah berakhir. Kirim prompt baru untuk memulai sesi baru.",
+      }),
     );
   });
 
@@ -154,7 +180,7 @@ describe("GenerateImageHandler", () => {
     const nonRetryable = makeNonRetryable("provider_authentication_failed", "bad key");
     rpcMock.transition = { id: "session-1" };
 
-    const { handler, generateImage, retry } = buildHandler({
+    const { handler, generateImage, retry, editStatusMessage } = buildHandler({
       error: nonRetryable,
       retryResult: false,
     });
@@ -175,5 +201,10 @@ describe("GenerateImageHandler", () => {
         p_new_status: "generation_failed",
       },
     });
+    expect(editStatusMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.",
+      }),
+    );
   });
 });
