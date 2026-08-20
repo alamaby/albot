@@ -28,6 +28,7 @@ Plan: `plans/milestone-6-reliability-security-observability.md`; closure: `plans
 - [x] Migration `20260819120000` (4 RPC: `expire_job_leases`, `mark_dead_jobs`, `recover_stale_sessions`, `purge_expired_metadata`) — dev 17/17, prod 0
 - [x] Migration `20260819130000` (review fix: purge null-kan active pointers sebelum delete children + `telegram_updates` batch bounded; comment dokumentasi attempt double-count) — dev 17/17, prod 0
 - [x] Migration `20260820100000` (advisor remediation: revoke EXECUTE `rls_auto_enable` dari anon/authenticated) — dev 17/17, prod 0
+- [x] Migration `20260820110000` (development-only cleanup: hapus sisa config `mock_image_generation_contract` dari contract test M5) — dev 18/18, prod 0
 - [x] Backoff full jitter (`src/server/jobs/backoff.ts`) + wire ke `EnhancementJobRetry`/`GenerationJobRetry`
 - [x] Observability: `logger.ts` (structured JSON + redaction), `redact.ts`, `correlation.ts` (AsyncLocalStorage + `x-correlation-id`); console.* di src 0
 - [x] Recovery: `job-event.repository.ts`, `recovery.repository.ts`, `recovery.ts` (lease → dead → session → purge), `/api/recovery/run` + cron `recovery-development.yml` (alias `albot-dev.vercel.app`, environment `recovery-development` tanpa approval)
