@@ -44,6 +44,40 @@ for (const entry of sorted) {
   }
 }
 
+// Guardrail: every migration file must have an entry in EXPECTED_MIGRATIONS in
+// tests/integration/schema.integration.test.ts. The migrate-development
+// workflow runs the hosted schema test "records exactly the expected applied
+// migrations"; forgetting the entry fails the workflow AFTER the migration is
+// already applied to dev (recurring failure: M3, M6 534dee3, 2026-08-20).
+const SCHEMA_TEST_PATH = "tests/integration/schema.integration.test.ts";
+const schemaTest = readFileSync(join(process.cwd(), SCHEMA_TEST_PATH), "utf8");
+const expectedMatch = schemaTest.match(/const EXPECTED_MIGRATIONS = \[([\s\S]*?)\];/);
+if (!expectedMatch) {
+  console.error(`[fail] cannot find EXPECTED_MIGRATIONS in ${SCHEMA_TEST_PATH}`);
+  failed = true;
+} else {
+  const expected = new Set(
+    [...expectedMatch[1].matchAll(/"([0-9]{14})"/g)].map((m) => m[1]),
+  );
+  for (const entry of sorted) {
+    const ts = entry.slice(0, 14);
+    if (!expected.has(ts)) {
+      console.error(
+        `[fail] migration ${entry} is missing from EXPECTED_MIGRATIONS in ${SCHEMA_TEST_PATH}`,
+      );
+      failed = true;
+    }
+  }
+  for (const ts of expected) {
+    if (!sorted.some((entry) => entry.startsWith(ts))) {
+      console.error(
+        `[fail] EXPECTED_MIGRATIONS entry ${ts} has no matching migration file`,
+      );
+      failed = true;
+    }
+  }
+}
+
 if (failed) {
   process.exit(1);
 }

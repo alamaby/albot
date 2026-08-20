@@ -8,6 +8,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+# Migration Workflow
+
+Setiap migration baru (`supabase/migrations/<timestamp>_*.sql`) WAJIB:
+
+1. **Update `EXPECTED_MIGRATIONS`** di `tests/integration/schema.integration.test.ts` — tambahkan 14-digit timestamp migration baru. Workflow `migrate-development.yml` menjalankan hosted test `records exactly the expected applied migrations`; kalau entry tidak di-update, workflow gagal di step "Run hosted tests" SETELAH migration ter-apply ke dev (sudah terjadi 3×: M3, M6 `534dee3`, dan regresi 2026-08-20).
+2. **Cek type drift**: `npm run db:types:check` — kalau migration mengubah schema (tabel/kolom/RPC), regenerate `src/server/supabase/database.types.ts` dengan `npm run db:types` sebelum commit.
+3. **Verifikasi lokal lengkap sebelum commit**: `npm run db:lint`, `npm run db:check-migrations`, `npm run db:types:check`, `npm run test:unit`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run format:check` — semuanya harus hijau.
+4. Jangan trigger `migrate-development.yml` sebelum semua check hijau dan commit sudah di-push.
+
 # Commit Message Rules
 
 - Commit message tidak boleh mengandung trailer `Co-authored-by:` apa pun (termasuk bot/agent).
