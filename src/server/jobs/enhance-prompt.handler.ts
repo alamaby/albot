@@ -3,16 +3,20 @@
 // Wraps the enhancement use case with durable job lifecycle: successful
 // enhancement completes the job; provider failures are classified into bounded
 // retry (future available_at) or terminal failure; expired sessions go terminal
-// without any provider call.
+// without any provider call. On a terminal failure the handler transitions the
+// session to enhancement_failed and sends a retry message with a "Coba Lagi"
+// keyboard — giving the user a retry path (mirrors the generate handler's
+// generation_failed transition).
 
 import type { JobRow } from "@/server/jobs/processor";
 import { EnhancePromptUseCase } from "@/server/application/enhance-prompt";
 import { EnhancementRepository } from "@/server/repositories/enhancement.repository";
-import { SessionRepository } from "@/server/repositories/session.repository";
+import { SessionRepository, type SessionSafe } from "@/server/repositories/session.repository";
 import { JobRepository, type JobSafe } from "@/server/repositories/job.repository";
 import { EnhancementJobRetry } from "./retry";
 import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
+import { buildBotMessage } from "@/server/telegram/messages";
 
 export type EnhancePromptHandlerDeps = {
   enhancePrompt?: EnhancePromptUseCase;
@@ -20,6 +24,9 @@ export type EnhancePromptHandlerDeps = {
   sessionRepository?: SessionRepository;
   jobRepository?: JobRepository;
   retry?: EnhancementJobRetry;
+  // Sends a retry message with the "Coba Lagi" keyboard after a terminal
+  // enhancement failure. Best-effort; injected for tests.
+  sendRetryMessage?: (input: { session: SessionSafe }) => Promise<void>;
 };
 
 export class EnhancePromptHandler {
@@ -28,6 +35,7 @@ export class EnhancePromptHandler {
   private readonly sessionRepository: SessionRepository;
   private readonly jobRepository: JobRepository;
   private readonly retry: EnhancementJobRetry;
+  private readonly sendRetryMessage: (input: { session: SessionSafe }) => Promise<void>;
 
   constructor(deps: EnhancePromptHandlerDeps = {}) {
     this.enhancePrompt = deps.enhancePrompt ?? new EnhancePromptUseCase();
@@ -35,10 +43,24 @@ export class EnhancePromptHandler {
     this.sessionRepository = deps.sessionRepository ?? new SessionRepository();
     this.jobRepository = deps.jobRepository ?? new JobRepository();
     this.retry = deps.retry ?? new EnhancementJobRetry(this.jobRepository);
+    this.sendRetryMessage =
+      deps.sendRetryMessage ??
+      (async (input) => {
+        const env = (await import("@/env")).getServerEnv();
+        const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
+        const { retryKeyboard } = await import("@/server/telegram/keyboards");
+        await sendMessageWithKeyboard(
+          env.TELEGRAM_BOT_TOKEN,
+          input.session.telegramChatId,
+          buildBotMessage("enhancement_failed"),
+          retryKeyboard(input.session.id),
+        );
+      });
   }
 
   async handle(job: JobRow, workerId: string): Promise<void> {
     const revisionId = job.prompt_revision_id ?? "";
+    const sessionId = job.prompt_session_id ?? "";
 
     // Normalize the claimed row into the use-case shape (camelCase JobSafe).
     const jobSafe: JobSafe = {
@@ -94,11 +116,60 @@ export class EnhancePromptHandler {
         logStructured("error", "enhance.mark_revision_failed_error", { jobId: job.id, detail });
       }
 
-      await this.retry.apply(
+      const retried = await this.retry.apply(
         { id: job.id, attemptCount: job.attempt_count },
         workerId,
         providerError,
       );
+
+      if (!retried && sessionId) {
+        // Terminal failure: give the user a retry path by moving the session
+        // out of enhancing. Best-effort — the job state is the durable truth.
+        try {
+          await this.transitionSessionToFailed(sessionId);
+        } catch (transitionError) {
+          const detail = transitionError instanceof Error ? transitionError.message : "unknown";
+          logStructured("error", "enhance.session_transition_failed", {
+            sessionId,
+            detail,
+          });
+        }
+        // Tell the user with a "Coba Lagi" button. Best-effort.
+        await this.sendRetryTo(sessionId);
+      }
+    }
+  }
+
+  // CAS from enhancing -> enhancement_failed (guard: only from enhancing, so a
+  // stale worker cannot clobber a session another worker already moved on).
+  private async transitionSessionToFailed(sessionId: string): Promise<void> {
+    const { getSupabaseAdmin } = await import("@/server/supabase/admin");
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .rpc("transition_prompt_session", {
+        p_session_id: sessionId,
+        p_expected_status: "enhancing",
+        p_new_status: "enhancement_failed",
+      } as never)
+      .maybeSingle();
+    if (error) throw new Error(`session transition failed: ${error.message}`);
+    if (!data) {
+      // The session moved on (e.g. another worker already completed it). This
+      // is fine; nothing to do.
+      return;
+    }
+  }
+
+  // Best-effort retry message. Loads the session fresh so it can never act on
+  // stale ids.
+  private async sendRetryTo(sessionId: string): Promise<void> {
+    try {
+      const session = await this.sessionRepository.getById(sessionId);
+      if (!session) return;
+      await this.sendRetryMessage({ session });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "enhance.retry_message_failed", { sessionId, detail });
     }
   }
 }

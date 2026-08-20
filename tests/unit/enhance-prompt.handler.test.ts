@@ -4,6 +4,22 @@ import type { JobRow } from "@/server/jobs/processor";
 import { makeRetryable, makeNonRetryable } from "@/server/providers/errors";
 import { resetServerEnvCache } from "@/env";
 
+const rpcMock = vi.hoisted(() => ({
+  transition: null as unknown,
+  calls: [] as { rpcName: string; args: Record<string, unknown> }[],
+}));
+
+vi.mock("@/server/supabase/admin", () => ({
+  getSupabaseAdmin: () => ({
+    rpc: (rpcName: string, args: Record<string, unknown>) => {
+      rpcMock.calls.push({ rpcName, args });
+      return {
+        maybeSingle: vi.fn(async () => ({ data: rpcMock.transition, error: null })),
+      };
+    },
+  }),
+}));
+
 function withEnv() {
   process.env.SUPABASE_URL = "https://example.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
@@ -16,6 +32,8 @@ function withEnv() {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  rpcMock.transition = null;
+  rpcMock.calls.length = 0;
   resetServerEnvCache();
 });
 
@@ -51,6 +69,8 @@ function buildHandler(
     markRetryScheduled?: ReturnType<typeof vi.fn>;
     markSucceeded?: ReturnType<typeof vi.fn>;
     markRevisionFailed?: ReturnType<typeof vi.fn>;
+    retryResult?: boolean;
+    session?: { id: string; telegramChatId: bigint };
   } = {},
 ) {
   const enhancePrompt = {
@@ -73,20 +93,40 @@ function buildHandler(
   };
 
   const retry = {
-    apply: vi.fn(async () => true),
+    apply: vi.fn(async () => overrides.retryResult ?? true),
   } as unknown as { apply: ReturnType<typeof vi.fn> };
+
+  const sendRetryMessage = vi.fn(async () => {});
 
   const handler = new EnhancePromptHandler({
     enhancePrompt: enhancePrompt as never,
     enhancementRepository: {
       markRevisionFailed,
     } as never,
-    sessionRepository: {} as never,
+    sessionRepository: {
+      getById: vi.fn(
+        async () =>
+          overrides.session ?? {
+            id: "session-1",
+            telegramUserId: 123n,
+            telegramChatId: 456n,
+            status: "enhancing",
+            activeRevisionId: "revision-1",
+            activeGenerationAttemptId: null,
+            telegramStatusMessageId: null,
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+            expiresAt: "2026-01-02T00:00:00Z",
+            completedAt: null,
+          },
+      ),
+    } as never,
     jobRepository: jobRepository as never,
     retry: retry as never,
+    sendRetryMessage,
   });
 
-  return { handler, enhancePrompt, markRevisionFailed, jobRepository, retry };
+  return { handler, enhancePrompt, markRevisionFailed, jobRepository, retry, sendRetryMessage };
 }
 
 describe("EnhancePromptHandler", () => {
@@ -116,11 +156,12 @@ describe("EnhancePromptHandler", () => {
     );
   });
 
-  it("retries a retryable provider error via retry.apply", async () => {
+  it("retries a retryable provider error via retry.apply without transitioning the session", async () => {
     withEnv();
     const retryable = makeRetryable("provider_timeout", "timeout");
-    const { handler, enhancePrompt, retry, markRevisionFailed } = buildHandler({
+    const { handler, enhancePrompt, retry, markRevisionFailed, sendRetryMessage } = buildHandler({
       error: retryable,
+      retryResult: true,
     });
     enhancePrompt.execute.mockRejectedValue(retryable);
 
@@ -136,12 +177,20 @@ describe("EnhancePromptHandler", () => {
       "processor-abc",
       expect.objectContaining({ code: "provider_timeout", retryable: true }),
     );
+    // Retried jobs do not transition the session to enhancement_failed.
+    expect(rpcMock.calls).toEqual([]);
+    expect(sendRetryMessage).not.toHaveBeenCalled();
   });
 
-  it("goes terminal on a non-retryable provider error", async () => {
+  it("goes terminal on a non-retryable provider error and transitions the session to enhancement_failed", async () => {
     withEnv();
     const nonRetryable = makeNonRetryable("provider_authentication_failed", "bad key");
-    const { handler, enhancePrompt, retry } = buildHandler({ error: nonRetryable });
+    rpcMock.transition = { id: "session-1" };
+
+    const { handler, enhancePrompt, retry, sendRetryMessage } = buildHandler({
+      error: nonRetryable,
+      retryResult: false,
+    });
     enhancePrompt.execute.mockRejectedValue(nonRetryable);
 
     await handler.handle(jobRow(), "processor-abc");
@@ -150,6 +199,17 @@ describe("EnhancePromptHandler", () => {
       expect.objectContaining({ id: "job-1" }),
       "processor-abc",
       expect.objectContaining({ code: "provider_authentication_failed", retryable: false }),
+    );
+    expect(rpcMock.calls).toContainEqual({
+      rpcName: "transition_prompt_session",
+      args: {
+        p_session_id: "session-1",
+        p_expected_status: "enhancing",
+        p_new_status: "enhancement_failed",
+      },
+    });
+    expect(sendRetryMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ session: expect.objectContaining({ id: "session-1" }) }),
     );
   });
 });

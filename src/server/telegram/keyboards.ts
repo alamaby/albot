@@ -10,8 +10,12 @@ export type ConfirmationAction = (typeof CONFIRMATION_ACTIONS)[number];
 export const RESULT_ACTIONS = ["regenerate", "revise", "complete"] as const;
 export type ResultAction = (typeof RESULT_ACTIONS)[number];
 
+// Retry action shown after a terminal enhancement failure (Milestone 7 fix).
+export const RETRY_ACTIONS = ["retry"] as const;
+export type RetryAction = (typeof RETRY_ACTIONS)[number];
+
 export function buildCallbackData(
-  action: ConfirmationAction | ResultAction,
+  action: ConfirmationAction | ResultAction | RetryAction,
   sessionId: string,
 ): string {
   return `${action}:${sessionId}`;
@@ -38,6 +42,17 @@ export function parseResultData(
   if (rest.length > 0 || !sessionId) return null;
   if (!RESULT_ACTIONS.includes(action as ResultAction)) return null;
   return { action: action as ResultAction, sessionId };
+}
+
+// Strict parser for enhancement-retry callback data (retry).
+export function parseRetryData(
+  data: string | undefined,
+): { action: RetryAction; sessionId: string } | null {
+  if (!data) return null;
+  const [action, sessionId, ...rest] = data.split(":");
+  if (rest.length > 0 || !sessionId) return null;
+  if (!RETRY_ACTIONS.includes(action as RetryAction)) return null;
+  return { action: action as RetryAction, sessionId };
 }
 
 export function confirmationKeyboard(sessionId: string): {
@@ -67,6 +82,18 @@ export function resultKeyboard(sessionId: string): {
         { text: "Revise Prompt", callback_data: buildCallbackData("revise", sessionId) },
         { text: "Selesai", callback_data: buildCallbackData("complete", sessionId) },
       ],
+    ],
+  };
+}
+
+// Retry keyboard shown after a terminal enhancement failure: re-runs the
+// enhancement of the same revision.
+export function retryKeyboard(sessionId: string): {
+  inline_keyboard: { text: string; callback_data: string }[][];
+} {
+  return {
+    inline_keyboard: [
+      [{ text: "Coba Lagi", callback_data: buildCallbackData("retry", sessionId) }],
     ],
   };
 }

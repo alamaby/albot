@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   confirmationKeyboard,
   resultKeyboard,
+  retryKeyboard,
   buildCallbackData,
   parseConfirmationData,
   parseResultData,
+  parseRetryData,
 } from "@/server/telegram/keyboards";
 
 const SESSION_ID = "8f4f9c10-2a5a-4b3c-9d1e-000000000001";
@@ -64,5 +66,31 @@ describe("result keyboard (Milestone 5)", () => {
     expect(parseResultData("regenerate:session:extra")).toBeNull();
     expect(parseResultData(undefined)).toBeNull();
     expect(parseResultData("")).toBeNull();
+  });
+});
+
+describe("retry keyboard (enhancement terminal failure)", () => {
+  it("builds a retry keyboard with a single Coba Lagi button", () => {
+    const keyboard = retryKeyboard(SESSION_ID);
+    expect(keyboard.inline_keyboard).toHaveLength(1);
+    const buttons = keyboard.inline_keyboard[0];
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].text).toBe("Coba Lagi");
+    expect(buttons[0].callback_data).toBe(`retry:${SESSION_ID}`);
+  });
+
+  it("round-trips callback data through parseRetryData", () => {
+    const data = buildCallbackData("retry", SESSION_ID);
+    expect(parseRetryData(data)).toEqual({ action: "retry", sessionId: SESSION_ID });
+  });
+
+  it("rejects non-retry actions and malformed data", () => {
+    expect(parseRetryData("generate:abc")).toBeNull();
+    expect(parseRetryData("revise:abc")).toBeNull();
+    expect(parseRetryData("retry:")).toBeNull();
+    expect(parseRetryData("retry")).toBeNull();
+    expect(parseRetryData("retry:session:extra")).toBeNull();
+    expect(parseRetryData(undefined)).toBeNull();
+    expect(parseRetryData("")).toBeNull();
   });
 });

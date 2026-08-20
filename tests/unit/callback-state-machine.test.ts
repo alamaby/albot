@@ -6,11 +6,19 @@ import {
 import { resetServerEnvCache } from "@/env";
 import type { SessionSafe } from "@/server/repositories/session.repository";
 
-const rpcMock = vi.hoisted(() => ({ transition: null as unknown }));
+const rpcMock = vi.hoisted(() => ({
+  transition: null as unknown,
+  calls: [] as { rpcName: string; args: Record<string, unknown> }[],
+}));
 
 vi.mock("@/server/supabase/admin", () => ({
   getSupabaseAdmin: () => ({
-    rpc: () => ({ maybeSingle: vi.fn(async () => ({ data: rpcMock.transition, error: null })) }),
+    rpc: (rpcName: string, args: Record<string, unknown>) => {
+      rpcMock.calls.push({ rpcName, args });
+      return {
+        maybeSingle: vi.fn(async () => ({ data: rpcMock.transition, error: null })),
+      };
+    },
   }),
 }));
 
@@ -27,6 +35,7 @@ function withEnv() {
 afterEach(() => {
   vi.restoreAllMocks();
   rpcMock.transition = null;
+  rpcMock.calls.length = 0;
   resetServerEnvCache();
 });
 
@@ -398,5 +407,93 @@ describe("CallbackStateMachine", () => {
     });
     expect(outcome.status).toBe("accepted");
     expect(sentMessages.some((m) => m.text.includes("instruksi revisi"))).toBe(true);
+  });
+
+  it("accepts retry from enhancement_failed and enqueues an enhancement job", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "enhancing" });
+    const jobRepository = {
+      insertEnhancementJob: vi.fn(async () => "job-enh-retry"),
+    } as unknown as CallbackStateMachineDeps["jobRepository"];
+
+    const { machine, dispatched, sentMessages, acks } = buildMachine({ jobRepository });
+
+    const outcome = await machine.handle({
+      action: "retry",
+      sessionId: "session-1",
+      session: session({ status: "enhancement_failed" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-retry-1",
+      origin: "https://test.origin",
+    });
+
+    expect(outcome.status).toBe("accepted");
+    expect(rpcMock.calls).toContainEqual({
+      rpcName: "transition_prompt_session",
+      args: {
+        p_session_id: "session-1",
+        p_expected_status: "enhancement_failed",
+        p_new_status: "enhancing",
+      },
+    });
+    const repo = jobRepository as unknown as {
+      insertEnhancementJob: ReturnType<typeof vi.fn>;
+    };
+    expect(repo.insertEnhancementJob).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "session-1", revisionId: "revision-1" }),
+    );
+    expect(dispatched[0].payload).toEqual({ sessionOrigin: "callback_retry" });
+    expect(sentMessages.some((m) => m.text.includes("memproses ulang prompt"))).toBe(true);
+    expect(acks.some((a) => a.text?.includes("Mencoba lagi"))).toBe(true);
+  });
+
+  it("rejects retry when session is not enhancement_failed", async () => {
+    withEnv();
+    stubRpcTransition(null);
+    const jobRepository = {
+      insertEnhancementJob: vi.fn(async () => "job-enh-retry"),
+    } as unknown as CallbackStateMachineDeps["jobRepository"];
+
+    const { machine, acks } = buildMachine({ jobRepository });
+
+    const outcome = await machine.handle({
+      action: "retry",
+      sessionId: "session-1",
+      session: session({ status: "awaiting_confirmation" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-retry-2",
+      origin: "https://test.origin",
+    });
+
+    expect(outcome.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("diproses"))).toBe(true);
+    const repo = jobRepository as unknown as {
+      insertEnhancementJob: ReturnType<typeof vi.fn>;
+    };
+    expect(repo.insertEnhancementJob).not.toHaveBeenCalled();
+  });
+
+  it("rolls back the session when the retry enhancement job insert fails", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "enhancing" });
+    const jobRepository = {
+      insertEnhancementJob: vi.fn(async () => {
+        throw new Error("insert failed");
+      }),
+    } as unknown as CallbackStateMachineDeps["jobRepository"];
+
+    const { machine, acks } = buildMachine({ jobRepository });
+
+    const outcome = await machine.handle({
+      action: "retry",
+      sessionId: "session-1",
+      session: session({ status: "enhancement_failed" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-retry-3",
+      origin: "https://test.origin",
+    });
+
+    expect(outcome.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("Gagal mengirim permintaan"))).toBe(true);
   });
 });

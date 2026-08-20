@@ -43,7 +43,7 @@ export function buildBotMessage(
     case "session_expired":
       return "Sesi telah berakhir. Kirim prompt baru untuk memulai sesi baru.";
     case "enhancement_failed":
-      return "Gagal memproses prompt. Silakan coba lagi nanti.";
+      return "Gagal memproses prompt. Silakan coba lagi.";
     case "generation_failed":
       return "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.";
     case "session_cancelled":

@@ -56,9 +56,7 @@ if (!expectedMatch) {
   console.error(`[fail] cannot find EXPECTED_MIGRATIONS in ${SCHEMA_TEST_PATH}`);
   failed = true;
 } else {
-  const expected = new Set(
-    [...expectedMatch[1].matchAll(/"([0-9]{14})"/g)].map((m) => m[1]),
-  );
+  const expected = new Set([...expectedMatch[1].matchAll(/"([0-9]{14})"/g)].map((m) => m[1]));
   for (const entry of sorted) {
     const ts = entry.slice(0, 14);
     if (!expected.has(ts)) {
@@ -70,9 +68,7 @@ if (!expectedMatch) {
   }
   for (const ts of expected) {
     if (!sorted.some((entry) => entry.startsWith(ts))) {
-      console.error(
-        `[fail] EXPECTED_MIGRATIONS entry ${ts} has no matching migration file`,
-      );
+      console.error(`[fail] EXPECTED_MIGRATIONS entry ${ts} has no matching migration file`);
       failed = true;
     }
   }

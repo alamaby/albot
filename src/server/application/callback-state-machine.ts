@@ -14,7 +14,7 @@ import { isSessionExpired } from "./session-expiry-check";
 import { logStructured } from "@/server/observability/logger";
 import { buildGenerationStatusMessage } from "@/server/telegram/messages";
 
-export type CallbackAction = "generate" | "revise" | "cancel" | "regenerate" | "complete";
+export type CallbackAction = "generate" | "revise" | "cancel" | "regenerate" | "complete" | "retry";
 
 export type CallbackOutcome =
   | { status: "accepted" }
@@ -135,6 +135,8 @@ export class CallbackStateMachine {
         return this.handleCancel(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
       case "complete":
         return this.handleComplete(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
+      case "retry":
+        return this.handleRetry(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId, origin);
       default:
         return { status: "unknown" };
     }
@@ -425,6 +427,115 @@ export class CallbackStateMachine {
         detail,
       });
     }
+    return { status: "accepted" };
+  }
+
+  // Enhancement retry after a terminal failure (enhancement_failed): CAS back
+  // to enhancing, enqueue a fresh enhance_prompt job for the same revision, and
+  // dispatch the processor. Mirrors enqueueGeneration but for the enhancement
+  // job type.
+  private async handleRetry(
+    input: { sessionId: string; session: SessionSafe },
+    token: string,
+    callbackQueryId: string,
+    origin: string,
+  ): Promise<CallbackOutcome> {
+    if (input.session.status !== "enhancement_failed") {
+      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      return { status: "rejected_state" };
+    }
+
+    const revisionId = input.session.activeRevisionId;
+    if (!revisionId) {
+      await this.ack(token, callbackQueryId, "Belum ada revisi aktif.");
+      return { status: "rejected_state" };
+    }
+
+    const { getSupabaseAdmin } = await import("@/server/supabase/admin");
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .rpc("transition_prompt_session", {
+        p_session_id: input.sessionId,
+        p_expected_status: "enhancement_failed",
+        p_new_status: "enhancing",
+      } as never)
+      .maybeSingle();
+    if (error) throw new Error(`session transition failed: ${error.message}`);
+    if (!data) {
+      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      return { status: "rejected_state" };
+    }
+
+    try {
+      await this.jobRepository.insertEnhancementJob({
+        sessionId: input.sessionId,
+        revisionId,
+        payload: {
+          telegram_user_id: bigintToDb(input.session.telegramUserId),
+          telegram_chat_id: bigintToDb(input.session.telegramChatId),
+          origin: "callback_retry",
+        },
+      });
+    } catch (error) {
+      // Roll the session back so a failed enqueue does not strand it in
+      // enhancing with no job.
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.retry_job_insert_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
+      try {
+        const { data: rollback } = await supabase
+          .rpc("transition_prompt_session", {
+            p_session_id: input.sessionId,
+            p_expected_status: "enhancing",
+            p_new_status: "enhancement_failed",
+          } as never)
+          .maybeSingle();
+        if (!rollback) {
+          logStructured("error", "callback.retry_rollback_transition_failed", {
+            sessionId: input.sessionId,
+          });
+        }
+      } catch (rollbackError) {
+        const rbDetail = rollbackError instanceof Error ? rollbackError.message : "unknown";
+        logStructured("error", "callback.retry_rollback_failed", {
+          sessionId: input.sessionId,
+          detail: rbDetail,
+        });
+      }
+      await this.ack(token, callbackQueryId, "Gagal mengirim permintaan. Coba lagi.");
+      return { status: "rejected_state" };
+    }
+
+    // Best-effort dispatch: the durable job row remains claimable by a later
+    // webhook or recovery poll even when this call fails.
+    try {
+      await this.dispatchToProcessor(origin, getServerEnv().JOB_PROCESSOR_SECRET, {
+        sessionOrigin: "callback_retry",
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.dispatcher_failed", { sessionId: input.sessionId, detail });
+    }
+
+    // Tell the user the enhancement is running again. Best-effort: a failure
+    // here must not reject an accepted retry.
+    try {
+      await this.sendTelegramMessage(
+        token,
+        input.session.telegramChatId,
+        "Sedang memproses ulang prompt, mohon tunggu...",
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.send_message_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
+    }
+
+    await this.ack(token, callbackQueryId, "Mencoba lagi...");
     return { status: "accepted" };
   }
 

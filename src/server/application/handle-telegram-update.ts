@@ -18,7 +18,7 @@ import { InitialSessionRepository } from "@/server/repositories/initial-session.
 import { SessionRepository } from "@/server/repositories/session.repository";
 import { logStructured } from "@/server/observability/logger";
 import { RevisionInputUseCase } from "./revision-input";
-import { CallbackStateMachine } from "./callback-state-machine";
+import { CallbackStateMachine, type CallbackAction } from "./callback-state-machine";
 
 export const ACCESS_CONTROLS = {
   maxPromptLength: TELEGRAM_MAX_PROMPT_LENGTH,
@@ -189,7 +189,7 @@ async function handleCallbackQuery(
       const session = await deps.sessionRepository.getById(sessionId);
       if (session) {
         await deps.callbackStateMachine.handle({
-          action: action as "generate" | "revise" | "cancel" | "regenerate" | "complete",
+          action: action as CallbackAction,
           sessionId,
           session,
           telegramUserId: callback.userId,
