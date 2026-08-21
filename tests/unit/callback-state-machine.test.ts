@@ -19,6 +19,17 @@ vi.mock("@/server/supabase/admin", () => ({
         maybeSingle: vi.fn(async () => ({ data: rpcMock.transition, error: null })),
       };
     },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          not: () => ({
+            gt: () => ({
+              neq: async () => ({ count: 0, error: null }),
+            }),
+          }),
+        }),
+      }),
+    }),
   }),
 }));
 

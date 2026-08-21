@@ -453,6 +453,33 @@ export class CallbackStateMachine {
 
     const { getSupabaseAdmin } = await import("@/server/supabase/admin");
     const supabase = getSupabaseAdmin();
+
+    // Prevent double-active: if the user already started a new session after
+    // this failure, retrying the old failed session would create a second
+    // active session and violate prompt_sessions_one_active_idx.
+    {
+      const { count, error: activeError } = await supabase
+        .from("prompt_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("telegram_user_id", bigintToDb(input.session.telegramUserId))
+        .not(
+          "status",
+          "in",
+          '("completed","cancelled","expired","enhancement_failed","generation_failed")',
+        )
+        .gt("expires_at", new Date().toISOString())
+        .neq("id", input.sessionId);
+      if (activeError) throw new Error(`active session check failed: ${activeError.message}`);
+      if ((count ?? 0) > 0) {
+        await this.ack(
+          token,
+          callbackQueryId,
+          "Masih ada sesi aktif. Selesaikan atau batalkan sesi baru terlebih dahulu.",
+        );
+        return { status: "rejected_state" };
+      }
+    }
+
     const { data, error } = await supabase
       .rpc("transition_prompt_session", {
         p_session_id: input.sessionId,

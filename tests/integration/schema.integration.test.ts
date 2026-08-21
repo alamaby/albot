@@ -275,7 +275,14 @@ const EXPECTED_INDEX_DEF_FRAGMENTS: [string, string[]][] = [
   ["jobs_lease_recovery_idx", ["btree (locked_at, id)", "'processing'::text"]],
   [
     "prompt_sessions_one_active_idx",
-    ["btree (telegram_user_id)", "'completed'::text", "'cancelled'::text", "'expired'::text"],
+    [
+      "btree (telegram_user_id)",
+      "'completed'::text",
+      "'cancelled'::text",
+      "'expired'::text",
+      "'enhancement_failed'::text",
+      "'generation_failed'::text",
+    ],
   ],
   ["prompt_sessions_status_idx", ["btree (status, updated_at DESC)"]],
   ["provider_requests_config_created_idx", ["btree (provider_config_id, created_at DESC)"]],
@@ -351,6 +358,7 @@ const EXPECTED_MIGRATIONS = [
   "20260819130000",
   "20260820100000",
   "20260820110000",
+  "20260821090000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

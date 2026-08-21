@@ -69,13 +69,20 @@ export class SessionRepository {
   }
 
   // Latest non-terminal session for a user, used to detect revision-input mode.
+  // enhancement_failed / generation_failed are treated as terminal for this
+  // lookup so a new prompt can start without being blocked by a prior failure
+  // (prompt_sessions_one_active_idx is aligned via migration 20260821090000).
   async findActiveByUserId(telegramUserId: bigint): Promise<SessionSafe | null> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("prompt_sessions")
       .select(SESSION_COLUMNS)
       .eq("telegram_user_id", bigintToDb(telegramUserId))
-      .not("status", "in", '("completed","cancelled","expired")')
+      .not(
+        "status",
+        "in",
+        '("completed","cancelled","expired","enhancement_failed","generation_failed")',
+      )
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

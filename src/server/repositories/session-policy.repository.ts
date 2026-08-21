@@ -7,7 +7,13 @@
 import { getSupabaseAdmin } from "@/server/supabase/admin";
 import { bigintToDb } from "@/server/application/bigint-helper";
 
-const TERMINAL_STATUSES = ["completed", "cancelled", "expired"];
+const TERMINAL_STATUSES = [
+  "completed",
+  "cancelled",
+  "expired",
+  "enhancement_failed",
+  "generation_failed",
+];
 
 export type SessionPolicyState = {
   activeSessionCount: number;
