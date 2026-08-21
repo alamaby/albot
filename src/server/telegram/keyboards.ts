@@ -23,25 +23,22 @@ export const MODEL_PICKER_ACTIONS = [
 ] as const;
 export type ModelPickerAction = (typeof MODEL_PICKER_ACTIONS)[number];
 
-export const MODEL_SHORT_CODES = ["flux", "sdxl", "pf2"] as const;
+export const MODEL_SHORT_CODES = ["flux", "sdxl"] as const;
 export type ModelShortCode = (typeof MODEL_SHORT_CODES)[number];
 
 export const MODEL_CODE_TO_ADAPTER: Record<ModelShortCode, string> = {
   flux: "pixazo_flux_schnell",
   sdxl: "pixazo_sdxl",
-  pf2: "pixazo_pixelforge_v2",
 };
 
 export const ADAPTER_TO_MODEL_CODE: Record<string, ModelShortCode> = {
   pixazo_flux_schnell: "flux",
   pixazo_sdxl: "sdxl",
-  pixazo_pixelforge_v2: "pf2",
 };
 
 export const MODEL_CODE_LABEL: Record<ModelShortCode, string> = {
   flux: "Flux Schnell",
   sdxl: "SDXL",
-  pf2: "PixelForge v2",
 };
 
 export function buildCallbackData(
