@@ -11,6 +11,7 @@ import type {
 } from "@/server/domain/provider";
 import { ProviderError, makeErrorFromHttpStatus, makeRetryable, makeNonRetryable } from "../errors";
 import { isHttpsUrl, readProviderRequestId } from "../http";
+import { logStructured } from "@/server/observability/logger";
 
 export const PIXAZO_PIXELFORGE_ALLOWED_TYPES = ["tags", "caption", "tags,caption"] as const;
 export type PixazoPixelforgeType = (typeof PIXAZO_PIXELFORGE_ALLOWED_TYPES)[number];
@@ -42,7 +43,7 @@ function normalizeType(raw: unknown): string {
 }
 
 function normalizeSize(raw: unknown): number {
-  const size = raw === undefined || raw === null ? 1 : Number(raw);
+  const size = raw === undefined || raw === null ? 10 : Number(raw);
   if (!Number.isInteger(size) || size <= 0 || size > 10) {
     throw new ProviderError({
       code: "provider_configuration_invalid",
@@ -116,9 +117,19 @@ export class PixazoPixelforgeAdapter implements ImageGenerationProvider {
       });
 
       if (!response.ok) {
+        let errorBody: string;
+        try {
+          errorBody = await response.text();
+        } catch {
+          errorBody = "unable to read response body";
+        }
+        logStructured("error", "pixazo_pixelforge_upstream_error", {
+          httpStatus: response.status,
+          body: errorBody.slice(0, 500),
+        });
         throw makeErrorFromHttpStatus(
           response.status,
-          `pixazo pixelforge provider returned ${response.status}`,
+          `pixazo pixelforge provider returned ${response.status}: ${errorBody.slice(0, 200)}`,
           { providerRequestId: readProviderRequestId(response) },
         );
       }
