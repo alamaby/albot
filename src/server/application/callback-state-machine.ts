@@ -141,6 +141,7 @@ export class CallbackStateMachine {
     telegramUserId: bigint;
     callbackQueryId: string;
     origin: string;
+    rawData?: string;
   }): Promise<CallbackOutcome> {
     const env = getServerEnv();
     const { action, session, telegramUserId, callbackQueryId, origin } = input;
@@ -160,11 +161,7 @@ export class CallbackStateMachine {
       return { status: "rejected_expired" };
     }
 
-    // Model picker actions are parsed with raw data (contains code). The webhook passes the base action,
-    // but we need to handle both base and extended forms. For compatibility, treat model_* as handled here.
-    // If action is "model_picked" etc but data contains colon, the handler extracts code via raw handling in webhook.
-    // However when called directly in tests, action may be the full string; handle via fallback.
-    const rawData = (input as unknown as { rawData?: string }).rawData as string | undefined;
+    const rawData = input.rawData;
     if (rawData) {
       const parsed = await this.handleModelPickerRaw(
         input,
@@ -173,6 +170,10 @@ export class CallbackStateMachine {
         callbackQueryId,
       );
       if (parsed) return parsed;
+    }
+    if (rawData && rawData.length > 64) {
+      logStructured("warn", "callback.data_too_long", { sessionId: input.sessionId });
+      return { status: "rejected_state" };
     }
 
     switch (action) {
@@ -193,7 +194,6 @@ export class CallbackStateMachine {
       case "model_picker_back":
         return this.handleModelPickerBack(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
       case "model_picked":
-        // When called with simple action string, try to extract code from rawData fallback; if none, reject
         return this.handleModelPicked(
           input,
           env.TELEGRAM_BOT_TOKEN,
@@ -210,6 +210,7 @@ export class CallbackStateMachine {
           undefined,
         );
       default:
+        logStructured("warn", "callback.unknown_action", { action, sessionId: input.sessionId });
         return { status: "unknown" };
     }
   }

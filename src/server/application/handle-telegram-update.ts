@@ -159,12 +159,11 @@ async function handleCallbackQuery(
   // machine runs (Milestone 4). Unknown data is acknowledged without persisting.
   const action = parseCallbackAction(callback.data);
   // Callback data shape: "<action>:<sessionId>" or "<action>:<sessionId>:<code>" for model picker.
-  // Use robust parsing for model picker (code is third part).
+  // Strict length check: 2 parts for simple actions, 3 for model_picked variants.
   const rawParts = callback.data?.split(":") ?? [];
   const sessionId = (() => {
-    if (!callback.data) return undefined;
-    if (rawParts[0] === "model_picked" || rawParts[0] === "model_picked_default")
-      return rawParts[1];
+    if (!callback.data || rawParts.length < 2) return undefined;
+    // For model_picked variants the session is still part[1], code is part[2]
     return rawParts[1];
   })();
   let callbackEventId: string | null = null;

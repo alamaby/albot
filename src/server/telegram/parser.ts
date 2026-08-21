@@ -107,11 +107,9 @@ export type CallbackAction = (typeof CALLBACK_ACTIONS)[number];
 
 export function parseCallbackAction(data: string | undefined): CallbackAction | "unknown" {
   if (!data) return "unknown";
-  for (const action of CALLBACK_ACTIONS) {
-    if (data === action || data.startsWith(`${action}:`)) {
-      return action;
-    }
-  }
+  if (data.length > 64) return "unknown";
+  const action = data.split(":")[0] as CallbackAction;
+  if ((CALLBACK_ACTIONS as readonly string[]).includes(action)) return action;
   return "unknown";
 }
 

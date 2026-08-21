@@ -69,7 +69,7 @@ export function buildModelPickerCallback(sessionId: string): string {
 export function parseConfirmationData(
   data: string | undefined,
 ): { action: ConfirmationAction; sessionId: string } | null {
-  if (!data) return null;
+  if (!data || data.length > 64) return null;
   const [action, sessionId, ...rest] = data.split(":");
   if (rest.length > 0 || !sessionId) return null;
   if (!CONFIRMATION_ACTIONS.includes(action as ConfirmationAction)) return null;
@@ -80,7 +80,7 @@ export function parseConfirmationData(
 export function parseResultData(
   data: string | undefined,
 ): { action: ResultAction; sessionId: string } | null {
-  if (!data) return null;
+  if (!data || data.length > 64) return null;
   const [action, sessionId, ...rest] = data.split(":");
   if (rest.length > 0 || !sessionId) return null;
   if (!RESULT_ACTIONS.includes(action as ResultAction)) return null;
@@ -91,7 +91,7 @@ export function parseResultData(
 export function parseRetryData(
   data: string | undefined,
 ): { action: RetryAction; sessionId: string } | null {
-  if (!data) return null;
+  if (!data || data.length > 64) return null;
   const [action, sessionId, ...rest] = data.split(":");
   if (rest.length > 0 || !sessionId) return null;
   if (!RETRY_ACTIONS.includes(action as RetryAction)) return null;
@@ -185,7 +185,7 @@ export function parseModelPickerData(
   | { action: "model_picked_default"; code: ModelShortCode; sessionId: string }
   | { action: "model_picker_back"; sessionId: string }
   | null {
-  if (!data) return null;
+  if (!data || data.length > 64) return null;
   const parts = data.split(":");
   const action = parts[0];
   if (action === "model_picker" && parts.length === 2 && parts[1]) {

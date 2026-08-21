@@ -18,13 +18,13 @@ export type PixazoPixelforgeType = (typeof PIXAZO_PIXELFORGE_ALLOWED_TYPES)[numb
 export type PixazoPixelforgeConfig = {
   baseUrl: string;
   model: string;
-  type?: string;
-  size?: number;
+  type?: unknown;
+  size?: unknown;
   timeoutMs?: number;
 };
 
-function normalizeType(raw: string | undefined): string {
-  const value = (raw ?? "tags,caption").trim();
+function normalizeType(raw: unknown): string {
+  const value = String(raw ?? "tags,caption").trim();
   // Allow comma-separated with optional spaces; normalize to comma without spaces, lowercased
   const normalized = value
     .split(",")
@@ -41,8 +41,8 @@ function normalizeType(raw: string | undefined): string {
   return normalized;
 }
 
-function normalizeSize(raw: number | undefined): number {
-  const size = raw ?? 1;
+function normalizeSize(raw: unknown): number {
+  const size = raw === undefined || raw === null ? 1 : Number(raw);
   if (!Number.isInteger(size) || size <= 0 || size > 10) {
     throw new ProviderError({
       code: "provider_configuration_invalid",
@@ -75,7 +75,28 @@ export class PixazoPixelforgeAdapter implements ImageGenerationProvider {
     this.model = config.model;
     this.type = normalizeType(config.type);
     this.size = normalizeSize(config.size);
+    if (!Number.isFinite(config.timeoutMs) && config.timeoutMs !== undefined) {
+      throw new ProviderError({
+        code: "provider_configuration_invalid",
+        retryable: false,
+        message: "pixazo pixelforge timeoutMs must be a finite positive number",
+      });
+    }
     this.timeoutMs = config.timeoutMs ?? 120000;
+    if (!Number.isFinite(this.timeoutMs) || this.timeoutMs <= 0) {
+      throw new ProviderError({
+        code: "provider_configuration_invalid",
+        retryable: false,
+        message: "pixazo pixelforge timeoutMs must be a positive number",
+      });
+    }
+    if (!/^https:\/\/.+\..+/.test(config.baseUrl)) {
+      throw new ProviderError({
+        code: "provider_configuration_invalid",
+        retryable: false,
+        message: "pixazo pixelforge base url must be a valid https url",
+      });
+    }
   }
 
   async generateImage(input: GenerateImageInput): Promise<ImageGenerationResult> {
@@ -102,11 +123,23 @@ export class PixazoPixelforgeAdapter implements ImageGenerationProvider {
         );
       }
 
-      const json = (await response.json()) as Record<string, unknown>;
+      let json: Record<string, unknown>;
+      try {
+        json = (await response.json()) as Record<string, unknown>;
+      } catch (error) {
+        throw makeNonRetryable(
+          "provider_response_invalid",
+          "pixazo pixelforge response is not valid JSON",
+          {
+            providerRequestId: readProviderRequestId(response),
+            cause: error,
+          },
+        );
+      }
       return this.parseResponse(json, readProviderRequestId(response));
     } catch (error) {
       if (error instanceof ProviderError) throw error;
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if ((error as { name?: string })?.name === "AbortError") {
         throw makeRetryable("provider_timeout", "pixazo pixelforge request timed out");
       }
       throw makeRetryable(
@@ -123,7 +156,18 @@ export class PixazoPixelforgeAdapter implements ImageGenerationProvider {
 
   private buildRequestBody(input: GenerateImageInput): Record<string, unknown> {
     // Dropped: negativePrompt, aspectRatio — not supported by PixelForge
-    const seed = input.parameters["seed"] as number | undefined;
+    const rawSeed = input.parameters["seed"] as unknown;
+    let seed: number | undefined;
+    if (rawSeed !== undefined) {
+      const n = Number(rawSeed);
+      if (!Number.isInteger(n) || !Number.isFinite(n)) {
+        throw makeNonRetryable(
+          "provider_request_invalid",
+          "pixazo pixelforge seed must be an integer",
+        );
+      }
+      seed = n;
+    }
     return {
       text: input.prompt,
       type: this.type,
@@ -150,7 +194,14 @@ export class PixazoPixelforgeAdapter implements ImageGenerationProvider {
       );
     }
     const first = results[0];
-    const url = first["url"] as string | undefined;
+    if (!first || typeof first !== "object" || Array.isArray(first)) {
+      throw makeNonRetryable(
+        "provider_response_invalid",
+        "pixazo pixelforge response results[0] is not an object",
+        { providerRequestId: requestId },
+      );
+    }
+    const url = (first as Record<string, unknown>)["url"] as string | undefined;
     if (!url || typeof url !== "string" || !isHttpsUrl(url)) {
       throw makeNonRetryable(
         "provider_response_invalid",
@@ -158,16 +209,17 @@ export class PixazoPixelforgeAdapter implements ImageGenerationProvider {
         { providerRequestId: requestId },
       );
     }
-    const caption = first["caption"] as string | undefined;
+    const caption = (first as Record<string, unknown>)["caption"] as string | undefined;
+    const providerRequestId = this.readBodyRequestId(json, requestId);
     return {
       status: "completed",
       imageUrl: url,
       mimeType: "image/png",
-      providerRequestId: this.readBodyRequestId(json, requestId),
+      providerRequestId,
       metadata: {
         model: this.model,
         ...(typeof caption === "string" && caption.length > 0 ? { caption } : {}),
-        ...(requestId ? { providerRequestId: requestId } : {}),
+        ...(providerRequestId ? { providerRequestId } : {}),
       },
     };
   }

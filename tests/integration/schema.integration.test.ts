@@ -209,7 +209,14 @@ const CONSTRAINT_FRAGMENTS: [string, string[]][] = [
   ["telegram_updates_type_check", ["'message'::text", "'callback_query'::text"]],
   [
     "callback_events_action_check",
-    ["'regenerate'::text", "'complete'::text", "'model_picker'::text"],
+    [
+      "'regenerate'::text",
+      "'complete'::text",
+      "'model_picker'::text",
+      "'model_picked'::text",
+      "'model_picked_default'::text",
+      "'model_picker_back'::text",
+    ],
   ],
   ["job_events_event_type_check", ["'lease_expired'::text", "'cancelled'::text"]],
   ["job_events_payload_object_check", ["jsonb_typeof(payload)", "'object'"]],
@@ -263,6 +270,18 @@ const FK_FRAGMENTS: [string, string[]][] = [
   [
     "prompt_sessions_active_attempt_session_fkey",
     ["REFERENCES public.generation_attempts(session_id, id)"],
+  ],
+  [
+    "user_image_preferences_user_fkey",
+    ["REFERENCES public.bot_users(telegram_user_id)", "ON DELETE CASCADE"],
+  ],
+  [
+    "user_image_preferences_config_fkey",
+    ["REFERENCES public.provider_configs(id)", "ON DELETE RESTRICT"],
+  ],
+  [
+    "prompt_sessions_preferred_provider_fkey",
+    ["REFERENCES public.provider_configs(id)", "ON DELETE RESTRICT"],
   ],
 ];
 
@@ -348,6 +367,7 @@ const EXPECTED_TRIGGERS = [
   "provider_keys_set_updated_at",
   "prompt_sessions_set_updated_at",
   "jobs_set_updated_at",
+  "user_image_preferences_set_updated_at",
 ];
 
 const EXPECTED_MIGRATIONS = [
@@ -372,6 +392,8 @@ const EXPECTED_MIGRATIONS = [
   "20260821090000",
   "20260821100000",
   "20260821110000",
+  "20260822100000",
+  "20260822110000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

@@ -424,13 +424,19 @@ export class GenerateImageUseCase {
 
     if (tryPreferredId) {
       const preferredConfig = configs.find((c) => c.id === tryPreferredId && c.isActive);
+      if (!preferredConfig && tryPreferredId) {
+        logStructured("warn", "generate.preferred_provider_inactive", {
+          sessionId: session.id,
+          preferredConfigId: tryPreferredId,
+        });
+      }
       if (preferredConfig) {
         const keys = keysByConfig.get(preferredConfig.id) ?? [];
         const eligible = keys.filter((k) => {
           if (!k.isActive) return false;
           if (k.cooldownUntil) {
             const cd = new Date(k.cooldownUntil).getTime();
-            if (cd > Date.now()) return false;
+            if (cd > this.now().getTime()) return false;
           }
           return true;
         });
@@ -477,7 +483,9 @@ export class GenerateImageUseCase {
       const repo = new UserImagePreferenceRepository();
       const pref = await repo.getByTelegramUserId(telegramUserId);
       return pref?.preferredProviderConfigId ?? null;
-    } catch {
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("warn", "generate.user_default_lookup_failed", { detail });
       return null;
     }
   }
