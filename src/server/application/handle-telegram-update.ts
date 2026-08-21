@@ -158,9 +158,15 @@ async function handleCallbackQuery(
   // Recognized callback actions are recorded for deduplication before the state
   // machine runs (Milestone 4). Unknown data is acknowledged without persisting.
   const action = parseCallbackAction(callback.data);
-  // Callback data shape: "<action>:<sessionId>". Parse early so the callback
-  // event row links to the session (audit + dedupe).
-  const sessionId = callback.data?.split(":")[1];
+  // Callback data shape: "<action>:<sessionId>" or "<action>:<sessionId>:<code>" for model picker.
+  // Use robust parsing for model picker (code is third part).
+  const rawParts = callback.data?.split(":") ?? [];
+  const sessionId = (() => {
+    if (!callback.data) return undefined;
+    if (rawParts[0] === "model_picked" || rawParts[0] === "model_picked_default")
+      return rawParts[1];
+    return rawParts[1];
+  })();
   let callbackEventId: string | null = null;
   if (action !== "unknown") {
     callbackEventId = await deps.callbackEventRepository.insertIfAbsent({
@@ -195,7 +201,8 @@ async function handleCallbackQuery(
           telegramUserId: callback.userId,
           callbackQueryId: callback.callbackQueryId,
           origin,
-        });
+          rawData: callback.data,
+        } as unknown as Parameters<typeof deps.callbackStateMachine.handle>[0]);
       } else {
         await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId, {
           text: "Sesi tidak ditemukan.",

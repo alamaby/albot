@@ -14,11 +14,54 @@ export type ResultAction = (typeof RESULT_ACTIONS)[number];
 export const RETRY_ACTIONS = ["retry"] as const;
 export type RetryAction = (typeof RETRY_ACTIONS)[number];
 
+// Model picker actions for Pixazo PixelForge hybrid selection.
+export const MODEL_PICKER_ACTIONS = [
+  "model_picker",
+  "model_picked",
+  "model_picked_default",
+  "model_picker_back",
+] as const;
+export type ModelPickerAction = (typeof MODEL_PICKER_ACTIONS)[number];
+
+export const MODEL_SHORT_CODES = ["flux", "sdxl", "pf2"] as const;
+export type ModelShortCode = (typeof MODEL_SHORT_CODES)[number];
+
+export const MODEL_CODE_TO_ADAPTER: Record<ModelShortCode, string> = {
+  flux: "pixazo_flux_schnell",
+  sdxl: "pixazo_sdxl",
+  pf2: "pixazo_pixelforge_v2",
+};
+
+export const ADAPTER_TO_MODEL_CODE: Record<string, ModelShortCode> = {
+  pixazo_flux_schnell: "flux",
+  pixazo_sdxl: "sdxl",
+  pixazo_pixelforge_v2: "pf2",
+};
+
+export const MODEL_CODE_LABEL: Record<ModelShortCode, string> = {
+  flux: "Flux Schnell",
+  sdxl: "SDXL",
+  pf2: "PixelForge v2",
+};
+
 export function buildCallbackData(
-  action: ConfirmationAction | ResultAction | RetryAction,
+  action: ConfirmationAction | ResultAction | RetryAction | ModelPickerAction,
   sessionId: string,
 ): string {
   return `${action}:${sessionId}`;
+}
+
+export function buildModelPickedCallback(
+  code: ModelShortCode,
+  sessionId: string,
+  asDefault = false,
+): string {
+  const action = asDefault ? "model_picked_default" : "model_picked";
+  return `${action}:${sessionId}:${code}`;
+}
+
+export function buildModelPickerCallback(sessionId: string): string {
+  return `model_picker:${sessionId}`;
 }
 
 // Returns the action and session id from callback data, or null when the data
@@ -58,6 +101,17 @@ export function parseRetryData(
 export function confirmationKeyboard(sessionId: string): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
+  return confirmationKeyboardWithModel(sessionId, null);
+}
+
+export function confirmationKeyboardWithModel(
+  sessionId: string,
+  selectedCode: ModelShortCode | null,
+): {
+  inline_keyboard: { text: string; callback_data: string }[][];
+} {
+  const modelLabel = selectedCode ? MODEL_CODE_LABEL[selectedCode] : null;
+  const pickerText = modelLabel ? `Model: ${modelLabel} ✓` : "Pilih Model";
   return {
     inline_keyboard: [
       [
@@ -65,6 +119,31 @@ export function confirmationKeyboard(sessionId: string): {
         { text: "Revise Lagi", callback_data: buildCallbackData("revise", sessionId) },
         { text: "Batal", callback_data: buildCallbackData("cancel", sessionId) },
       ],
+      [{ text: pickerText, callback_data: buildModelPickerCallback(sessionId) }],
+    ],
+  };
+}
+
+export function modelPickerKeyboard(
+  sessionId: string,
+  selectedCode: ModelShortCode | null,
+): {
+  inline_keyboard: { text: string; callback_data: string }[][];
+} {
+  const row = MODEL_SHORT_CODES.map((code) => {
+    const isSelected = code === selectedCode;
+    const label = MODEL_CODE_LABEL[code] + (isSelected ? " ✓" : "");
+    return { text: label, callback_data: buildModelPickedCallback(code, sessionId, false) };
+  });
+  const defaultRow = MODEL_SHORT_CODES.map((code) => ({
+    text: `${MODEL_CODE_LABEL[code]} ★`,
+    callback_data: buildModelPickedCallback(code, sessionId, true),
+  }));
+  return {
+    inline_keyboard: [
+      row,
+      defaultRow,
+      [{ text: "Kembali", callback_data: `model_picker_back:${sessionId}` }],
     ],
   };
 }
@@ -75,6 +154,17 @@ export function confirmationKeyboard(sessionId: string): {
 export function resultKeyboard(sessionId: string): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
+  return resultKeyboardWithModel(sessionId, null);
+}
+
+export function resultKeyboardWithModel(
+  sessionId: string,
+  selectedCode: ModelShortCode | null,
+): {
+  inline_keyboard: { text: string; callback_data: string }[][];
+} {
+  const modelLabel = selectedCode ? MODEL_CODE_LABEL[selectedCode] : null;
+  const pickerText = modelLabel ? `Model: ${modelLabel} ✓` : "Ganti Model";
   return {
     inline_keyboard: [
       [
@@ -82,8 +172,39 @@ export function resultKeyboard(sessionId: string): {
         { text: "Revise Prompt", callback_data: buildCallbackData("revise", sessionId) },
         { text: "Selesai", callback_data: buildCallbackData("complete", sessionId) },
       ],
+      [{ text: pickerText, callback_data: buildModelPickerCallback(sessionId) }],
     ],
   };
+}
+
+export function parseModelPickerData(
+  data: string | undefined,
+):
+  | { action: "model_picker"; sessionId: string }
+  | { action: "model_picked"; code: ModelShortCode; sessionId: string }
+  | { action: "model_picked_default"; code: ModelShortCode; sessionId: string }
+  | { action: "model_picker_back"; sessionId: string }
+  | null {
+  if (!data) return null;
+  const parts = data.split(":");
+  const action = parts[0];
+  if (action === "model_picker" && parts.length === 2 && parts[1]) {
+    return { action: "model_picker", sessionId: parts[1] };
+  }
+  if (action === "model_picker_back" && parts.length === 2 && parts[1]) {
+    return { action: "model_picker_back", sessionId: parts[1] };
+  }
+  if (
+    (action === "model_picked" || action === "model_picked_default") &&
+    parts.length === 3 &&
+    parts[1] &&
+    parts[2]
+  ) {
+    const code = parts[2] as ModelShortCode;
+    if (!MODEL_SHORT_CODES.includes(code)) return null;
+    return { action, code, sessionId: parts[1] };
+  }
+  return null;
 }
 
 // Retry keyboard shown after a terminal enhancement failure: re-runs the

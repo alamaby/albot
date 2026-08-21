@@ -391,6 +391,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          preferred_image_provider_config_id: string | null
           status: string
           telegram_chat_id: number
           telegram_status_message_id: number | null
@@ -404,6 +405,7 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          preferred_image_provider_config_id?: string | null
           status?: string
           telegram_chat_id: number
           telegram_status_message_id?: number | null
@@ -417,6 +419,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          preferred_image_provider_config_id?: string | null
           status?: string
           telegram_chat_id?: number
           telegram_status_message_id?: number | null
@@ -451,6 +454,49 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "prompt_revisions"
             referencedColumns: ["session_id", "id"]
+          },
+          {
+            foreignKeyName: "prompt_sessions_preferred_provider_fkey"
+            columns: ["preferred_image_provider_config_id"]
+            isOneToOne: false
+            referencedRelation: "provider_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_image_preferences: {
+        Row: {
+          created_at: string
+          preferred_provider_config_id: string
+          telegram_user_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          preferred_provider_config_id: string
+          telegram_user_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          preferred_provider_config_id?: string
+          telegram_user_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_image_preferences_config_fkey"
+            columns: ["preferred_provider_config_id"]
+            isOneToOne: false
+            referencedRelation: "provider_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_image_preferences_user_fkey"
+            columns: ["telegram_user_id"]
+            isOneToOne: false
+            referencedRelation: "bot_users"
+            referencedColumns: ["telegram_user_id"]
           },
         ]
       }

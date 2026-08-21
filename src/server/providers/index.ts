@@ -6,6 +6,7 @@
 import { getProviderRegistry } from "./registry";
 import { OpenAICompatibleReasoningAdapter } from "./reasoning/openai-compatible.adapter";
 import { PixazoImageAdapter } from "./image/pixazo.adapter";
+import { PixazoPixelforgeAdapter } from "./image/pixazo-pixelforge.adapter";
 
 const registry = getProviderRegistry();
 
@@ -42,6 +43,27 @@ registry.registerImage("pixazo_sdxl", (config, apiKey) => {
         (config["base_url"] as string) ?? "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
       model: (config["model"] as string) ?? "sdxl",
       responseKind: "sdxl",
+      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+    },
+    apiKey,
+  );
+});
+
+registry.registerImage("pixazo_pixelforge_v2", (config, apiKey) => {
+  // Settings may be passed flattened (via ...settings spread in use case) or nested under `settings`.
+  const settings = (config["settings"] as Record<string, unknown> | undefined) ?? {};
+  const typeFromSettings =
+    (settings["type"] as string | undefined) ?? (config["type"] as string | undefined);
+  const sizeFromSettings =
+    (settings["size"] as number | undefined) ?? (config["size"] as number | undefined);
+  return new PixazoPixelforgeAdapter(
+    {
+      baseUrl:
+        (config["base_url"] as string) ??
+        "https://gateway.pixazo.ai/pixelforge-image-v2/v1/text-to-image",
+      model: (config["model"] as string) ?? "pixelforge-image-v2",
+      type: typeFromSettings,
+      size: sizeFromSettings,
       timeoutMs: (config["timeout_ms"] as number) ?? 120000,
     },
     apiKey,

@@ -124,15 +124,29 @@ export class GenerateImageUseCase {
   }): Promise<{ messageId: number }> {
     const env = getServerEnv();
     const { sendPhotoByUrl } = await import("@/server/telegram/client");
-    const { resultKeyboard } = await import("@/server/telegram/keyboards");
+    const { resultKeyboardWithModel, ADAPTER_TO_MODEL_CODE } =
+      await import("@/server/telegram/keyboards");
     const { buildResultCaption } = await import("@/server/telegram/messages");
+
+    // Resolve selected code for result keyboard (show Ganti Model with check)
+    let selectedCode: import("@/server/telegram/keyboards").ModelShortCode | null = null;
+    if (input.session.preferredImageProviderConfigId) {
+      try {
+        const cfg = await this.providerConfigRepository.getById(
+          input.session.preferredImageProviderConfigId,
+        );
+        if (cfg) selectedCode = ADAPTER_TO_MODEL_CODE[cfg.adapterType] ?? null;
+      } catch {
+        // ignore
+      }
+    }
 
     return sendPhotoByUrl(env.TELEGRAM_BOT_TOKEN, input.session.telegramChatId, input.imageUrl, {
       caption: buildResultCaption({
         attemptNumber: input.attempt.attemptNumber,
         revisionNumber: input.revision.revisionNumber,
       }),
-      replyMarkup: resultKeyboard(input.session.id),
+      replyMarkup: resultKeyboardWithModel(input.session.id, selectedCode),
     });
   }
 
@@ -231,7 +245,7 @@ export class GenerateImageUseCase {
     const startedAt = Date.now();
 
     try {
-      selected = await this.selectProvider(session.id);
+      selected = await this.selectProvider(session);
 
       // New seed per attempt so regenerate produces a different image from the
       // same revision. Persisted on the attempt for audit along with the
@@ -393,7 +407,7 @@ export class GenerateImageUseCase {
     }
   }
 
-  private async selectProvider(sessionId: string): Promise<SelectedProvider> {
+  private async selectProvider(session: SessionSafe): Promise<SelectedProvider> {
     const configs = await this.providerConfigRepository.listActive("image_generation");
     const keysByConfig = new Map<
       string,
@@ -402,13 +416,70 @@ export class GenerateImageUseCase {
     for (const config of configs) {
       keysByConfig.set(config.id, await this.providerKeyRepository.listSafeKeys(config.id));
     }
+
+    // Hybrid: honor per-session preferred provider if eligible, else per-user default, else fallback.
+    const tryPreferredId =
+      session.preferredImageProviderConfigId ??
+      (await this.getUserDefaultPreferredId(session.telegramUserId));
+
+    if (tryPreferredId) {
+      const preferredConfig = configs.find((c) => c.id === tryPreferredId && c.isActive);
+      if (preferredConfig) {
+        const keys = keysByConfig.get(preferredConfig.id) ?? [];
+        const eligible = keys.filter((k) => {
+          if (!k.isActive) return false;
+          if (k.cooldownUntil) {
+            const cd = new Date(k.cooldownUntil).getTime();
+            if (cd > Date.now()) return false;
+          }
+          return true;
+        });
+        if (eligible.length > 0) {
+          // Select key via same logic as selector (weighted/priority)
+          const totalWeight = eligible.reduce((s, k) => s + k.weight, 0);
+          let chosen = eligible[0];
+          if (preferredConfig.selectionStrategy === "weighted" && totalWeight > 0) {
+            const seed = `${preferredConfig.id}:${session.id}`;
+            let h = 0;
+            for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+            const point = Math.abs(h) % totalWeight;
+            let cum = 0;
+            for (const k of eligible) {
+              cum += k.weight;
+              if (point < cum) {
+                chosen = k;
+                break;
+              }
+            }
+          }
+          return { config: preferredConfig, key: chosen };
+        }
+        logStructured("warn", "generate.preferred_provider_not_eligible", {
+          sessionId: session.id,
+          preferredConfigId: tryPreferredId,
+        });
+      }
+    }
+
     return this.selector.selectProvider(
       "image_generation",
       configs,
       keysByConfig,
       "priority_failover",
-      { seed: sessionId },
+      { seed: session.id },
     );
+  }
+
+  private async getUserDefaultPreferredId(telegramUserId: bigint): Promise<string | null> {
+    try {
+      const { UserImagePreferenceRepository } =
+        await import("@/server/repositories/user-image-preference.repository");
+      const repo = new UserImagePreferenceRepository();
+      const pref = await repo.getByTelegramUserId(telegramUserId);
+      return pref?.preferredProviderConfigId ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private async decryptKey(selected: SelectedProvider): Promise<string> {

@@ -16,6 +16,7 @@ const EXPECTED_TABLES = [
   "telegram_updates",
   "callback_events",
   "job_events",
+  "user_image_preferences",
 ];
 
 // name: [data_type, is_nullable, column_default]
@@ -73,6 +74,7 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
     telegram_status_message_id: ["bigint", "YES", null],
     active_revision_id: ["uuid", "YES", null],
     active_generation_attempt_id: ["uuid", "YES", null],
+    preferred_image_provider_config_id: ["uuid", "YES", null],
     created_at: ["timestamp with time zone", "NO", "now()"],
     updated_at: ["timestamp with time zone", "NO", "now()"],
     expires_at: ["timestamp with time zone", "NO", null],
@@ -171,6 +173,12 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
     payload: ["jsonb", "NO", "'{}'::jsonb"],
     created_at: ["timestamp with time zone", "NO", "now()"],
   },
+  user_image_preferences: {
+    telegram_user_id: ["bigint", "NO", null],
+    preferred_provider_config_id: ["uuid", "NO", null],
+    created_at: ["timestamp with time zone", "NO", "now()"],
+    updated_at: ["timestamp with time zone", "NO", "now()"],
+  },
 };
 
 // [constraint-name, fragments that must appear in pg_get_constraintdef]
@@ -199,7 +207,10 @@ const CONSTRAINT_FRAGMENTS: [string, string[]][] = [
   ["provider_requests_http_status_check", ["http_status >= 100", "http_status <= 599"]],
   ["provider_requests_latency_check", ["latency_ms >= 0"]],
   ["telegram_updates_type_check", ["'message'::text", "'callback_query'::text"]],
-  ["callback_events_action_check", ["'regenerate'::text", "'complete'::text"]],
+  [
+    "callback_events_action_check",
+    ["'regenerate'::text", "'complete'::text", "'model_picker'::text"],
+  ],
   ["job_events_event_type_check", ["'lease_expired'::text", "'cancelled'::text"]],
   ["job_events_payload_object_check", ["jsonb_typeof(payload)", "'object'"]],
 ];
@@ -359,6 +370,8 @@ const EXPECTED_MIGRATIONS = [
   "20260820100000",
   "20260820110000",
   "20260821090000",
+  "20260821100000",
+  "20260821110000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

@@ -13,8 +13,24 @@ import { JobRepository } from "@/server/repositories/job.repository";
 import { isSessionExpired } from "./session-expiry-check";
 import { logStructured } from "@/server/observability/logger";
 import { buildGenerationStatusMessage } from "@/server/telegram/messages";
+import {
+  ADAPTER_TO_MODEL_CODE,
+  MODEL_CODE_TO_ADAPTER,
+  MODEL_CODE_LABEL,
+  type ModelShortCode,
+} from "@/server/telegram/keyboards";
 
-export type CallbackAction = "generate" | "revise" | "cancel" | "regenerate" | "complete" | "retry";
+export type CallbackAction =
+  | "generate"
+  | "revise"
+  | "cancel"
+  | "regenerate"
+  | "complete"
+  | "retry"
+  | "model_picker"
+  | "model_picked"
+  | "model_picked_default"
+  | "model_picker_back";
 
 export type CallbackOutcome =
   | { status: "accepted" }
@@ -43,6 +59,20 @@ export type CallbackStateMachineDeps = {
   // job worker can edit it to the final outcome. Defaults to the real
   // SessionRepository; injected in tests.
   saveStatusMessageId?: (sessionId: string, messageId: number) => Promise<void>;
+  // Model picker deps (lazy injected to avoid circular)
+  providerConfigRepository?: {
+    getById(id: string): Promise<unknown>;
+    listActive(cap: string): Promise<unknown[]>;
+  };
+  userImagePreferenceRepository?: {
+    upsert(telegramUserId: bigint, preferredProviderConfigId: string): Promise<unknown>;
+  };
+  sendMessageWithKeyboard?: (
+    token: string,
+    chatId: bigint,
+    text: string,
+    keyboard: { inline_keyboard: { text: string; callback_data: string }[][] },
+  ) => Promise<unknown>;
 };
 
 export class CallbackStateMachine {
@@ -65,6 +95,9 @@ export class CallbackStateMachine {
     options?: { text?: string; showAlert?: boolean },
   ) => Promise<unknown>;
   private readonly saveStatusMessageId: (sessionId: string, messageId: number) => Promise<void>;
+  private readonly providerConfigRepository: CallbackStateMachineDeps["providerConfigRepository"];
+  private readonly userImagePreferenceRepository: CallbackStateMachineDeps["userImagePreferenceRepository"];
+  private readonly sendMessageWithKeyboard: CallbackStateMachineDeps["sendMessageWithKeyboard"];
 
   constructor(deps: CallbackStateMachineDeps = {}) {
     this.sessionRepository = deps.sessionRepository ?? new SessionRepository();
@@ -96,6 +129,9 @@ export class CallbackStateMachine {
       (async (sessionId, messageId) => {
         await this.sessionRepository.saveStatusMessageId(sessionId, messageId);
       });
+    this.providerConfigRepository = deps.providerConfigRepository;
+    this.userImagePreferenceRepository = deps.userImagePreferenceRepository;
+    this.sendMessageWithKeyboard = deps.sendMessageWithKeyboard;
   }
 
   async handle(input: {
@@ -124,6 +160,21 @@ export class CallbackStateMachine {
       return { status: "rejected_expired" };
     }
 
+    // Model picker actions are parsed with raw data (contains code). The webhook passes the base action,
+    // but we need to handle both base and extended forms. For compatibility, treat model_* as handled here.
+    // If action is "model_picked" etc but data contains colon, the handler extracts code via raw handling in webhook.
+    // However when called directly in tests, action may be the full string; handle via fallback.
+    const rawData = (input as unknown as { rawData?: string }).rawData as string | undefined;
+    if (rawData) {
+      const parsed = await this.handleModelPickerRaw(
+        input,
+        rawData,
+        env.TELEGRAM_BOT_TOKEN,
+        callbackQueryId,
+      );
+      if (parsed) return parsed;
+    }
+
     switch (action) {
       case "generate":
         return this.handleGenerate(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId, origin);
@@ -137,6 +188,27 @@ export class CallbackStateMachine {
         return this.handleComplete(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
       case "retry":
         return this.handleRetry(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId, origin);
+      case "model_picker":
+        return this.handleModelPicker(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
+      case "model_picker_back":
+        return this.handleModelPickerBack(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
+      case "model_picked":
+        // When called with simple action string, try to extract code from rawData fallback; if none, reject
+        return this.handleModelPicked(
+          input,
+          env.TELEGRAM_BOT_TOKEN,
+          callbackQueryId,
+          false,
+          undefined,
+        );
+      case "model_picked_default":
+        return this.handleModelPicked(
+          input,
+          env.TELEGRAM_BOT_TOKEN,
+          callbackQueryId,
+          true,
+          undefined,
+        );
       default:
         return { status: "unknown" };
     }
@@ -564,6 +636,251 @@ export class CallbackStateMachine {
 
     await this.ack(token, callbackQueryId, "Mencoba lagi...");
     return { status: "accepted" };
+  }
+
+  // ---- Model picker (hybrid) ----
+
+  private async handleModelPickerRaw(
+    input: {
+      sessionId: string;
+      session: SessionSafe;
+      telegramUserId: bigint;
+      callbackQueryId: string;
+    },
+    rawData: string,
+    token: string,
+    callbackQueryId: string,
+  ): Promise<CallbackOutcome | null> {
+    const { parseModelPickerData } = await import("@/server/telegram/keyboards");
+    const parsed = parseModelPickerData(rawData);
+    if (!parsed) return null;
+    if (parsed.action === "model_picker")
+      return this.handleModelPicker(input as never, token, callbackQueryId);
+    if (parsed.action === "model_picker_back")
+      return this.handleModelPickerBack(input as never, token, callbackQueryId);
+    if (parsed.action === "model_picked")
+      return this.handleModelPicked(input as never, token, callbackQueryId, false, parsed.code);
+    if (parsed.action === "model_picked_default")
+      return this.handleModelPicked(input as never, token, callbackQueryId, true, parsed.code);
+    return null;
+  }
+
+  private async handleModelPicker(
+    input: { sessionId: string; session: SessionSafe },
+    token: string,
+    callbackQueryId: string,
+  ): Promise<CallbackOutcome> {
+    if (
+      input.session.status !== "awaiting_confirmation" &&
+      input.session.status !== "result_ready" &&
+      input.session.status !== "generation_failed"
+    ) {
+      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      return { status: "rejected_state" };
+    }
+    const selected = await this.resolveSelectedCode(input.session);
+    try {
+      const { modelPickerKeyboard } = await import("@/server/telegram/keyboards");
+      const { buildModelPickerMessage } = await import("@/server/telegram/messages");
+      const label = selected ? MODEL_CODE_LABEL[selected] : null;
+      const keyboard = modelPickerKeyboard(input.session.id, selected);
+      if (this.sendMessageWithKeyboard) {
+        await this.sendMessageWithKeyboard(
+          token,
+          input.session.telegramChatId,
+          buildModelPickerMessage(label),
+          keyboard,
+        );
+      } else {
+        const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
+        await sendMessageWithKeyboard(
+          token,
+          input.session.telegramChatId,
+          buildModelPickerMessage(label),
+          keyboard,
+        );
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.model_picker_send_failed", {
+        sessionId: input.session.id,
+        detail,
+      });
+    }
+    await this.ack(token, callbackQueryId, "Pilih model");
+    return { status: "accepted" };
+  }
+
+  private async handleModelPickerBack(
+    input: { sessionId: string; session: SessionSafe },
+    token: string,
+    callbackQueryId: string,
+  ): Promise<CallbackOutcome> {
+    // Re-show confirmation or result context
+    const selected = await this.resolveSelectedCode(input.session);
+    try {
+      const { confirmationKeyboardWithModel, resultKeyboardWithModel } =
+        await import("@/server/telegram/keyboards");
+      const { buildEnhancedPromptMessage } = await import("@/server/telegram/messages");
+      const { EnhancementRepository } =
+        await import("@/server/repositories/enhancement.repository");
+      const repo = new EnhancementRepository();
+      const rev = input.session.activeRevisionId
+        ? await repo.getRevisionById(input.session.activeRevisionId)
+        : null;
+      const label = selected ? MODEL_CODE_LABEL[selected] : null;
+      const text = rev?.enhancedPrompt
+        ? buildEnhancedPromptMessage({
+            enhancedPrompt: rev.enhancedPrompt,
+            revisionNumber: rev.revisionNumber ?? 1,
+            sourcePrompt: rev.sourcePrompt ?? "",
+            selectedModelLabel: label,
+          })
+        : label
+          ? `Model terpilih: ${label} ✓`
+          : "Pilih aksi untuk melanjutkan.";
+      const keyboard =
+        input.session.status === "result_ready"
+          ? resultKeyboardWithModel(input.session.id, selected)
+          : confirmationKeyboardWithModel(input.session.id, selected);
+      if (this.sendMessageWithKeyboard) {
+        await this.sendMessageWithKeyboard(token, input.session.telegramChatId, text, keyboard);
+      } else {
+        const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
+        await sendMessageWithKeyboard(token, input.session.telegramChatId, text, keyboard);
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.model_picker_back_failed", {
+        sessionId: input.session.id,
+        detail,
+      });
+    }
+    await this.ack(token, callbackQueryId, "Kembali");
+    return { status: "accepted" };
+  }
+
+  private async handleModelPicked(
+    input: { sessionId: string; session: SessionSafe; telegramUserId: bigint },
+    token: string,
+    callbackQueryId: string,
+    asDefault: boolean,
+    code?: ModelShortCode,
+  ): Promise<CallbackOutcome> {
+    if (
+      input.session.status !== "awaiting_confirmation" &&
+      input.session.status !== "result_ready" &&
+      input.session.status !== "generation_failed"
+    ) {
+      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      return { status: "rejected_state" };
+    }
+    if (!code) {
+      await this.ack(token, callbackQueryId, "Model tidak valid.");
+      return { status: "rejected_state" };
+    }
+    const adapterType = MODEL_CODE_TO_ADAPTER[code];
+    try {
+      // Resolve provider config by adapter_type among active configs
+      const { ProviderConfigRepository } =
+        await import("@/server/repositories/provider-config.repository");
+      const repo = this.providerConfigRepository as unknown as
+        InstanceType<typeof ProviderConfigRepository> | undefined;
+      const cfgRepo = repo ?? new ProviderConfigRepository();
+      const configs = await cfgRepo.listActive("image_generation");
+      const matched = configs.find((c) => c.adapterType === adapterType && c.isActive);
+      if (!matched) {
+        await this.ack(token, callbackQueryId, "Model tidak tersedia. Pilih lain.");
+        return { status: "rejected_state" };
+      }
+      // Validate key eligibility (at least one eligible key)
+      const { ProviderKeyRepository } =
+        await import("@/server/repositories/provider-key.repository");
+      const { parseEncryptionKey } = await import("@/server/security/encryption");
+      const { getServerEnv: getEnv } = await import("@/env");
+      let eligible = true;
+      try {
+        const keyRepo = new ProviderKeyRepository(
+          parseEncryptionKey(getEnv().PROVIDER_KEY_ENCRYPTION_KEY),
+        );
+        const keys = await keyRepo.listSafeKeys(matched.id);
+        eligible = keys.some(
+          (k) =>
+            k.isActive && (!k.cooldownUntil || new Date(k.cooldownUntil).getTime() <= Date.now()),
+        );
+        if (!eligible && keys.length === 0) eligible = false;
+      } catch {
+        // If check fails, still allow selection (generation will fallback)
+        eligible = true;
+      }
+      if (!eligible) {
+        await this.ack(token, callbackQueryId, "Model sedang cooldown, pilih lain.");
+        return { status: "rejected_state" };
+      }
+
+      await this.sessionRepository.setPreferredImageProvider(input.session.id, matched.id);
+
+      if (asDefault) {
+        try {
+          const { UserImagePreferenceRepository } =
+            await import("@/server/repositories/user-image-preference.repository");
+          const prefRepo =
+            (this.userImagePreferenceRepository as unknown as InstanceType<
+              typeof UserImagePreferenceRepository
+            >) ?? new UserImagePreferenceRepository();
+          await prefRepo.upsert(input.telegramUserId, matched.id);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "unknown";
+          logStructured("error", "callback.model_default_upsert_failed", {
+            sessionId: input.session.id,
+            detail,
+          });
+        }
+      }
+
+      const label = MODEL_CODE_LABEL[code];
+      const { buildModelSelectedMessage } = await import("@/server/telegram/messages");
+      try {
+        await this.sendTelegramMessage(
+          token,
+          input.session.telegramChatId,
+          buildModelSelectedMessage(label, asDefault),
+        );
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "unknown";
+        logStructured("error", "callback.model_picked_notify_failed", {
+          sessionId: input.session.id,
+          detail,
+        });
+      }
+
+      await this.ack(token, callbackQueryId, asDefault ? `Default: ${label}` : label);
+      return { status: "accepted" };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.model_picked_failed", {
+        sessionId: input.session.id,
+        detail,
+      });
+      await this.ack(token, callbackQueryId, "Gagal mengatur model. Coba lagi.");
+      return { status: "rejected_state" };
+    }
+  }
+
+  private async resolveSelectedCode(session: SessionSafe): Promise<ModelShortCode | null> {
+    if (!session.preferredImageProviderConfigId) return null;
+    try {
+      const { ProviderConfigRepository } =
+        await import("@/server/repositories/provider-config.repository");
+      const repo = this.providerConfigRepository as unknown as
+        InstanceType<typeof ProviderConfigRepository> | undefined;
+      const cfgRepo = repo ?? new ProviderConfigRepository();
+      const cfg = await cfgRepo.getById(session.preferredImageProviderConfigId);
+      if (!cfg) return null;
+      return ADAPTER_TO_MODEL_CODE[cfg.adapterType] ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private async ack(token: string, callbackQueryId: string, text: string): Promise<void> {

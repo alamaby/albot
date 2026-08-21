@@ -97,6 +97,10 @@ export const CALLBACK_ACTIONS = [
   "retry",
   "regenerate",
   "complete",
+  "model_picker",
+  "model_picked",
+  "model_picked_default",
+  "model_picker_back",
 ] as const;
 
 export type CallbackAction = (typeof CALLBACK_ACTIONS)[number];

@@ -1,11 +1,12 @@
 # Project Memory
 
-Last updated: 2026-08-13
+Last updated: 2026-08-21
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: **Milestone 4 CLOSED 2026-08-18** (Prompt Enhancement, Confirmation, and Revision). E2E dev lengkap: enhancement → confirmation → revise loop → generate → batal, provider Cloudflare gpt-oss-120b, 7 bug fixed selama E2E, acceptance criteria 8/8, CI #25-#32 success. Next: Milestone 5 (Image Generation).
+- Active milestone: **Milestone 6 CLOSED 2026-08-20** + **Pixazo PixelForge v2 PLAN 2026-08-21** (PixelForge `text`/`type`/`seed`/`size` → `results[].url`+`caption`, Opsi 2 `settings.type` default `tags,caption` + `size:1`, drop `negativePrompt`/`aspectRatio`, hybrid per-session `prompt_sessions.preferred_image_provider_config_id` + per-user `user_image_preferences` tabel terpisah, 3 model tetap aktif, picker di confirmation+result). Plan `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.md`, TODO Pending PixelForge.
+- Milestone 4 CLOSED 2026-08-18 (Prompt Enhancement, Confirmation, and Revision). E2E dev lengkap: enhancement → confirmation → revise loop → generate → batal, provider Cloudflare gpt-oss-120b, 7 bug fixed selama E2E, acceptance criteria 8/8, CI #25-#32 success. Next: Milestone 5 (Image Generation).
 - Milestone 3 **CLOSED** 2026-08-13: platform wiring + E2E selesai (Vercel Preview env vars, webhook terpasang, seed admin applied, E2E prompt → session/revision/job rows, hosted 79/79).
 - Milestone 2 (Provider Abstraction and Configuration) **CLOSED** 2026-08-10: implementasi `209847d` + remediation `35a9cab` + closure (M/L transcribed: M1/M4/M5/M6 + C-Low A fixed; M7/M8/M10/M13-M16 + L2-L14 accepted; acceptance criteria checked). Evidence: run `31311782574` (dev 7 migrations Local==Remote, hosted 67/0 skip), 143 unit tests, production 0 migrations untouched
 - Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (18 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
@@ -42,13 +43,15 @@ Last updated: 2026-08-13
 - M4 schema change: migration `20260813074037` (mark_revision_failed + create_revision RPCs, partial unique index `prompt_sessions_one_active_idx`, `prompt_sessions_status_idx`) + forward-fix `20260813091942` (`#variable_conflict use_column` untuk ambiguous `revision_number`) — dev 11 migrations, prod 0
 - M4 callbacks: inline di webhook (generate/revise/cancel), `callback_events` dedupe + owner check + CAS transition
 - M4 retry: bounded (`classifyEnhancementError`, backoff 60s*2^n cap 8m), `mark_revision_failed` guard-patched, worker-ownership updates
+- Pixazo PixelForge v2 (plan 2026-08-21): endpoint `pixelforge-image-v2/v1/text-to-image` auth `Ocp-Apim-Subscription-Key`, body `text`/`type`/`seed`/`size` → `results[].url` https + `caption`; `type` Opsi 2 via `settings.type` default `tags,caption` allowlist `tags`/`caption`/`tags,caption`; `size` default `1`; drop `negativePrompt`/`aspectRatio` untuk PF; hybrid selection per-session FK + per-user `user_image_preferences` tabel terpisah; 3 model tetap aktif; shortCode `flux|sdxl|pf2` `mp:<code>:<uuid>` ≤64
 
 ## Open Blockers
 
-- (none) — M4 CLOSED; M5 belum dimulai
+- Pixazo PixelForge real curl staging (butuh `Ocp-Apim-Subscription-Key` valid) — spike final pending secret; plan ready.
 
 ## Recent Entries
 
+- `2026-08-21/083000-pixazo-pixelforge-plan.md` — Pixazo PixelForge v2 plan (sample `text`/`type`/`seed`/`size`→`results[].url`, Opsi 2 `settings.type` default `tags,caption`, drop `negativePrompt`/`aspectRatio`, hybrid per-session + `user_image_preferences` tabel terpisah, 3 model aktif, picker confirmation+result).
 - `2026-08-20/163000-migration-cleanup-and-status-message.md` — M5/M6 follow-up: migration dev-only `20260820110000` hapus sisa config `mock_image_generation_contract` (dev 18/18, prod 0); feat status message persisted (`telegram_status_message_id`, edit ke outcome); guardrail `check-migrations` mencegah `EXPECTED_MIGRATIONS` stale (regresi berulang M3/M6/2026-08-20); instruction di AGENTS.md.
 - `2026-08-13/140000-milestone-4-implementation.md` — M4: implementation + E2E VERIFIED + CLOSED 2026-08-18. Bugs fixed: registry import, base_url merge (akar semua 401), session shape, callback wiring (stub "not wired"), prompt_session_id link, revision processing, test isolation. Provider dev: Cloudflare gpt-oss-120b. E2E: prompt → konfirmasi → revise → generate (job queued M5) → batal. Closure plan `plans/2026-08-18-milestone-4-closure-plan.md`, CI #25-#32 success.
 - `2026-08-11/100000-milestone-3-pr1-code-cleanup.md` — PR #1: plan synchronization, code cleanup (bigint helper, parser simplification, messages, dispatcher body), test coverage enhancements for idle/claim-error paths, update_id validation, unknown callback ack, dispatcher body, runbook creation for manual admin bootstrap and platform wiring.
@@ -68,6 +71,7 @@ Last updated: 2026-08-13
 
 ## Related Plans
 
+- `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.md` — Pixazo PixelForge v2 + hybrid model selection (plan)
 - `plans/2026-08-07-telegram-image-bot-implementation-plan.md` — Active plan
 - `plans/2026-08-08-milestone-0-review-remediation-plan.md` — Active plan (remediation)
 - `plans/2026-08-08-milestone-2-provider-abstraction-configuration-plan.md` — Detailed M2 execution plan (closed)

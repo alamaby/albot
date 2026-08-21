@@ -58,16 +58,30 @@ export function buildEnhancedPromptMessage(input: {
   enhancedPrompt: string;
   revisionNumber: number;
   sourcePrompt: string;
+  selectedModelLabel?: string | null;
 }): string {
-  return [
+  const lines = [
     `Prompt yang akan digunakan (revisi ${input.revisionNumber}):`,
     "",
     input.enhancedPrompt,
     "",
     "—",
-    "",
-    "Pilih aksi di bawah untuk melanjutkan.",
-  ].join("\n");
+  ];
+  if (input.selectedModelLabel) {
+    lines.push("", `Model terpilih: ${input.selectedModelLabel} ✓`);
+  }
+  lines.push("", "Pilih aksi di bawah untuk melanjutkan.");
+  return lines.join("\n");
+}
+
+export function buildModelPickerMessage(selectedLabel?: string | null): string {
+  if (selectedLabel) return `Pilih model gambar. Saat ini: ${selectedLabel} ✓`;
+  return "Pilih model gambar untuk sesi ini. Tap untuk memilih, tap ★ untuk jadikan default.";
+}
+
+export function buildModelSelectedMessage(label: string, isDefault: boolean): string {
+  if (isDefault) return `Model diatur ke ${label} dan disimpan sebagai default ✓`;
+  return `Model diatur ke ${label} ✓`;
 }
 
 // Caption for a generated image. Shows which attempt produced which revision.

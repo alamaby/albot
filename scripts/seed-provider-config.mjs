@@ -20,7 +20,7 @@ import { join } from "node:path";
 
 const ADAPTERS_BY_CAPABILITY = {
   reasoning: ["openai_compatible"],
-  image_generation: ["pixazo_flux_schnell", "pixazo_sdxl"],
+  image_generation: ["pixazo_flux_schnell", "pixazo_sdxl", "pixazo_pixelforge_v2"],
 };
 const CAPABILITIES = ["reasoning", "image_generation"];
 const STRATEGIES = ["priority_failover", "weighted"];

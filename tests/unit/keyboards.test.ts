@@ -14,9 +14,8 @@ const SESSION_ID = "8f4f9c10-2a5a-4b3c-9d1e-000000000001";
 describe("keyboards", () => {
   it("builds a confirmation keyboard with the three actions", () => {
     const keyboard = confirmationKeyboard(SESSION_ID);
-    expect(keyboard.inline_keyboard).toHaveLength(1);
+    expect(keyboard.inline_keyboard[0]).toHaveLength(3);
     const buttons = keyboard.inline_keyboard[0];
-    expect(buttons).toHaveLength(3);
     expect(buttons.map((b) => b.text)).toEqual(["Generate", "Revise Lagi", "Batal"]);
     expect(buttons[0].callback_data).toBe(`generate:${SESSION_ID}`);
     expect(buttons[1].callback_data).toBe(`revise:${SESSION_ID}`);
@@ -43,9 +42,8 @@ describe("keyboards", () => {
 describe("result keyboard (Milestone 5)", () => {
   it("builds a result keyboard with the three post-result actions", () => {
     const keyboard = resultKeyboard(SESSION_ID);
-    expect(keyboard.inline_keyboard).toHaveLength(1);
+    expect(keyboard.inline_keyboard[0]).toHaveLength(3);
     const buttons = keyboard.inline_keyboard[0];
-    expect(buttons).toHaveLength(3);
     expect(buttons.map((b) => b.text)).toEqual(["Regenerate", "Revise Prompt", "Selesai"]);
     expect(buttons[0].callback_data).toBe(`regenerate:${SESSION_ID}`);
     expect(buttons[1].callback_data).toBe(`revise:${SESSION_ID}`);

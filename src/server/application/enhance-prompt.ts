@@ -102,7 +102,7 @@ export class EnhancePromptUseCase {
     this.sendConfirmation = deps.sendConfirmation ?? this.defaultSendConfirmation;
   }
 
-  // Production default: send the enhanced prompt with the confirmation keyboard.
+  // Production default: send the enhanced prompt with the confirmation keyboard (with model).
   private async defaultSendConfirmation(input: {
     session: SessionSafe;
     revision: RevisionSafe;
@@ -110,8 +110,43 @@ export class EnhancePromptUseCase {
   }): Promise<void> {
     const env = getServerEnv();
     const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
-    const { confirmationKeyboard } = await import("@/server/telegram/keyboards");
+    const { confirmationKeyboardWithModel, ADAPTER_TO_MODEL_CODE, MODEL_CODE_LABEL } =
+      await import("@/server/telegram/keyboards");
     const { buildEnhancedPromptMessage } = await import("@/server/telegram/messages");
+
+    // Resolve selected model label from session preferred provider (hybrid)
+    let selectedCode: import("@/server/telegram/keyboards").ModelShortCode | null = null;
+    let selectedLabel: string | null = null;
+    if (input.session.preferredImageProviderConfigId) {
+      try {
+        const cfg = await this.providerConfigRepository.getById(
+          input.session.preferredImageProviderConfigId,
+        );
+        if (cfg) {
+          selectedCode = ADAPTER_TO_MODEL_CODE[cfg.adapterType] ?? null;
+          if (selectedCode) selectedLabel = MODEL_CODE_LABEL[selectedCode];
+        }
+      } catch {
+        // ignore
+      }
+    } else {
+      // Fallback to user default preference for display even if session not yet has preferred
+      try {
+        const { UserImagePreferenceRepository } =
+          await import("@/server/repositories/user-image-preference.repository");
+        const prefRepo = new UserImagePreferenceRepository();
+        const pref = await prefRepo.getByTelegramUserId(input.session.telegramUserId);
+        if (pref) {
+          const cfg = await this.providerConfigRepository.getById(pref.preferredProviderConfigId);
+          if (cfg) {
+            selectedCode = ADAPTER_TO_MODEL_CODE[cfg.adapterType] ?? null;
+            if (selectedCode) selectedLabel = MODEL_CODE_LABEL[selectedCode];
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     try {
       await sendMessageWithKeyboard(
@@ -121,8 +156,9 @@ export class EnhancePromptUseCase {
           enhancedPrompt: input.prompt.prompt,
           revisionNumber: input.revision.revisionNumber,
           sourcePrompt: input.revision.sourcePrompt,
+          selectedModelLabel: selectedLabel,
         }),
-        confirmationKeyboard(input.session.id),
+        confirmationKeyboardWithModel(input.session.id, selectedCode),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
