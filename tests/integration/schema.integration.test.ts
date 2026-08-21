@@ -280,7 +280,7 @@ const FK_FRAGMENTS: [string, string[]][] = [
     ["REFERENCES public.provider_configs(id)", "ON DELETE RESTRICT"],
   ],
   [
-    "prompt_sessions_preferred_provider_fkey",
+    "prompt_sessions_preferred_image_provider_config_id_fkey",
     ["REFERENCES public.provider_configs(id)", "ON DELETE RESTRICT"],
   ],
 ];
