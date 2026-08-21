@@ -12,21 +12,27 @@ Milestone 6: Reliability, Security, and Observability (**CLOSED 2026-08-20** —
 
 ## Pending
 
-- [ ] **Pixazo PixelForge v2 + Telegram Model Selection** — plan `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.md` (spike sample `text`/`type`/`seed`/`size` → `results[].url`, Opsi 2 `settings.type` default `tags,caption`, drop `negativePrompt`/`aspectRatio`, hybrid per-session `prompt_sessions.preferred_image_provider_config_id` + per-user `user_image_preferences` tabel terpisah, 3 model tetap aktif, picker di confirmation+result)
-  - [ ] Fixture + adapter `src/server/providers/image/pixazo-pixelforge.adapter.ts` + registry `pixazo_pixelforge_v2` + seed whitelist
-  - [ ] Migrations (2): preferred provider di sessions + `user_image_preferences` + `callback_events.action` enum + `EXPECTED_MIGRATIONS` + `database.types.ts` regen
-  - [ ] Telegram: `keyboards.ts` (shortCode `flux|sdxl|pf2`, `mp:<code>:<uuid>` ≤64), `parser.ts`, `messages.ts`, `callback-state-machine.ts` (`handleShowModelPicker`/`handleModelPicked` + `Ganti Model` di result)
-  - [ ] Generation wiring: `generate-image.ts` `selectProvider(session)` honor preferensi eligible else fallback + `InitialSessionRepository` preload default
-  - [ ] Tests: unit adapter, selector preferensi, keyboards 64-byte, contract pixazo-pixelforge
-  - [ ] Verifikasi: `db:lint`, `db:check-migrations`, `db:types:check`, `test:unit`, `lint`, `typecheck`, `build`, `format:check`
 - [ ] Implement Milestone 7 dan record verification evidence
 - [ ] Execute production release checklist dan operational handoff
+
+## Completed
+
+### Pixazo PixelForge v2 + Telegram Model Selection (implemented 2026-08-21, review-fix 2026-08-22, dev migrate 23/23 aman — user konfirm 2026-08-22)
+
+Plan: `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.md` + fix `plans/2026-08-22-pixazo-pixelforge-review-fix-plan.md`
+
+- [x] Adapter `src/server/providers/image/pixazo-pixelforge.adapter.ts` — `text`/`type`/`seed`/`size` → `results[0].url` https + `caption` (type Opsi 2 via `settings.type` default `tags,caption` allowlist, size default 1, drop `negativePrompt`/`aspectRatio`, timeout 120s)
+- [x] Registry `pixazo_pixelforge_v2` + seed `scripts/seed-provider-config.mjs` whitelist
+- [x] Migrations `20260821100000` (preferred column + `callback_events` enum) + `20260821110000` (`user_image_preferences` + RLS + trigger) + forward-fix `20260822100000` (`model_picker_back`) + `20260822110000` (FORCE RLS, `public` revoke, minimal grants, dedup FK) — dev 23/23 Local==Remote
+- [x] Session repo + `UserImagePreferenceRepository` (upsert `telegram_user_id` PK), `database.types` regen (FK `preferred_image_provider_config_id_fkey`, `isOneToOne:true`, functions `recover/transition` include preferred)
+- [x] Telegram: `keyboards.ts` shortCode `flux|sdxl|pf2` (`model_picked:uuid:code` ≤64), `confirmationKeyboardWithModel` + `modelPickerKeyboard` (★ default) + `resultKeyboardWithModel` (`Ganti Model`), `parser.ts` strict + length>64 guard, `messages.ts` `selectedModelLabel`, `callback-state-machine` hybrid pick (owner/expiry, eligible key, `setPreferred` + `upsert` default, `★` vs per-session, `Kembali`)
+- [x] Generation hybrid `selectProvider(session)` — preferred session → user default → fallback `priority_failover`, `Date.now` → `this.now`, inactive log
+- [x] Review fix: adapter guards (`first` object, JSON `provider_response_invalid`, AbortError `name`, String/Number coercion), parser strict, weighted duplication docs, `schema.integration` FK/TRIGGER/MIGRATIONS 23
+- [x] Verifikasi: `db:lint` ok, `check-migrations` 23, `types:check` ok (after regen `87e23ee`), `test:unit` 247/247, `lint` 0 errors, `typecheck` ok, `build` ok, `format:check` ok, `migrate-development` `87e23ee` aman (user konfirm)
 
 ## Blocked
 
 - (none)
-
-## Completed
 
 ### Milestone 6: Reliability, Security, and Observability (closed 2026-08-20)
 

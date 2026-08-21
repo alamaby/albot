@@ -39,6 +39,7 @@ Out: no schema drop/rename, no secret leak.
 
 ## Progress Log
 - 2026-08-22 — Review `cc4a44f` vs plan, plan fix dibuat, patch adapter + parser + migrations + tests + state-machine, verifikasi lokal hijau.
+- 2026-08-22 — Dev migrate `87e23ee` types drift → regen via `npm run db:types` (commit `87e23ee`), `schema.integration` FK name `preferred_image_provider_config_id_fkey` + `isOneToOne:true`, re-migrate 23/23 aman (user konfirm).
 
 ## Notes
-- `db:types:check` masih pending hosted (migrations 23 belum apply ke dev), `database.types.ts` patch manual tetap (butuh `supabase gen types` setelah `migrate-development.yml` `20260822100000/2110000`).
+- `db:types:check` kini `[ok]` lokal setelah regen; hosted akan hijau setelah `migrate-development.yml` `74c59d9..87e23ee` (23). Next: seed PF2 + E2E Telegram.
