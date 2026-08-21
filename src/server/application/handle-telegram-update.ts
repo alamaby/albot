@@ -313,12 +313,13 @@ async function handlePrivateTextMessage(
     updateId: message.updateId,
   });
 
-  // 7. Acknowledge and dispatch asynchronously.
-  await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_received"));
+  // 7. Dispatch first, then acknowledge so the user only sees "queued" when the job is actually enqueued.
   try {
     await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, { sessionOrigin: "webhook" });
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_received"));
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
     logStructured("error", "webhook.dispatcher_failed", { detail });
+    await trySendMessage(env, deps, message.chatId, "Gagal memulai pemrosesan. Silakan coba lagi.");
   }
 }
