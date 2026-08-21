@@ -40,6 +40,8 @@ Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb
 > Milestone 4: provider reasoning dipilih dari tabel `provider_configs` di Supabase (bukan env). Key dienkripsi di `provider_keys` memakai `PROVIDER_KEY_ENCRYPTION_KEY`. Provisioning dilakukan via `scripts/seed-provider-config.mjs` (lihat `docs/runbooks/milestone-4-e2e.md`). Tidak ada env baru yang dibutuhkan di M4.
 
 > Milestone 6: recovery sweep (`/api/recovery/run`, cron 5 menit via workflow `recovery-development.yml`) dan diagnostics (`/api/admin/diagnostics`) memakai `JOB_PROCESSOR_SECRET` yang sama dengan job processor. Retention metadata 30 hari dikonfigurasi sebagai konstanta (`src/server/jobs/recovery.ts`); tidak ada env baru yang wajib. `npm audit --omit=dev --audit-level=high` ditambahkan ke `validate.yml`.
+>
+> Post-M6 (2026-08-22): auto-process cron (`/api/jobs/process`, cron 1 menit via workflow `process-jobs-development.yml`) menjamin job `queued` ter-claim walau dispatcher inline dari webhook gagal. Environment `recovery-development` dipakai ulang (satu secret untuk recovery + processor). Tidak ada env baru.
 
 ## GitHub Environment Secrets
 

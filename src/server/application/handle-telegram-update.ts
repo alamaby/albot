@@ -46,7 +46,7 @@ export type TelegramWebhookDeps = {
     origin: string,
     secret: string,
     payload?: Record<string, unknown>,
-  ) => Promise<unknown>;
+  ) => Promise<DispatchResult>;
 };
 
 export function createDefaultWebhookDeps(): TelegramWebhookDeps {
@@ -92,13 +92,18 @@ async function trySendMessage(
   }
 }
 
-// Best-effort dispatcher call: fires the internal job processor. Failures are
-// logged; the durable job row remains and a recovery poll (M7) can pick it up.
+// Dispatcher call: fires the internal job processor. Returns a structured
+// result so the webhook can give the user explicit feedback when the dispatch
+// fails. The durable job row remains and a recovery poll (M7) or the new
+// process-jobs cron (2026-08-22) can pick it up later.
+export type DispatchResult =
+  { ok: true; status: number } | { ok: false; status?: number; error: string };
+
 export async function dispatchToProcessorUrl(
   origin: string,
   secret: string,
   payload?: Record<string, unknown>,
-): Promise<void> {
+): Promise<DispatchResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
   try {
@@ -113,10 +118,13 @@ export async function dispatchToProcessorUrl(
     });
     if (!response.ok) {
       logStructured("error", "webhook.dispatcher_http_error", { status: response.status });
+      return { ok: false, status: response.status, error: `http_${response.status}` };
     }
+    return { ok: true, status: response.status };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
     logStructured("error", "webhook.dispatcher_failed", { detail });
+    return { ok: false, error: detail };
   } finally {
     clearTimeout(timer);
   }
@@ -313,13 +321,26 @@ async function handlePrivateTextMessage(
     updateId: message.updateId,
   });
 
-  // 7. Dispatch first, then acknowledge so the user only sees "queued" when the job is actually enqueued.
-  try {
-    await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, { sessionOrigin: "webhook" });
+  // 7. Dispatch first, then acknowledge so the user only sees "queued" when the
+  //    dispatcher confirmed the processor accepted the job. If the dispatcher
+  //    call itself fails (network, 401, timeout) we surface an explicit error to
+  //    the user instead of leaving them with a silent black hole — the durable
+  //    job row stays and the new process-jobs cron (2026-08-22) will claim it.
+  const dispatchResult = await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, {
+    sessionOrigin: "webhook",
+  });
+  if (dispatchResult.ok) {
     await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_received"));
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "unknown";
-    logStructured("error", "webhook.dispatcher_failed", { detail });
-    await trySendMessage(env, deps, message.chatId, "Gagal memulai pemrosesan. Silakan coba lagi.");
+  } else {
+    logStructured("error", "webhook.dispatcher_returned_error", {
+      status: dispatchResult.status ?? null,
+      error: dispatchResult.error,
+    });
+    await trySendMessage(
+      env,
+      deps,
+      message.chatId,
+      "Gagal memulai pemrosesan. Silakan coba lagi sebentar.",
+    );
   }
 }

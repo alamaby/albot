@@ -1,0 +1,88 @@
+name: process-jobs-development
+
+on:
+  schedule:
+    # Every minute: claim any queued job whose dispatch from the Telegram
+    # webhook was lost (network error, 401, timeout, Vercel cold start). The
+    # durable jobs table is the source of truth; this poll is the safety net
+    # for the inline webhook dispatcher. The endpoint processes at most one
+    # job per call, so a backlog drains over successive invocations.
+    - cron: "*/1 * * * *"
+  workflow_dispatch:
+    inputs:
+      process_url:
+        description: "Development process endpoint URL (default: stable dev alias)"
+        type: string
+        required: false
+        default: "https://albot-dev.vercel.app/api/jobs/process"
+
+permissions:
+  contents: read
+
+jobs:
+  process-jobs-development:
+    name: Run job processor (development)
+    runs-on: ubuntu-latest
+    # Dedicated environment WITHOUT protection rules so the 1-minute cron can
+    # run unattended. Holds only JOB_PROCESSOR_SECRET (dev value). Same env as
+    # recovery-development; both endpoints authenticate with the same secret.
+    environment: recovery-development
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Compute process URL
+        id: url
+        run: |
+          if [ -n "${{ inputs.process_url }}" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "url=${{ inputs.process_url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=https://albot-dev.vercel.app/api/jobs/process" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Invoke process endpoint
+        id: process
+        env:
+          PROCESS_URL: ${{ steps.url.outputs.url }}
+          JOB_PROCESSOR_SECRET: ${{ secrets.JOB_PROCESSOR_SECRET }}
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl -sS -f -X POST \
+            -H "Authorization: Bearer ${JOB_PROCESSOR_SECRET}" \
+            -H "Content-Type: application/json" \
+            -H "X-Correlation-Id: gh-${GITHUB_RUN_ID}" \
+            -d '{"source":"github-actions-cron"}' \
+            -w "\n%{http_code}" \
+            "${PROCESS_URL}")"
+          HTTP_CODE="$(printf '%s' "${RESPONSE}" | tail -n1)"
+          BODY="$(printf '%s' "${RESPONSE}" | sed '$d')"
+          echo "http_code=${HTTP_CODE}"
+          echo "body=${BODY}"
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::error::process endpoint returned HTTP ${HTTP_CODE}"
+            exit 1
+          fi
+          echo "result=${BODY}" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize process run
+        if: always()
+        run: |
+          {
+            echo "## Process-jobs sweep (development)"
+            echo ""
+            echo "HTTP \`${{ steps.process.outputs.http_code }}\`"
+            echo ""
+            echo "\`\`\`json"
+            echo "${{ steps.process.outputs.result }}"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"

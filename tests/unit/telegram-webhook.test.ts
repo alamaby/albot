@@ -95,6 +95,7 @@ function buildDeps(overrides: Partial<MutableDeps> = {}): {
     answerTelegramCallback: vi.fn(async () => {}),
     dispatchToProcessor: vi.fn(async () => {
       calls.dispatched += 1;
+      return { ok: true as const, status: 200 };
     }),
   };
 
@@ -259,13 +260,28 @@ describe("handleTelegramUpdate - private text message", () => {
     withEnv();
     const { deps } = buildDeps({
       dispatchToProcessor: vi.fn(async () => {
-        throw new Error("dispatcher down");
+        return { ok: false as const, status: 500, error: "http_500" };
       }),
     });
     await expect(
       handleTelegramUpdate(privateTextMessage(), "https://example.vercel.app", deps),
     ).resolves.toBeUndefined();
     expect(deps.initialSessionRepository.create).toHaveBeenCalled();
+  });
+
+  it("tells the user when the dispatcher returns an error", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps({
+      dispatchToProcessor: vi.fn(async () => {
+        return { ok: false as const, error: "aborted" };
+      }),
+    });
+    await handleTelegramUpdate(privateTextMessage(), "https://example.vercel.app", deps);
+
+    const sawError = calls.sentMessages.some((m) => m.text.includes("Gagal memulai pemrosesan"));
+    const sawQueued = calls.sentMessages.some((m) => m.text.includes("diterima"));
+    expect(sawError).toBe(true);
+    expect(sawQueued).toBe(false);
   });
 });
 

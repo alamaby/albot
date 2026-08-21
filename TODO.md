@@ -14,6 +14,17 @@ Milestone 6: Reliability, Security, and Observability (**CLOSED 2026-08-20** —
 
 - [ ] Implement Milestone 7 dan record verification evidence
 - [ ] Execute production release checklist dan operational handoff
+- [ ] Implementasi Pollinations provider (DEFERRED 2026-08-22 — menunggu dispatcher stabil) — plan: `plans/2026-08-22-pollinations-provider-implementation-plan.md`
+
+### Bot no-response recovery (2026-08-22)
+
+Plan: `plans/2026-08-22-bot-no-response-after-new-text.md`
+
+- [x] Diagnosa via mcp `supabase-albot-be-development` — job `033b6f11` stuck `queued` sejak 10:17 UTC, dispatcher swallow error, tidak ada auto-claim job
+- [x] Fix `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); tidak swallow lagi
+- [x] `handlePrivateTextMessage` step 7 cek return; `ok:false` → user dapat "Gagal memulai pemrosesan"
+- [x] Tambah workflow `.github/workflows/process-jobs-development.yml` (cron `*/1 * * * *`, env `recovery-development`, secret `JOB_PROCESSOR_SECRET`)
+- [x] Update tests `tests/unit/telegram-webhook.test.ts` — return type + 2 test baru (dispatcher fail swallow + dispatcher return error → user feedback)
 
 ## Completed
 
@@ -29,6 +40,18 @@ Plan: `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.
 - [x] Generation hybrid `selectProvider(session)` — preferred session → user default → fallback `priority_failover`, `Date.now` → `this.now`, inactive log
 - [x] Review fix: adapter guards (`first` object, JSON `provider_response_invalid`, AbortError `name`, String/Number coercion), parser strict, weighted duplication docs, `schema.integration` FK/TRIGGER/MIGRATIONS 23
 - [x] Verifikasi: `db:lint` ok, `check-migrations` 23, `types:check` ok (after regen `87e23ee`), `test:unit` 247/247, `lint` 0 errors, `typecheck` ok, `build` ok, `format:check` ok, `migrate-development` `87e23ee` aman (user konfirm)
+
+### Bot no-response recovery (2026-08-22)
+
+Plan: `plans/2026-08-22-bot-no-response-after-new-text.md`
+
+- [x] Diagnosa via mcp `supabase-albot-be-development` — job `033b6f11` stuck `queued` sejak 10:17 UTC, dispatcher swallow error, tidak ada auto-claim job
+- [x] Fix `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); tidak swallow lagi
+- [x] `handlePrivateTextMessage` step 7 cek return; `ok:false` → user dapat "Gagal memulai pemrosesan"
+- [x] Tambah workflow `.github/workflows/process-jobs-development.yml` (cron `*/1 * * * *`, env `recovery-development`, secret `JOB_PROCESSOR_SECRET`)
+- [x] Update tests `tests/unit/telegram-webhook.test.ts` — return type + 2 test baru (dispatcher fail swallow + dispatcher return error → user feedback)
+- [ ] Trigger manual dispatch job stuck `033b6f11` setelah deploy
+- [ ] Verifikasi: `lint`, `typecheck`, `test:unit`, `build`, `format:check` hijau sebelum push
 
 ## Blocked
 
