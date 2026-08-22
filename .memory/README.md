@@ -44,19 +44,18 @@ Last updated: 2026-08-22 (post-no-response fix)
 - M4 callbacks: inline di webhook (generate/revise/cancel), `callback_events` dedupe + owner check + CAS transition
 - M4 retry: bounded (`classifyEnhancementError`, backoff 60s*2^n cap 8m), `mark_revision_failed` guard-patched, worker-ownership updates
 - Pixazo PixelForge v2 (plan 2026-08-21): endpoint `pixelforge-image-v2/v1/text-to-image` auth `Ocp-Apim-Subscription-Key`, body `text`/`type`/`seed`/`size` → `results[].url` https + `caption`; `type` Opsi 2 via `settings.type` default `tags,caption` allowlist `tags`/`caption`/`tags,caption`; `size` default `1`; drop `negativePrompt`/`aspectRatio` untuk PF; hybrid selection per-session FK + per-user `user_image_preferences` tabel terpisah; 3 model tetap aktif; shortCode `flux|sdxl|pf2` `mp:<code>:<uuid>` ≤64
-- Dispatcher observability (2026-08-22): `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); `handlePrivateTextMessage` kirim "Gagal memulai pemrosesan" saat `ok:false` — tidak ada lagi silent failure
-- Process-jobs cron (2026-08-22): workflow `.github/workflows/process-jobs-development.yml` `*/1 * * * *`, environment `recovery-development` (sama dengan recovery cron), secret `JOB_PROCESSOR_SECRET`. Endpoint `POST /api/jobs/process`. Claim 1 job per call; backlog drain per menit. Safety net untuk dispatcher inline yang gagal
+- Dispatcher observability (2026-08-22): `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); `handlePrivateTextMessage` kirim "Gagal memulai pemrosesan. Silakan coba lagi sebentar." saat `ok:false` — tidak ada lagi silent failure
+- Process-jobs cron (2026-08-22): ditambahkan lalu dihapus per opsi 1 — andalkan feedback dispatcher + retry manual user, bukan cron auto-claim
 - Pollinations provider (plan 2026-08-22): **DEFERRED** — menunggu stabilisasi dispatcher; tidak terkait fix no-response
 
 ## Open Blockers
 
 - Seed Pixazo PixelForge v2 di dev + E2E Telegram picker → Generate → Ganti Model → Regenerate (await hybrid `Jadikan Default` verification); prod migrate menunggu dev E2E hijau.
-- Deploy commit dispatcher fix ke Vercel preview + trigger manual `POST /api/jobs/process` untuk job stuck `033b6f11` user 83540732.
-- Verifikasi cron `process-jobs-development.yml` jalan tiap menit (workflow harus sudah di-merge ke main agar schedule aktif).
+- Deploy commit dispatcher fix `5b093fd` ke Vercel preview done (`albot-bn8omcoar`, alias `albot-dev.vercel.app` updated); job stuck `033b6f11` sudah di-recover manual (`succeeded` 15:11:59 UTC).
 
 ## Recent Entries
 
-- `2026-08-22/150920-bot-no-response-dispatcher-swallow.md` — Fix: bot diam setelah user kirim teks (job `033b6f11` stuck `queued` 2.5 jam). Dispatcher swallow error → return `DispatchResult` + explicit user feedback; cron `process-jobs-development.yml` (`*/1 * * * *`) safety net. Verifikasi lokal hijau (lint/typecheck/test:unit 243/build/format/db).
+- `2026-08-22/150920-bot-no-response-dispatcher-swallow.md` — Fix: bot diam setelah user kirim teks (job `033b6f11` stuck `queued` 2.5 jam). Dispatcher swallow → `DispatchResult` + user feedback "Gagal memulai..."; cron ditambahkan lalu dihapus opsi 1. Verifikasi hijau (243 tests, build ok, deployed).
 - `2026-08-22/000000-pixazo-pixelforge-dev-migrate.md` — Dev migrate 23/23 aman (`87e23ee` types regen, `prompt_sessions_preferred_image_provider_config_id_fkey` + `isOneToOne:true`), user konfirm migrate aman — siap seed PF2 + E2E.
 - `2026-08-21/083000-pixazo-pixelforge-plan.md` — Pixazo PixelForge v2 plan (sample `text`/`type`/`seed`/`size`→`results[].url`, Opsi 2 `settings.type` default `tags,caption`, drop `negativePrompt`/`aspectRatio`, hybrid per-session + `user_image_preferences` tabel terpisah, 3 model aktif, picker confirmation+result).
 - `2026-08-20/163000-migration-cleanup-and-status-message.md` — M5/M6 follow-up: migration dev-only `20260820110000` hapus sisa config `mock_image_generation_contract` (dev 18/18, prod 0); feat status message persisted (`telegram_status_message_id`, edit ke outcome); guardrail `check-migrations` mencegah `EXPECTED_MIGRATIONS` stale (regresi berulang M3/M6/2026-08-20); instruction di AGENTS.md.

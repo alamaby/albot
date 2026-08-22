@@ -3,7 +3,7 @@
 Created: 2026-08-22
 
 ## Objective
-Diagnosa dan pulihkan bot yang tidak merespon teks baru user 83540732 sejak 2026-08-21 10:17 UTC, serta harden dispatcher agar tidak swallow error diam-diam dan tambah auto-dispatch cron agar job `queued` tidak stuck permanen.
+Diagnosa dan pulihkan bot yang tidak merespon teks baru user 83540732 sejak 2026-08-21 10:17 UTC, serta harden dispatcher agar tidak swallow error diam-diam (cron opsi 1: dihapus, andalkan feedback + retry manual).
 
 ## Temuan Validasi (via mcp supabase-albot-be-development)
 
@@ -23,8 +23,8 @@ Diagnosa dan pulihkan bot yang tidak merespon teks baru user 83540732 sejak 2026
 1. Trigger manual dispatch untuk job stuck `033b6f11` agar prompt user diproses.
 2. Perbaiki `dispatchToProcessorUrl` agar return `{ ok: boolean }` (tidak swallow), dan `handlePrivateTextMessage` step 7 kirim "Gagal memulai pemrosesan" saat dispatcher gagal.
 
-### Short-term (scheduler hardening)
-3. Tambah cron workflow `process-jobs-development.yml` yang men-trigger `/api/jobs/process` tiap 1 menit (mirip `recovery-development.yml`). Tujuannya: job `queued` otomatis ter-claim walau dispatcher webhook gagal.
+### Short-term (opsi 1 — cron dihapus)
+3. Cron `process-jobs-development.yml` awalnya ditambah, lalu dihapus per keputusan user opsi 1 (bot sudah berfungsi tanpa cron; andalkan feedback dispatcher).
 4. Update TODO + docs runbook.
 5. Verifikasi: lint, typecheck, unit, build, format:check.
 
@@ -35,20 +35,20 @@ Diagnosa dan pulihkan bot yang tidak merespon teks baru user 83540732 sejak 2026
 
 1. **Recovery job stuck** — manual dispatch job `033b6f11`.
 2. **Dispatcher observability** — fix swallow error, tambah notifikasi user.
-3. **Auto-dispatch cron** — workflow terjadwal untuk `/api/jobs/process`.
+3. **Opsional cron** — awalnya ditambah, dihapus opsi 1.
 4. **Verifikasi end-to-end** — bot respon untuk prompt baru.
 
 ## Tasks
 
 - [x] Persist plan file `plans/2026-08-22-bot-no-response-after-new-text.md`.
-- [ ] Edit `src/server/application/handle-telegram-update.ts`:
+- [x] Edit `src/server/application/handle-telegram-update.ts`:
   - `dispatchToProcessorUrl` return `Promise<{ ok: boolean; status?: number; error?: string }>` alih-alih swallow.
-  - `handlePrivateTextMessage` step 7 cek return value; jika `ok=false`, kirim "Gagal memulai pemrosesan" ke user.
-- [ ] Buat `.github/workflows/process-jobs-development.yml` (cron `*/1 * * * *`, secret `JOB_PROCESSOR_SECRET`, alias `albot-dev.vercel.app`).
-- [ ] Update `TODO.md` checklist + `docs/runbooks/milestone-6-incident-response.md` (catatan dispatcher swallow).
-- [ ] Verifikasi: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run build`, `npm run format:check`.
-- [ ] Trigger manual `POST https://albot-dev.vercel.app/api/jobs/process` untuk menarik job stuck `033b6f11`.
-- [ ] Update memory entry + `.memory/README.md`.
+  - `handlePrivateTextMessage` step 7 cek return value; jika `ok=false`, kirim "Gagal memulai pemrosesan. Silakan coba lagi sebentar." ke user.
+- [x] Buat lalu hapus `.github/workflows/process-jobs-development.yml` per opsi 1 (cron `*/1` → dihapus).
+- [x] Update `TODO.md` checklist + `docs/runbooks/milestone-6-incident-response.md` (catatan dispatcher swallow).
+- [x] Verifikasi: `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run build`, `npm run format:check` hijau.
+- [x] Trigger manual `POST https://albot-dev.vercel.app/api/jobs/process` untuk job stuck `033b6f11` → `succeeded` `awaiting_confirmation`.
+- [x] Update memory entry + `.memory/README.md`.
 
 ## Risks
 
@@ -61,6 +61,8 @@ Diagnosa dan pulihkan bot yang tidak merespon teks baru user 83540732 sejak 2026
 
 - 2026-08-22 — Validasi via mcp supabase-albot-be-development. Job stuck sejak 10:17 UTC. Dispatcher swallow error. Plan dibuat.
 - 2026-08-22 — Plan disetujui user: fix dispatcher + tambah cron, tunda Pollinations. Build mode aktif, mulai eksekusi.
+- 2026-08-22 — Fix `DispatchResult` + tests + cron selesai, push `5b093fd`, alias `albot-dev.vercel.app` updated, job `033b6f11` di-recover (`succeeded`).
+- 2026-08-22 — User pilih opsi 1: hapus cron `process-jobs-development.yml`, andalkan feedback dispatcher + retry manual.
 
 ## Notes
 

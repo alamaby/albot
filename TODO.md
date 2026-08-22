@@ -20,11 +20,11 @@ Milestone 6: Reliability, Security, and Observability (**CLOSED 2026-08-20** —
 
 Plan: `plans/2026-08-22-bot-no-response-after-new-text.md`
 
-- [x] Diagnosa via mcp `supabase-albot-be-development` — job `033b6f11` stuck `queued` sejak 10:17 UTC, dispatcher swallow error, tidak ada auto-claim job
+- [x] Diagnosa via mcp `supabase-albot-be-development` — job `033b6f11` stuck `queued` sejak 10:17 UTC, dispatcher swallow error
 - [x] Fix `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); tidak swallow lagi
-- [x] `handlePrivateTextMessage` step 7 cek return; `ok:false` → user dapat "Gagal memulai pemrosesan"
-- [x] Tambah workflow `.github/workflows/process-jobs-development.yml` (cron `*/1 * * * *`, env `recovery-development`, secret `JOB_PROCESSOR_SECRET`)
-- [x] Update tests `tests/unit/telegram-webhook.test.ts` — return type + 2 test baru (dispatcher fail swallow + dispatcher return error → user feedback)
+- [x] `handlePrivateTextMessage` step 7 cek return; `ok:false` → user dapat "Gagal memulai pemrosesan. Silakan coba lagi sebentar."
+- [x] Update tests `tests/unit/telegram-webhook.test.ts` — return type + 2 test baru
+- [x] Cron `process-jobs-development.yml` ditambahkan lalu dihapus per keputusan opsi 1 (andalkan feedback dispatcher, bukan auto-claim)
 
 ## Completed
 
@@ -45,13 +45,13 @@ Plan: `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.
 
 Plan: `plans/2026-08-22-bot-no-response-after-new-text.md`
 
-- [x] Diagnosa via mcp `supabase-albot-be-development` — job `033b6f11` stuck `queued` sejak 10:17 UTC, dispatcher swallow error, tidak ada auto-claim job
+- [x] Diagnosa via mcp `supabase-albot-be-development` — job `033b6f11` stuck `queued` sejak 10:17 UTC, dispatcher swallow error
 - [x] Fix `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); tidak swallow lagi
-- [x] `handlePrivateTextMessage` step 7 cek return; `ok:false` → user dapat "Gagal memulai pemrosesan"
-- [x] Tambah workflow `.github/workflows/process-jobs-development.yml` (cron `*/1 * * * *`, env `recovery-development`, secret `JOB_PROCESSOR_SECRET`)
-- [x] Update tests `tests/unit/telegram-webhook.test.ts` — return type + 2 test baru (dispatcher fail swallow + dispatcher return error → user feedback)
-- [ ] Trigger manual dispatch job stuck `033b6f11` setelah deploy
-- [ ] Verifikasi: `lint`, `typecheck`, `test:unit`, `build`, `format:check` hijau sebelum push
+- [x] `handlePrivateTextMessage` step 7 cek return; `ok:false` → user dapat "Gagal memulai pemrosesan. Silakan coba lagi sebentar."
+- [x] Update tests `tests/unit/telegram-webhook.test.ts` — return type + 2 test baru
+- [x] Cron `process-jobs-development.yml` ditambahkan lalu dihapus per opsi 1 (andalkan feedback, user retry manual)
+- [x] Trigger manual dispatch job stuck `033b6f11` sukses (`succeeded` 15:11:59 UTC, sesi `awaiting_confirmation`)
+- [x] Verifikasi: `lint` 0 errors, `typecheck` ok, `test:unit` 243/243, `db:lint` ok, `build` ok, `format:check` ok — push `5b093fd`
 
 ## Blocked
 

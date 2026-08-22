@@ -117,4 +117,17 @@ export class SessionRepository {
       .eq("id", sessionId);
     if (error) throw new Error(`set preferred image provider failed: ${error.message}`);
   }
+
+  async cancelActiveSession(sessionId: string, expectedStatus: string): Promise<boolean> {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .rpc("transition_prompt_session", {
+        p_session_id: sessionId,
+        p_expected_status: expectedStatus,
+        p_new_status: "cancelled",
+      } as never)
+      .maybeSingle();
+    if (error) throw new Error(`cancel session failed: ${error.message}`);
+    return Boolean(data);
+  }
 }

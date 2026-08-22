@@ -28,10 +28,9 @@ DB: 10:17:40 UTC (~2.5 jam tanpa aktivitas setelah timestamp stuck).
    `buildBotMessage("prompt_received")`; `ok:false` → log
    `webhook.dispatcher_returned_error` + kirim "Gagal memulai pemrosesan.
    Silakan coba lagi sebentar." ke user.
-3. Cron workflow `.github/workflows/process-jobs-development.yml` (`*/1 * * * *`,
-   environment `recovery-development`, secret `JOB_PROCESSOR_SECRET`) men-trigger
-   `POST /api/jobs/process` tiap 1 menit. Backlog drain karena processor claim
-   1 job per call.
+3. Cron workflow `.github/workflows/process-jobs-development.yml` awalnya
+   ditambah (`*/1`), lalu dihapus per opsi 1 — andalkan feedback dispatcher +
+   retry manual user (bot sudah berfungsi tanpa cron).
 4. Tests `tests/unit/telegram-webhook.test.ts`:
    - Mock `dispatchToProcessor` updated untuk return `{ok:true,status:200}`.
    - Test "never fails when the dispatcher call fails" diubah dari `throw` ke
@@ -46,12 +45,11 @@ DB: 10:17:40 UTC (~2.5 jam tanpa aktivitas setelah timestamp stuck).
   + step 7 explicit error feedback.
 - `tests/unit/telegram-webhook.test.ts` — mock return type + 2 test
   (dispatcher swallow→return error, dispatcher return error→user feedback).
-- `.github/workflows/process-jobs-development.yml` — cron baru.
-- `docs/runbooks/milestone-6-incident-response.md` — section 2a baru (runbook
-  "Bot diam setelah user kirim teks").
-- `docs/environment-variables.md` — catatan post-M6 cron `process-jobs`.
-- `TODO.md` — checklist baru + status DEFERRED Pollinations.
-- `plans/2026-08-22-bot-no-response-after-new-text.md` — plan.
+- `.github/workflows/process-jobs-development.yml` — ditambah lalu dihapus opsi 1.
+- `docs/runbooks/milestone-6-incident-response.md` — section 2a (penyebab + langkah manual, tanpa cron).
+- `docs/environment-variables.md` — sempat tambah catatan cron, lalu dihapus.
+- `TODO.md` — checklist + DEFERRED Pollinations.
+- `plans/2026-08-22-bot-no-response-after-new-text.md` — plan (cron → dihapus).
 
 **Verification (lokal):**
 
@@ -65,13 +63,11 @@ DB: 10:17:40 UTC (~2.5 jam tanpa aktivitas setelah timestamp stuck).
 - `npm run format:check` all matched.
 - `npm run build` ok.
 
-**Open:**
+**Done:**
 
-- Deploy commit baru ke Vercel preview, tunggu cron 1 menit aktif.
-- Trigger manual `POST /api/jobs/process` dengan `JOB_PROCESSOR_SECRET` untuk
-  menarik job stuck `033b6f11` sebelum deploy propagated.
-- Verifikasi user: kirim prompt baru, pastikan bot respon dengan `prompt_received`
-  atau `Gagal memulai pemrosesan` (bukan silent failure).
+- Deploy `5b093fd` ke `albot-dev.vercel.app` (alias updated), health ok.
+- Trigger manual `POST /api/jobs/process` → `033b6f11` `succeeded` `awaiting_confirmation` 15:11:59 UTC.
+- Opsi 1: cron dihapus — verifikasi user kirim prompt baru harus dapat `prompt_received` atau `Gagal memulai...` (bukan silent).
 
 **Related Plan / Specs:**
 
@@ -87,6 +83,6 @@ fix(telegram): surface dispatcher errors and add process-jobs cron
 - dispatchToProcessorUrl returns DispatchResult; webhook sends explicit error
   message when dispatch fails (no more silent failures)
 - add process-jobs-development cron (1 minute) to claim queued jobs even when
-  the inline webhook dispatcher drops the call
+  the inline webhook dispatcher drops the call — lalu dihapus opsi 1
 - update tests to assert structured return and user feedback
-```
+``` (actual push `5b093fd`, follow-up hapus cron opsi 1)

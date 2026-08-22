@@ -3,6 +3,7 @@ import {
   handleTelegramUpdate,
   createDefaultWebhookDeps,
   ACCESS_CONTROLS,
+  isCancelCommand,
   type TelegramWebhookDeps,
 } from "@/server/application/handle-telegram-update";
 import { resetServerEnvCache } from "@/env";
@@ -82,6 +83,7 @@ function buildDeps(overrides: Partial<MutableDeps> = {}): {
     sessionRepository: {
       findActiveByUserId: vi.fn(async () => null),
       getById: vi.fn(async () => null),
+      cancelActiveSession: vi.fn(async () => true),
     } as unknown as TelegramWebhookDeps["sessionRepository"],
     revisionInput: {
       handle: vi.fn(async () => ({ status: "ignored" })),
@@ -408,6 +410,184 @@ describe("handleTelegramUpdate - unsupported", () => {
     expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
     expect(deps.dispatchToProcessor).not.toHaveBeenCalled();
     expect(deps.sendTelegramMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("isCancelCommand", () => {
+  it("matches /cancel and /batal variants", () => {
+    expect(isCancelCommand("/cancel")).toBe(true);
+    expect(isCancelCommand("/CANCEL")).toBe(true);
+    expect(isCancelCommand("/batal")).toBe(true);
+    expect(isCancelCommand("/Batal")).toBe(true);
+    expect(isCancelCommand("/cancel@albot")).toBe(true);
+    expect(isCancelCommand("/batal@Albot ")).toBe(true);
+    expect(isCancelCommand(" /cancel ")).toBe(true);
+  });
+
+  it("rejects non-cancel text", () => {
+    expect(isCancelCommand("/cancelled")).toBe(false);
+    expect(isCancelCommand("/cancel now")).toBe(false);
+    expect(isCancelCommand("cancel")).toBe(false);
+    expect(isCancelCommand("batalkan sesi")).toBe(false);
+    expect(isCancelCommand("")).toBe(false);
+  });
+});
+
+describe("handleTelegramUpdate - slash cancel", () => {
+  it("cancels the active session and notifies the user", async () => {
+    withEnv();
+    const activeSession = {
+      id: "session-1",
+      telegramUserId: 123n,
+      telegramChatId: 456n,
+      status: "awaiting_confirmation",
+      activeRevisionId: "rev-1",
+      activeGenerationAttemptId: null,
+      preferredImageProviderConfigId: null,
+      telegramStatusMessageId: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z",
+      completedAt: null,
+    };
+    const cancelActiveSession = vi.fn(async () => true);
+    const { deps, calls } = buildDeps({
+      sessionRepository: {
+        findActiveByUserId: vi.fn(async () => activeSession),
+        getById: vi.fn(async () => null),
+        cancelActiveSession,
+      } as unknown as TelegramWebhookDeps["sessionRepository"],
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/cancel" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(cancelActiveSession).toHaveBeenCalledWith("session-1", "awaiting_confirmation");
+    expect(calls.sentMessages.some((m) => m.text.includes("dibatalkan"))).toBe(true);
+    expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
+    expect(deps.dispatchToProcessor).not.toHaveBeenCalled();
+  });
+
+  it("handles /batal with bot suffix", async () => {
+    withEnv();
+    const activeSession = {
+      id: "session-1",
+      telegramUserId: 123n,
+      telegramChatId: 456n,
+      status: "generating",
+      activeRevisionId: "rev-1",
+      activeGenerationAttemptId: null,
+      preferredImageProviderConfigId: null,
+      telegramStatusMessageId: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z",
+      completedAt: null,
+    };
+    const cancelActiveSession = vi.fn(async () => true);
+    const { deps, calls } = buildDeps({
+      sessionRepository: {
+        findActiveByUserId: vi.fn(async () => activeSession),
+        getById: vi.fn(async () => null),
+        cancelActiveSession,
+      } as unknown as TelegramWebhookDeps["sessionRepository"],
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/batal@albot" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(cancelActiveSession).toHaveBeenCalledWith("session-1", "generating");
+    expect(calls.sentMessages.some((m) => m.text.includes("dibatalkan"))).toBe(true);
+  });
+
+  it("replies no_active_session when there is no active session", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps({
+      sessionRepository: {
+        findActiveByUserId: vi.fn(async () => null),
+        getById: vi.fn(async () => null),
+        cancelActiveSession: vi.fn(async () => true),
+      } as unknown as TelegramWebhookDeps["sessionRepository"],
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/cancel" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("Tidak ada sesi aktif"))).toBe(true);
+    expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
+  });
+
+  it("takes precedence over revision-input mode", async () => {
+    withEnv();
+    const activeSession = {
+      id: "session-1",
+      telegramUserId: 123n,
+      telegramChatId: 456n,
+      status: "awaiting_revision_input",
+      activeRevisionId: "rev-1",
+      activeGenerationAttemptId: null,
+      preferredImageProviderConfigId: null,
+      telegramStatusMessageId: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z",
+      completedAt: null,
+    };
+    const cancelActiveSession = vi.fn(async () => true);
+    const { deps, calls } = buildDeps({
+      sessionRepository: {
+        findActiveByUserId: vi.fn(async () => activeSession),
+        getById: vi.fn(async () => null),
+        cancelActiveSession,
+      } as unknown as TelegramWebhookDeps["sessionRepository"],
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/cancel" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(cancelActiveSession).toHaveBeenCalled();
+    expect(calls.sentMessages.some((m) => m.text.includes("dibatalkan"))).toBe(true);
+    expect(deps.revisionInput.handle).not.toHaveBeenCalled();
+  });
+
+  it("handles CAS failure gracefully", async () => {
+    withEnv();
+    const activeSession = {
+      id: "session-1",
+      telegramUserId: 123n,
+      telegramChatId: 456n,
+      status: "enhancing",
+      activeRevisionId: "rev-1",
+      activeGenerationAttemptId: null,
+      preferredImageProviderConfigId: null,
+      telegramStatusMessageId: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      expiresAt: "2099-01-01T00:00:00Z",
+      completedAt: null,
+    };
+    const { deps, calls } = buildDeps({
+      sessionRepository: {
+        findActiveByUserId: vi.fn(async () => activeSession),
+        getById: vi.fn(async () => null),
+        cancelActiveSession: vi.fn(async () => false),
+      } as unknown as TelegramWebhookDeps["sessionRepository"],
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/cancel" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("sedang diproses"))).toBe(true);
   });
 });
 

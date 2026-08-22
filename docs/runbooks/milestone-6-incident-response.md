@@ -70,12 +70,10 @@ atau HTTP 500 dari provider upstream.
 
 **Penyebab umum (2026-08-22):**
 
-- `dispatchToProcessorUrl` swallow error (pre-fix). Patch terbaru
-  (`4562fab`+fix ini) membuat dispatcher return `DispatchResult` dan
-  `handlePrivateTextMessage` mengirim "Gagal memulai pemrosesan" saat `ok:false`.
-- Tidak ada auto-claim job di luar dispatcher webhook. Cron
-  `process-jobs-development.yml` (1 menit, env `recovery-development`) menjamin
-  job `queued` akan ter-claim walau dispatcher webhook gagal total.
+- `dispatchToProcessorUrl` swallow error (pre-fix). Patch `5b093fd` membuat
+  dispatcher return `DispatchResult` dan `handlePrivateTextMessage`
+  mengirim "Gagal memulai pemrosesan..." saat `ok:false` — user tidak lagi
+  mengalami silent black-hole, bisa retry kirim pesan.
 
 **Langkah:**
 
@@ -85,12 +83,12 @@ atau HTTP 500 dari provider upstream.
    `telegram_message_id` cocok dengan pesan user (sanity: webhook memang
    menerima).
 3. Trigger manual: `curl -X POST -H "Authorization: Bearer $JOB_PROCESSOR_SECRET"
--H "Content-Type: application/json" -d '{}' https://albot-dev.vercel.app/api/jobs/process`.
-   Processor claim 1 job per call; backlog habis dalam ±N invocation.
+-H "Content-Type: application/json" -d '{}'
+https://albot-dev.vercel.app/api/jobs/process`. Processor claim 1 job per
+   call; backlog habis dalam ±N invocation.
 4. Jika dispatcher masih swallow (versi lama ter-deploy), deploy ulang commit
    terbaru dan tunggu sampai ada log `webhook.dispatcher_returned_error` di
    Vercel function logs — itu tanda dispatcher sudah propagate error ke user.
-5. Job yang stuck lama akan otomatis ter-claim oleh cron `*/1 * * * *`.
 
 ## 3. Job queued / retry_scheduled tidak pernah diproses
 

@@ -26,6 +26,12 @@ export const ACCESS_CONTROLS = {
   rateLimitMaxSubmissions: 5,
 } as const;
 
+const CANCEL_COMMAND_RE = /^\/(cancel|batal)(@\w+)?\s*$/i;
+
+export function isCancelCommand(text: string): boolean {
+  return CANCEL_COMMAND_RE.test(text.trim());
+}
+
 // Inject repositories so unit tests can stub the database layer.
 export type TelegramWebhookDeps = {
   botUserRepository: BotUserRepository;
@@ -269,7 +275,42 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 3. Revision-input mode: a session in awaiting_revision_input consumes the
+  // 3. Slash /cancel (or /batal) — cancel the latest active session so the
+  //    user can start a new prompt. Takes precedence over revision-input mode
+  //    so a stuck awaiting_revision_input can be escaped.
+  if (isCancelCommand(message.text)) {
+    const activeToCancel = await deps.sessionRepository.findActiveByUserId(message.userId);
+    if (!activeToCancel) {
+      await trySendMessage(env, deps, message.chatId, buildBotMessage("no_active_session"));
+      return;
+    }
+    try {
+      const cancelled = await deps.sessionRepository.cancelActiveSession(
+        activeToCancel.id,
+        activeToCancel.status,
+      );
+      if (!cancelled) {
+        await trySendMessage(
+          env,
+          deps,
+          message.chatId,
+          "Sesi sedang diproses. Coba lagi sebentar.",
+        );
+        return;
+      }
+      await trySendMessage(env, deps, message.chatId, buildBotMessage("session_cancelled"));
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "webhook.cancel_failed", {
+        sessionId: activeToCancel.id,
+        detail,
+      });
+      await trySendMessage(env, deps, message.chatId, "Gagal membatalkan sesi. Coba lagi.");
+    }
+    return;
+  }
+
+  // 4. Revision-input mode: a session in awaiting_revision_input consumes the
   //    next message as a revision instruction instead of a new prompt.
   const activeSession = await deps.sessionRepository.findActiveByUserId(message.userId);
   if (activeSession && activeSession.status === "awaiting_revision_input") {
@@ -291,13 +332,13 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 4. Prompt length limit.
+  // 5. Prompt length limit.
   if (message.text.length > ACCESS_CONTROLS.maxPromptLength) {
     await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
     return;
   }
 
-  // 5. Abuse controls (derived from prompt_sessions).
+  // 6. Abuse controls (derived from prompt_sessions).
   const policy = await deps.sessionPolicyRepository.getPolicyState(message.userId, {
     rateLimitWindowMinutes: ACCESS_CONTROLS.rateLimitWindowMinutes,
     rateLimitMaxSubmissions: ACCESS_CONTROLS.rateLimitMaxSubmissions,
@@ -313,7 +354,7 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 6. Atomically create session + first revision + enhancement job.
+  // 7. Atomically create session + first revision + enhancement job.
   await deps.initialSessionRepository.create({
     telegramUserId: message.userId,
     telegramChatId: message.chatId,
@@ -321,7 +362,7 @@ async function handlePrivateTextMessage(
     updateId: message.updateId,
   });
 
-  // 7. Dispatch first, then acknowledge so the user only sees "queued" when the
+  // 8. Dispatch first, then acknowledge so the user only sees "queued" when the
   //    dispatcher confirmed the processor accepted the job. If the dispatcher
   //    call itself fails (network, 401, timeout) we surface an explicit error to
   //    the user instead of leaving them with a silent black hole — the durable

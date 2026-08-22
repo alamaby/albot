@@ -15,7 +15,8 @@ export type BotMessage =
   | "session_expired"
   | "enhancement_failed"
   | "generation_failed"
-  | "session_cancelled";
+  | "session_cancelled"
+  | "no_active_session";
 
 export function buildBotMessage(
   kind: BotMessage,
@@ -48,6 +49,8 @@ export function buildBotMessage(
       return "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.";
     case "session_cancelled":
       return "Sesi dibatalkan.";
+    case "no_active_session":
+      return "Tidak ada sesi aktif untuk dibatalkan.";
   }
 }
 
