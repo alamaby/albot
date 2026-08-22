@@ -6,6 +6,7 @@
 import { getProviderRegistry } from "./registry";
 import { OpenAICompatibleReasoningAdapter } from "./reasoning/openai-compatible.adapter";
 import { PixazoImageAdapter } from "./image/pixazo.adapter";
+import { PixazoPixelforgeAdapter } from "./image/pixazo-pixelforge.adapter";
 
 const registry = getProviderRegistry();
 
@@ -42,6 +43,20 @@ registry.registerImage("pixazo_sdxl", (config, apiKey) => {
         (config["base_url"] as string) ?? "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
       model: (config["model"] as string) ?? "sdxl",
       responseKind: "sdxl",
+      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+    },
+    apiKey,
+  );
+});
+
+registry.registerImage("pixazo_pixelforge_v2", (config, apiKey) => {
+  return new PixazoPixelforgeAdapter(
+    {
+      baseUrl:
+        (config["base_url"] as string) ?? "https://gateway.pixazo.ai/pixelforge-image-v2/v1/text-to-image",
+      model: (config["model"] as string) ?? "pixelforge-image-v2",
+      type: config["type"] ?? config["settings.type"],
+      size: config["size"] ?? config["settings.size"],
       timeoutMs: (config["timeout_ms"] as number) ?? 120000,
     },
     apiKey,
