@@ -43,6 +43,13 @@ export class PollinationsImageAdapter implements ImageGenerationProvider {
         message: "pollinations provider model must be a non-empty string",
       });
     }
+    if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length === 0) {
+      throw new ProviderError({
+        code: "provider_configuration_invalid",
+        retryable: false,
+        message: "pollinations provider apiKey must be a non-empty string",
+      });
+    }
     this.baseUrl = config.baseUrl.replace(/\/+$/, "");
     this.model = config.model.trim();
     if (!Number.isFinite(config.timeoutMs as number) && config.timeoutMs !== undefined) {
@@ -89,6 +96,7 @@ export class PollinationsImageAdapter implements ImageGenerationProvider {
           httpStatus: response.status,
           body: errorBody.slice(0, 200),
           model: this.model,
+          providerRequestId: readProviderRequestId(response),
         });
         throw makeErrorFromHttpStatus(
           response.status,
@@ -126,6 +134,12 @@ export class PollinationsImageAdapter implements ImageGenerationProvider {
   }
 
   private buildRequestBody(input: GenerateImageInput): Record<string, unknown> {
+    if (!input.prompt || typeof input.prompt !== "string" || input.prompt.trim().length === 0) {
+      throw makeNonRetryable(
+        "provider_request_invalid",
+        "pollinations prompt must be a non-empty string",
+      );
+    }
     let prompt = input.prompt;
     if (input.negativePrompt && input.negativePrompt.trim().length > 0) {
       prompt = `${prompt} Avoid: ${input.negativePrompt.trim()}`;
@@ -195,9 +209,22 @@ export class PollinationsImageAdapter implements ImageGenerationProvider {
     if (typeof url === "string" && isHttpsUrl(url)) {
       imageUrl = url;
     } else if (typeof b64 === "string" && b64.length > 0) {
+      const norm = b64.replace(/\s/g, "");
+      if (!/^[A-Za-z0-9+\/=_-]+$/.test(norm) || norm.length % 4 !== 0) {
+        throw makeNonRetryable(
+          "provider_response_invalid",
+          "pollinations b64_json is not valid base64",
+          {
+            providerRequestId: requestId,
+          },
+        );
+      }
       try {
-        const buf = Buffer.from(b64, "base64");
-        imageBytes = new Uint8Array(buf);
+        const buf =
+          typeof Buffer !== "undefined"
+            ? Buffer.from(norm, "base64")
+            : Uint8Array.from(atob(norm), (c) => c.charCodeAt(0));
+        imageBytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
       } catch {
         throw makeNonRetryable(
           "provider_response_invalid",

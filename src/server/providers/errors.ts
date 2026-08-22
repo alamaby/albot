@@ -79,10 +79,10 @@ export function classificationFromHttpStatus(status: number): ProviderErrorCode 
       return "provider_authentication_failed";
     case 403:
       return "provider_authorization_failed";
-    case 404:
-      return "provider_configuration_invalid";
     case 402:
       return "provider_rate_limited";
+    case 404:
+      return "provider_configuration_invalid";
     case 408:
       return "provider_timeout";
     case 429:
@@ -106,8 +106,8 @@ export function classificationFromNetworkError(): ProviderErrorCode {
 
 // Derives a normalized ProviderError from an upstream HTTP status.
 // Retryable derives from the status itself and follows the documented taxonomy
-// exactly: 408/429/500/502/503/504 are retryable, all other statuses are
-// terminal (e.g. 400 malformed, 401/403 auth, 404 config, 501/505 terminal).
+// exactly: 408/429/500/502/503/504 are retryable, 402 pollen exhausted is terminal rate_limited,
+// all other statuses are terminal (e.g. 400 malformed, 401/403 auth, 404 config, 501/505 terminal).
 // Callers must never pass a precomputed `retryable` that can diverge from the
 // actual status.
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);

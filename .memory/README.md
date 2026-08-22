@@ -1,11 +1,11 @@
 # Project Memory
 
-Last updated: 2026-08-22 (pollinations implemented)
+Last updated: 2026-08-22 (pollinations review fix)
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: **Pollinations fallback IMPLEMENTED 2026-08-22 — gpt-oss priority 150 + flux priority 151 via gen.pollinations.ai/v1, 25 migrations, 250 unit + 79 contract green** + Pixazo PixelForge v2 IMPLEMENTED 2026-08-21 + REVIEW-FIX 2026-08-22 — dev migrate 23/23 aman (adapter `pixazo_pixelforge_v2` `text`/`type`/`seed`/`size`→`results[0].url`, Opsi 2 `settings.type`, hybrid `user_image_preferences`, 3 model aktif, picker confirmation+result, `migrate-development` `87e23ee` hijau, `db:types:check` ok). Plans `2026-08-21` + `2026-08-22` fix, TODO Completed Pixazo.
+- Active milestone: **Pollinations fallback REVIEW-FIX 2026-08-22 — prompt/apiKey/b64 validation, 89 contract (10 pollinations edge), 25 migrations, 250 unit green** + Pollinations fallback IMPLEMENTED 2026-08-22 + Pixazo PixelForge v2 IMPLEMENTED 2026-08-21 + REVIEW-FIX 2026-08-22 — dev migrate 23/23 aman (adapter `pixazo_pixelforge_v2` `text`/`type`/`seed`/`size`→`results[0].url`, Opsi 2 `settings.type`, hybrid `user_image_preferences`, 3 model aktif, picker confirmation+result, `migrate-development` `87e23ee` hijau, `db:types:check` ok). Plans `2026-08-21` + `2026-08-22` fix, TODO Completed Pixazo.
 - Milestone 4 CLOSED 2026-08-18 (Prompt Enhancement, Confirmation, and Revision). E2E dev lengkap: enhancement → confirmation → revise loop → generate → batal, provider Cloudflare gpt-oss-120b, 7 bug fixed selama E2E, acceptance criteria 8/8, CI #25-#32 success. Next: Milestone 5 (Image Generation).
 - Milestone 3 **CLOSED** 2026-08-13: platform wiring + E2E selesai (Vercel Preview env vars, webhook terpasang, seed admin applied, E2E prompt → session/revision/job rows, hosted 79/79).
 - Milestone 2 (Provider Abstraction and Configuration) **CLOSED** 2026-08-10: implementasi `209847d` + remediation `35a9cab` + closure (M/L transcribed: M1/M4/M5/M6 + C-Low A fixed; M7/M8/M10/M13-M16 + L2-L14 accepted; acceptance criteria checked). Evidence: run `31311782574` (dev 7 migrations Local==Remote, hosted 67/0 skip), 143 unit tests, production 0 migrations untouched
@@ -46,16 +46,19 @@ Last updated: 2026-08-22 (pollinations implemented)
 - Pixazo PixelForge v2 (plan 2026-08-21): endpoint `pixelforge-image-v2/v1/text-to-image` auth `Ocp-Apim-Subscription-Key`, body `text`/`type`/`seed`/`size` → `results[].url` https + `caption`; `type` Opsi 2 via `settings.type` default `tags,caption` allowlist `tags`/`caption`/`tags,caption`; `size` default `1`; drop `negativePrompt`/`aspectRatio` untuk PF; hybrid selection per-session FK + per-user `user_image_preferences` tabel terpisah; 3 model tetap aktif; shortCode `flux|sdxl|pf2` `mp:<code>:<uuid>` ≤64
 - Dispatcher observability (2026-08-22): `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); `handlePrivateTextMessage` kirim "Gagal memulai pemrosesan. Silakan coba lagi sebentar." saat `ok:false` — tidak ada lagi silent failure
 - Process-jobs cron (2026-08-22): ditambahkan lalu dihapus per opsi 1 — andalkan feedback dispatcher + retry manual user, bukan cron auto-claim
+- Pollinations provider (review-fix 2026-08-22): **REVIEW-FIX — hardening** prompt/apiKey/b64/log + errors 402 order + openai-compatible parity + 10 pollinations edge tests (89 contract)
 - Pollinations provider (implemented 2026-08-22): **IMPLEMENTED — fallback** reasoning `gpt-oss` priority 150 + image `flux` priority 151 via `https://gen.pollinations.ai/v1`, `PollinationsImageAdapter` POST `/v1/images/generations` size mapping, inject `negativePrompt` via `Avoid:`, 2 adapter types (`pollinations`/`pollinations_image`), 402 -> provider_rate_limited, `.env.example` POLLINATIONS_API_KEY, migration 20260823100000
 
 ## Open Blockers
 
 - Pollinations fallback done: PollinationsImageAdapter + pollinations/pollinations_image registry + migration 20260823100000 + EXPECTED_MIGRATIONS + contract tests (8 tests) + .env.example, verifikasi hijau (db:lint ok, 25 migrations, db:types ok, 250 unit, 79 contract, lint 2 warnings, typecheck ok, build ok, format ok)
+- Pollinations review-fix done: prompt/apiKey/b64 strict + providerRequestId log + errors 402 order + openai-compatible trim/timeout parity + 6 edge tests (89 contract), all green
 - Seed Pixazo PixelForge v2 di dev + E2E Telegram picker → Generate → Ganti Model → Regenerate (await hybrid `Jadikan Default` verification); prod migrate menunggu dev E2E hijau.
 - Deploy commit dispatcher fix `5b093fd` ke Vercel preview done (`albot-bn8omcoar`, alias `albot-dev.vercel.app` updated); job stuck `033b6f11` sudah di-recover manual (`succeeded` 15:11:59 UTC).
 
 ## Recent Entries
 
+- `2026-08-22/214000-pollinations-review-fix.md` — Review-fix: prompt/apiKey/b64 validation, log providerRequestId, errors 402 order, openai parity, 6 edge tests → 89 contract.
 - `2026-08-22/213000-pollinations-provider-implemented.md` — Pollinations fallback IMPLEMENTED: PollinationsImageAdapter (flux, inject Avoid:, size map, b64_json fallback), pollinations/pollinations_image registry, 402 handling, migration 20260823100000 WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, 8 contract tests, verifikasi hijau.
 - `2026-08-22/210000-pollinations-provider-final-plan.md` — Pollinations fallback final plan konsolidasi: flux/gpt-oss priority 150/151 fallback, 2 type bukan 20, inject negativePrompt, fix private->protected + 402 + WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, plan `plans/2026-08-22-pollinations-provider-final-plan.md`.
 - `2026-08-22/150920-bot-no-response-dispatcher-swallow.md` — Fix: bot diam setelah user kirim teks (job `033b6f11` stuck `queued` 2.5 jam). Dispatcher swallow → `DispatchResult` + user feedback "Gagal memulai..."; cron ditambahkan lalu dihapus opsi 1. Verifikasi hijau (243 tests, build ok, deployed).

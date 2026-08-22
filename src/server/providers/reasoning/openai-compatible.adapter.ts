@@ -32,8 +32,25 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
         message: "openai-compatible provider base url must use https",
       });
     }
+    if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length === 0) {
+      throw new ProviderError({
+        code: "provider_configuration_invalid",
+        retryable: false,
+        message: "openai-compatible provider apiKey must be a non-empty string",
+      });
+    }
     this.baseUrl = config.baseUrl.replace(/\/+$/, "");
-    this.model = config.model;
+    this.model = config.model.trim();
+    if (
+      config.timeoutMs !== undefined &&
+      (!Number.isFinite(config.timeoutMs) || config.timeoutMs <= 0)
+    ) {
+      throw new ProviderError({
+        code: "provider_configuration_invalid",
+        retryable: false,
+        message: "openai-compatible provider timeoutMs must be a positive finite number",
+      });
+    }
     this.timeoutMs = config.timeoutMs ?? 60000;
   }
 
