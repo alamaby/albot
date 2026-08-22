@@ -6,6 +6,7 @@
 import { getProviderRegistry } from "./registry";
 import { OpenAICompatibleReasoningAdapter } from "./reasoning/openai-compatible.adapter";
 import { PixazoImageAdapter } from "./image/pixazo.adapter";
+import { PollinationsImageAdapter } from "./image/pollinations.adapter";
 
 const registry = getProviderRegistry();
 
@@ -15,6 +16,18 @@ registry.registerReasoning("openai_compatible", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api.openai.com/v1",
       model: (config["model"] as string) ?? "gpt-4",
+      timeoutMs: (config["timeout_ms"] as number) ?? 60000,
+    },
+    apiKey,
+  );
+});
+
+// Pollinations reasoning (fallback, gpt-oss) - reuses OpenAI-compatible adapter
+registry.registerReasoning("pollinations", (config, apiKey) => {
+  return new OpenAICompatibleReasoningAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? "https://gen.pollinations.ai/v1",
+      model: (config["model"] as string) ?? "gpt-oss",
       timeoutMs: (config["timeout_ms"] as number) ?? 60000,
     },
     apiKey,
@@ -42,6 +55,18 @@ registry.registerImage("pixazo_sdxl", (config, apiKey) => {
         (config["base_url"] as string) ?? "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
       model: (config["model"] as string) ?? "sdxl",
       responseKind: "sdxl",
+      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+    },
+    apiKey,
+  );
+});
+
+// Pollinations image (fallback, flux) - single type, model via config.model
+registry.registerImage("pollinations_image", (config, apiKey) => {
+  return new PollinationsImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? "https://gen.pollinations.ai/v1",
+      model: (config["model"] as string) ?? "flux",
       timeoutMs: (config["timeout_ms"] as number) ?? 120000,
     },
     apiKey,

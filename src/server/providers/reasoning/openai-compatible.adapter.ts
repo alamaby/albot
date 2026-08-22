@@ -89,7 +89,7 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     }
   }
 
-  private buildRequestBody(input: EnhancePromptInput): Record<string, unknown> {
+  protected buildRequestBody(input: EnhancePromptInput): Record<string, unknown> {
     const messages: Record<string, string>[] = [{ role: "system", content: input.systemPrompt }];
 
     if (input.previousPrompt) {
@@ -114,7 +114,7 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     };
   }
 
-  private buildHeaders(): Record<string, string> {
+  protected buildHeaders(): Record<string, string> {
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.apiKey}`,
@@ -125,7 +125,7 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     };
   }
 
-  private parseResponse(json: Record<string, unknown>, requestId?: string): EnhancedPrompt {
+  protected parseResponse(json: Record<string, unknown>, requestId?: string): EnhancedPrompt {
     const choices = json["choices"] as { message: { content: string } }[] | undefined;
     if (!choices?.[0]?.message?.content) {
       throw makeNonRetryable(

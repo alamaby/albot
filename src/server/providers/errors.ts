@@ -81,6 +81,8 @@ export function classificationFromHttpStatus(status: number): ProviderErrorCode 
       return "provider_authorization_failed";
     case 404:
       return "provider_configuration_invalid";
+    case 402:
+      return "provider_rate_limited";
     case 408:
       return "provider_timeout";
     case 429:
