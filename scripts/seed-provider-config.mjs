@@ -19,8 +19,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ADAPTERS_BY_CAPABILITY = {
-  reasoning: ["openai_compatible"],
-  image_generation: ["pixazo_flux_schnell", "pixazo_sdxl"],
+  reasoning: ["openai_compatible", "pollinations"],
+  image_generation: ["pixazo_flux_schnell", "pixazo_sdxl", "pollinations_image"],
 };
 const CAPABILITIES = ["reasoning", "image_generation"];
 const STRATEGIES = ["priority_failover", "weighted"];
