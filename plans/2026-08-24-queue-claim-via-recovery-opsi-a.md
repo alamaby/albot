@@ -22,8 +22,8 @@ Hilangkan stuck `"Prompt diterima. Sedang dalam antrian..."` dengan membuat `que
 - [x] T-3 Update cron `recovery-development.yml` ke `*/20`
 - [x] T-4 Unit test `tests/unit/recovery.test.ts` — claimed path + idle (250/250)
 - [x] T-5 Verifikasi `npm run db:lint; db:check-migrations; db:types:check; lint; typecheck; test:unit; build` hijau
-- [ ] T-6 Manual sweep `POST /api/recovery/run` claim `be654b96` → `succeeded`/`retry_scheduled` dan sesi pindah `enhancing→awaiting_confirmation`
-- [ ] T-7 Deploy ke Vercel + verifikasi next cron 20m
+- [x] T-6 Manual sweep `POST /api/recovery/run` claim `be654b96` → `succeeded` dan sesi `f2d5f0da` `received→awaiting_confirmation` (`revision 5873ee65 completed`) — verifikasi 2026-08-24 04:03 UTC `claimedJobs:1`
+- [x] T-7 Deploy ke Vercel + verifikasi next cron 20m — `vercel --prod` salah alias ke prod (500 `expire_job_leases` di prod DB 0 migrations), diperbaiki `vercel --yes` preview `pvtpr9rqb` + alias `albot-dev.vercel.app` → health `development/reachable`, recovery 200
 
 ## Risks
 - **Latency 20m**: worst-case job due menunggu 20m. Mitigasi: batch 3 memastikan tiap tick <5s; alternatif 10m jika UX perlu lebih cepat.
@@ -36,6 +36,8 @@ Hilangkan stuck `"Prompt diterima. Sedang dalam antrian..."` dengan membuat `que
 - 2026-08-24 01:48:00 — Implementasi `recovery.ts` claimedJobs + `recovery-development.yml` `*/20`.
 - 2026-08-24 02:43:00 — Verifikasi hijau: typecheck ok, lint 0 error (2 warnings pre-existing), test:unit 250/250, build ok, db:lint ok, db:check-migrations 25, db:types:check ok.
 - 2026-08-24 02:44:00 — Job `be654b96` masih `queued` (menunggu sweep 20m berikutnya atau manual trigger).
+- 2026-08-24 04:03:00 — Recovery 500 di `albot-dev` karena alias salah menunjuk deploy prod (`a5qc5dzb7`, DB prod tanpa `expire_job_leases`). Fix: deploy preview `pvtpr9rqb` + `alias set albot-dev` → recovery `200 claimedJobs:1`, job `be654b96` `queued→succeeded`, sesi `awaiting_confirmation`.
+- 2026-08-24 04:04:00 — Health dev `development/reachable` confirmed.
 
 ## Notes
 - TOGAF ADM G: reuse `processor.ts` building block.
