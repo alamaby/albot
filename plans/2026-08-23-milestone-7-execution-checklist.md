@@ -2,7 +2,7 @@
 
 Created: 2026-08-24
 Source: `plans/2026-08-23-milestone-7-production-release-and-handoff.md`
-Commit frozen: `8e5f156` (HEAD saat T-1 green) — update jika ada commit baru
+Commit frozen: `bb73b1e` (HEAD saat T-1 green, pushed 2026-08-24) — attestation SHA
 
 > Centang `- [x]` per step. Log progress di `## Progress Log` plan utama.
 
@@ -17,15 +17,15 @@ Commit frozen: `8e5f156` (HEAD saat T-1 green) — update jika ada commit baru
 - [x] `npm run format:check` → All matched files use Prettier code style
 - HEAD: `8e5f156` — 1 modified (`plans/2026-08-24-queue-claim-via-recovery-opsi-a.md`), 1 untracked (`plans/2026-08-23-milestone-7-production-release-and-handoff.md`)
 
-## T-2 Migrate Development (attestation source)
-- [ ] Push commit `8e5f156` (atau SHA frozen baru) ke `main`: `git add ... && git commit && git push origin main`
-- [ ] Trigger workflow: GitHub → Actions → `migrate-development` → Run workflow → `commit_sha=<40-char SHA>`
-- [ ] Approve Environment `development` (required reviewer `@alamaby`)
-- [ ] Tunggu `success` — verify log:
-  - `supabase migration list` before/after (expect 25 Local==Remote after)
-  - `db:types:check` pass
-  - `test:hosted` pass (`scripts/assert-hosted-tests.mjs` — hosted 106+)
-- [ ] Catat `development_run_id` dan `run URL`: `__________________`
+## T-2 Migrate Development (attestation source) — DONE 2026-08-24
+- [x] Push commit `bb73b1e` ke `main`: `bb73b1e docs: add Milestone 7 production release and handoff plan` (pushed 8e5f156..bb73b1e)
+- [x] Trigger workflow: GitHub → Actions → `migrate-development` → Run workflow → `commit_sha=bb73b1e8cf981012c905ff6d027c199803a21126`
+- [x] Approve Environment `development` (required reviewer `@alamaby`) — approved 2026-08-24T06:37:18Z
+- [x] `success` — run https://github.com/alamaby/albot/actions/runs/32698079152 (4m 54s, `bb73b1e` on `main`)
+  - `supabase migration list` before/after — Local==Remote after (25)
+  - `db:types:check` pass (`[ok] generated types match`)
+  - `test:hosted` pass (hosted via `scripts/assert-hosted-tests.mjs`)
+- [x] `development_run_id=32698079152` — `head_sha=bb73b1e8cf981012c905ff6d027c199803a21126`, `conclusion=success`, `name=migrate-development` verified via API
 
 ## T-3 Preflight Production
 - [ ] Capture `supabase migration list` prod (otomatis di `migrate-production.yml:103`, simpan evidence)
@@ -115,3 +115,4 @@ Commit frozen: `8e5f156` (HEAD saat T-1 green) — update jika ada commit baru
 
 ## Progress Log
 - 2026-08-24 — T-1 DONE (8 checks hijau, HEAD 8e5f156). Next: push + T-2 migrate-development.
+- 2026-08-24 06:42 UTC — T-2 DONE (run 32698079152 success, bb73b1e, 25 migrations). Next: T-4 migrate-production.
