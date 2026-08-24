@@ -20,17 +20,20 @@ export type RecoveryRunResult = {
   deadJobsMarked: number;
   staleSessionsExpired: number;
   purgedRows: number;
+  claimedJobs: number;
 };
 
 export const RETENTION_DAYS = 30;
 export const RECOVERY_BATCH_LEASES = 5;
 export const RECOVERY_BATCH_DEAD = 25;
 export const RECOVERY_BATCH_SESSIONS = 100;
+export const RECOVERY_BATCH_CLAIM = 3;
 
 export type RecoveryDeps = {
   recoveryRepository?: RecoveryRepository;
   jobEventRepository?: JobEventRepository;
   sendTelegramMessage?: (token: string, chatId: bigint, text: string) => Promise<unknown>;
+  processNextJob?: () => Promise<{ status: "processed" | "idle"; jobId?: string }>;
 };
 
 export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunResult> {
@@ -38,6 +41,12 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
   const jobEventRepository = deps.jobEventRepository ?? new JobEventRepository();
   const sendTelegramMessage =
     deps.sendTelegramMessage ?? ((token, chatId, text) => sendMessage(token, chatId, text));
+  const processNextJobFn =
+    deps.processNextJob ??
+    (async () => {
+      const { processNextJob } = await import("./processor");
+      return processNextJob();
+    });
 
   const env = getServerEnv();
 
@@ -50,6 +59,22 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
       eventType: "lease_expired",
       payload: { attemptCount: job.attempt_count, correlationId: getCorrelationId() ?? null },
     });
+  }
+
+  // 1b. Claim due queued/retry_scheduled jobs (Opsi A, cron 20m batch 3).
+  // Bounded to RECOVERY_BATCH_CLAIM per sweep to keep the cron light (<5s).
+  let claimedJobs = 0;
+  for (let i = 0; i < RECOVERY_BATCH_CLAIM; i++) {
+    try {
+      const result = await processNextJobFn();
+      if (result.status === "idle") break;
+      claimedJobs++;
+      logStructured("info", "recovery.claim", { jobId: result.jobId ?? null, index: i });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "recovery.claim_failed", { detail, index: i });
+      break;
+    }
   }
 
   // 2. Dead jobs.
@@ -88,6 +113,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     deadJobsMarked: deadJobs.length,
     staleSessionsExpired: staleSessions.length,
     purgedRows: purge.purgedRows,
+    claimedJobs,
   };
 
   logStructured("info", "recovery.run", {
@@ -95,6 +121,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     deadJobsMarked: result.deadJobsMarked,
     staleSessionsExpired: result.staleSessionsExpired,
     purgedRows: result.purgedRows,
+    claimedJobs: result.claimedJobs,
   });
 
   return result;

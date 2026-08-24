@@ -2,11 +2,9 @@ name: recovery-development
 
 on:
   schedule:
-    # Every 5 minutes: recovery poll for queued/expired-lease jobs, dead-job
-    # marking, stale-session expiry, and retention purge on the development
-    # deployment. The durable jobs table is the source of truth; this poll is
-    # the safety net for anything the inline dispatcher missed.
-    - cron: "*/5 * * * *"
+    # Every 20 minutes: recovery sweep (lease, queued claim batch 3, dead-job,
+    # stale-session, retention) on development. Light cadence per opsi A.
+    - cron: "*/20 * * * *"
   workflow_dispatch:
     inputs:
       recovery_url:

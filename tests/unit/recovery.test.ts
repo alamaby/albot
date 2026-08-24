@@ -99,6 +99,7 @@ describe("runRecovery", () => {
 
     const result = await runRecovery({
       sendTelegramMessage: sendMessage as never,
+      processNextJob: vi.fn(async () => ({ status: "idle" as const })),
     });
 
     expect(result).toEqual({
@@ -106,6 +107,7 @@ describe("runRecovery", () => {
       deadJobsMarked: 1,
       staleSessionsExpired: 1,
       purgedRows: 7,
+      claimedJobs: 0,
     });
 
     // Two event rows (lease_expired + failed/dead_job) + no other inserts.
@@ -153,7 +155,10 @@ describe("runRecovery", () => {
     } as never);
 
     const sendMessage = vi.fn(() => Promise.reject(new Error("telegram down")));
-    const result = await runRecovery({ sendTelegramMessage: sendMessage as never });
+    const result = await runRecovery({
+      sendTelegramMessage: sendMessage as never,
+      processNextJob: vi.fn(async () => ({ status: "idle" as const })),
+    });
 
     expect(result.staleSessionsExpired).toBe(1);
     expect(sendMessage).toHaveBeenCalledTimes(1);
