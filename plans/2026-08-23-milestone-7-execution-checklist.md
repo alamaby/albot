@@ -2,7 +2,7 @@
 
 Created: 2026-08-24
 Source: `plans/2026-08-23-milestone-7-production-release-and-handoff.md`
-Commit frozen: `bb73b1e` (HEAD saat T-1 green, pushed 2026-08-24) — attestation SHA
+Commit frozen: `6683a69` (HEAD 2026-08-25, pushed 6683a69) — attestation SHA (prev bb73b1e superseded)
 
 > Centang `- [x]` per step. Log progress di `## Progress Log` plan utama.
 
@@ -17,15 +17,12 @@ Commit frozen: `bb73b1e` (HEAD saat T-1 green, pushed 2026-08-24) — attestatio
 - [x] `npm run format:check` → All matched files use Prettier code style
 - HEAD: `8e5f156` — 1 modified (`plans/2026-08-24-queue-claim-via-recovery-opsi-a.md`), 1 untracked (`plans/2026-08-23-milestone-7-production-release-and-handoff.md`)
 
-## T-2 Migrate Development (attestation source) — DONE 2026-08-24
-- [x] Push commit `bb73b1e` ke `main`: `bb73b1e docs: add Milestone 7 production release and handoff plan` (pushed 8e5f156..bb73b1e)
-- [x] Trigger workflow: GitHub → Actions → `migrate-development` → Run workflow → `commit_sha=bb73b1e8cf981012c905ff6d027c199803a21126`
-- [x] Approve Environment `development` (required reviewer `@alamaby`) — approved 2026-08-24T06:37:18Z
-- [x] `success` — run https://github.com/alamaby/albot/actions/runs/32698079152 (4m 54s, `bb73b1e` on `main`)
-  - `supabase migration list` before/after — Local==Remote after (25)
-  - `db:types:check` pass (`[ok] generated types match`)
-  - `test:hosted` pass (hosted via `scripts/assert-hosted-tests.mjs`)
-- [x] `development_run_id=32698079152` — `head_sha=bb73b1e8cf981012c905ff6d027c199803a21126`, `conclusion=success`, `name=migrate-development` verified via API
+## T-2 Migrate Development (attestation source) — DONE 2026-08-25 (superseded bb73b1e → 6683a69)
+- [x] Push `bb73b1e` → run 32698079152 success (attestation valid, superseded)
+- [x] Push `6683a69` (`docs: note prod bot albot_ai_bot and Vercel prod env set for M7`) → trigger `migrate-development` `commit_sha=6683a693b5d7585b81f2c00907313009a80b882d`
+- [x] Approve `development` — run https://github.com/alamaby/albot/actions/runs/32805966799 (6m 24s, `6683a69` on `main`) `success`
+  - `supabase migration list` Local==Remote 25, `db:types:check` ok, `test:hosted` ok
+- [x] **Active attestation:** `development_run_id=32805966799` — `head_sha=6683a693b5d7585b81f2c00907313009a80b882d`, `conclusion=success`, `name=migrate-development` (prev 32698079152 superseded)
 
 ## T-3 Preflight Production
 - [ ] Capture `supabase migration list` prod (otomatis di `migrate-production.yml:103`, simpan evidence)
@@ -118,3 +115,4 @@ Commit frozen: `bb73b1e` (HEAD saat T-1 green, pushed 2026-08-24) — attestatio
 ## Progress Log
 - 2026-08-24 — T-1 DONE (8 checks hijau, HEAD 8e5f156). Next: push + T-2 migrate-development.
 - 2026-08-24 06:42 UTC — T-2 DONE (run 32698079152 success, bb73b1e, 25 migrations). Next: T-4 migrate-production.
+- 2026-08-25 03:45 UTC — T-2 RE-RUN DONE (run 32805966799 success, 6683a69 HEAD, supersedes 32698079152). Attestation aktif 32805966799. Next: T-4 migrate-production with 32805966799.
