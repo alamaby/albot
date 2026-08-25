@@ -54,20 +54,21 @@ Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod mig
 - [x] `curl /api/health` → `{"status":"ok","environment":"production","database":"reachable"}`
 - [x] `curl /api/health?include=readiness` → `jobs{queued:0,processing:0,failed:0,succeeded:0}, deadJobs:0, leaseExpired:0, expiredSessions:0, cooldownKeys:0` — clean, no provider call
 
-## T-9 Seed Prod Configs
-- [ ] `node scripts/seed-provider-config.mjs --env production --list` (dry-run)
-- [ ] `node scripts/seed-provider-config.mjs --env production` — verify `provider_configs` (reasoning openai_compatible + pollinations 150, image pixazo_flux_schnell/sdxl + pollinations_image 151)
+## T-9 Seed Prod Configs — DONE 2026-08-25
+- [x] `add openai_compatible` "Cloudflare gpt-oss-120b" priority 0 (reasoning primary; fallback Pollinations 150 sudah ada dari migration `20260823100000`)
+- [x] `add pixazo_flux_schnell` "Pixazo Flux Schnell" priority 0 + `pixazo_sdxl` "Pixazo SDXL" priority 5 (fallback Pollinations flux 151 sudah ada)
+- [x] Mock dev rows tidak direplikasi ke prod
 
-## T-10 Seed Prod Keys
-- [ ] Insert `provider_keys` terenkripsi (ciphertext/iv/tag/fingerprint via `src/server/security/encryption.ts:1`) — **no plaintext di log/commit**
-- [ ] `SELECT failure_count==0, cooldown_until is null` — verify
+## T-10 Seed Prod Keys — DONE 2026-08-25 (bundled di T-9 `--key`)
+- [x] Keys terenkripsi per config via seed script (`key_ciphertext/iv/tag/fingerprint`, no plaintext log)
+- [x] `failure_count=0`, `cooldown_until=null`
 
-## T-11 Seed Allowlist Prod
-- [ ] `INSERT bot_users (telegram_user_id 83540732 is_allowed true is_admin true)` — verify
+## T-11 Seed Allowlist Prod — DONE 2026-08-25
+- [x] `bot_users` upsert `83540732` is_allowed+is_admin via SQL editor prod
 
 ## T-12 Webhook Prod Set
-- [ ] `node scripts/set-telegram-webhook.mjs --env production get` → expect not set
-- [ ] `node scripts/set-telegram-webhook.mjs --env production set --url https://albot-ten.vercel.app/api/telegram/webhook`
+- [ ] `node scripts/set-telegram-webhook.mjs get "$TOKEN"` → expect not set
+- [ ] `APP_ENV=production node scripts/set-telegram-webhook.mjs set "$TOKEN" https://albot-ten.vercel.app/api/telegram/webhook "<PROD_WEBHOOK_SECRET>" --allow-prod`
 - [ ] `get` verify: `url==https://albot-ten.vercel.app/api/telegram/webhook`, `pending_update_count==0`, `allowed_updates==["message","callback_query"]`, `last_error_message==null`
 
 ## T-13 Smoke E2E Prod (10 skenario)
