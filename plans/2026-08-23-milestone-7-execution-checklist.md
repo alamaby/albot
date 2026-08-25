@@ -41,23 +41,18 @@ Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod mig
 
 > **Bot prod:** `@albot_ai_bot` — token prod sudah set di Vercel Production + GitHub Environment `production` (2026-08-24).
 
-## T-6 Vercel Production Env Validate — DONE 2026-08-24 (user set)
-- [ ] Vercel Dashboard → `albot` → Settings → Environment Variables → **Production** (≠ Preview):
-  - [ ] `SUPABASE_URL=https://pcexxtckvwmiquseznaz.supabase.co`
-  - [ ] `SUPABASE_SERVICE_ROLE_KEY` (prod, ≠ dev)
-  - [ ] `SUPABASE_PUBLISHABLE_KEY` (prod)
-  - [ ] `PROVIDER_KEY_ENCRYPTION_KEY` base64 decode 32 bytes (`node -p "Buffer.from(process.env.X,'base64').length"` → 32, `src/env.ts:16`)
-  - [ ] `TELEGRAM_BOT_TOKEN` prod format `^[0-9]+:[A-Za-z0-9_-]+$` (`src/env.ts:24`) — **bot berbeda dari dev**
-  - [ ] `TELEGRAM_WEBHOOK_SECRET` ≥8 URL-safe (`src/env.ts:32`)
-  - [ ] `JOB_PROCESSOR_SECRET` ≥32 (`src/env.ts:37`)
-- [ ] Verify Preview env **tidak** punya prod values (isolation)
+## T-6 Vercel Production Env Validate — DONE 2026-08-25
+- [x] Semua 8 vars diset scope Production (user) — awalnya health `degraded/unconfigured`
+- [x] Akar masalah: `PROVIDER_KEY_ENCRYPTION_KEY` bukan standard base64 (`scripts/verify-env-format.mjs:1` FAIL "contains invalid characters") — di-generate ulang `randomBytes(32).toString('base64')`, validator 6/6 `[ok]`
+- [x] Redeploy Production → env terbaca
+- [x] Isolation: Preview tidak punya prod values
 
-## T-7 Deploy Production
-- [ ] Deploy exact SHA T-2 ke Vercel Production (`albot-ten.vercel.app`) — catat deployment URL + SHA
+## T-7 Deploy Production — DONE 2026-08-25
+- [x] Deploy production `albot-ten.vercel.app` dengan env prod final (post fix encryption key)
 
-## T-8 Health Prod
-- [ ] `curl -s https://albot-ten.vercel.app/api/health | jq` → `{"status":"ok","environment":"production","database":"reachable"}`
-- [ ] `curl -s "https://albot-ten.vercel.app/api/health?include=readiness" | jq` → readiness (jobs queued/processing/dead, cooldown) — no provider call
+## T-8 Health Prod — DONE 2026-08-25
+- [x] `curl /api/health` → `{"status":"ok","environment":"production","database":"reachable"}`
+- [x] `curl /api/health?include=readiness` → `jobs{queued:0,processing:0,failed:0,succeeded:0}, deadJobs:0, leaseExpired:0, expiredSessions:0, cooldownKeys:0` — clean, no provider call
 
 ## T-9 Seed Prod Configs
 - [ ] `node scripts/seed-provider-config.mjs --env production --list` (dry-run)
@@ -115,3 +110,4 @@ Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod mig
 - 2026-08-25 03:45 UTC — T-2 RE-RUN 32805966799 (6683a69).
 - 2026-08-25 04:03 UTC — T-2 RE-RUN 32806879672 (ca38ba0 active, matches HEAD ca38ba0).
 - 2026-08-25 04:09 UTC — T-4 DONE (run 32807707561 success, ca38ba0, prod 0→25 pcexxtckvwmiquseznaz). Next: T-7/T-8 Vercel prod health.
+- 2026-08-25 — T-6 root cause fixed (ENCRYPTION_KEY bukan standard base64 → regen + validator `scripts/verify-env-format.mjs` 6/6 ok) → T-7 deploy → T-8 DONE: health `ok/production/reachable`, readiness clean. Next: T-9..T-12 seed prod + webhook (`--allow-prod` flag ditambahkan ke set-telegram-webhook.mjs).

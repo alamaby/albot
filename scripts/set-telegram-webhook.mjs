@@ -1,13 +1,13 @@
-// Telegram webhook management script (development).
+// Telegram webhook management script (development and Milestone 7 production).
 //
 // Usage (run from repo root, secrets via environment or arguments):
 //   node scripts/set-telegram-webhook.mjs get  <bot_token>
-//   node scripts/set-telegram-webhook.mjs set  <bot_token> <webhook_url> <secret_token>
+//   node scripts/set-telegram-webhook.mjs set  <bot_token> <webhook_url> <secret_token> [--allow-prod]
 //   node scripts/set-telegram-webhook.mjs delete <bot_token>
 //
 // The secret_token must match TELEGRAM_WEBHOOK_SECRET for the target environment.
-// Development webhook should point at the stable Vercel Preview alias; the
-// production webhook must remain unset until Milestone 7.
+// Development webhook should point at the stable Vercel Preview alias. Setting a
+// production webhook requires the explicit --allow-prod flag (Milestone 7).
 //
 // Never print the bot token to stdout.
 
@@ -71,13 +71,16 @@ async function deleteWebhook(token) {
   console.log("[ok] webhook deleted");
 }
 
-const [command, botToken, url, secretToken] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const allowProd = argv.includes("--allow-prod");
+const positional = argv.filter((arg) => arg !== "--allow-prod");
+const [command, botToken, url, secretToken] = positional;
 
 if (!command || !botToken) {
   fail(
-    "usage: node scripts/set-telegram-webhook.mjs <get|set|delete> <bot_token> [webhook_url] [secret_token]\n" +
+    "usage: node scripts/set-telegram-webhook.mjs <get|set|delete> <bot_token> [webhook_url] [secret_token] [--allow-prod]\n" +
       "   - webhook_url must start with https:// (for set)\n" +
-      "   - set command is disabled in production (APP_ENV=production)",
+      "   - setting a production webhook (APP_ENV=production) requires --allow-prod",
   );
 }
 
@@ -93,11 +96,11 @@ switch (command) {
     if (!url.startsWith("https://")) {
       fail("webhook URL must start with https://");
     }
-    // APP_ENV guard: disallow setting webhook in production
+    // APP_ENV guard: production webhook requires explicit opt-in (Milestone 7)
     const appEnv = process.env.APP_ENV || "development";
-    if (appEnv === "production") {
+    if (appEnv === "production" && !allowProd) {
       fail(
-        "refusing to set webhook in production environment (use Vercel dashboard or wait for Milestone 7)",
+        "refusing to set webhook in production environment without --allow-prod flag",
       );
     }
     await setWebhook(botToken, url, secretToken);
