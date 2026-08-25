@@ -1046,9 +1046,9 @@ Metrics derivable from database and logs:
 - [x] Implement Milestone 3 and record verification evidence.
 - [x] Implement Milestone 4 and record verification evidence.
 - [x] Implement Milestone 5 and record verification evidence.
-- [ ] Implement Milestone 6 and record verification evidence.
-- [ ] Implement Milestone 7 and record verification evidence.
-- [ ] Execute production release checklist and operational handoff.
+- [x] Implement Milestone 6 and record verification evidence.
+- [x] Implement Milestone 7 and record verification evidence.
+- [x] Execute production release checklist and operational handoff.
 
 ## Milestone 0: Repository Foundation
 
