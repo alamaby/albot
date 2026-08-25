@@ -1,25 +1,14 @@
 # Project Memory
 
-Last updated: 2026-08-22 (pollinations review fix)
+Last updated: 2026-08-25 (Milestone 7 production release)
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: **Pollinations fallback REVIEW-FIX 2026-08-22 — prompt/apiKey/b64 validation, 89 contract (10 pollinations edge), 25 migrations, 250 unit green** + Pollinations fallback IMPLEMENTED 2026-08-22 + Pixazo PixelForge v2 IMPLEMENTED 2026-08-21 + REVIEW-FIX 2026-08-22 — dev migrate 23/23 aman (adapter `pixazo_pixelforge_v2` `text`/`type`/`seed`/`size`→`results[0].url`, Opsi 2 `settings.type`, hybrid `user_image_preferences`, 3 model aktif, picker confirmation+result, `migrate-development` `87e23ee` hijau, `db:types:check` ok). Plans `2026-08-21` + `2026-08-22` fix, TODO Completed Pixazo.
-- Milestone 4 CLOSED 2026-08-18 (Prompt Enhancement, Confirmation, and Revision). E2E dev lengkap: enhancement → confirmation → revise loop → generate → batal, provider Cloudflare gpt-oss-120b, 7 bug fixed selama E2E, acceptance criteria 8/8, CI #25-#32 success. Next: Milestone 5 (Image Generation).
-- Milestone 3 **CLOSED** 2026-08-13: platform wiring + E2E selesai (Vercel Preview env vars, webhook terpasang, seed admin applied, E2E prompt → session/revision/job rows, hosted 79/79).
-- Milestone 2 (Provider Abstraction and Configuration) **CLOSED** 2026-08-10: implementasi `209847d` + remediation `35a9cab` + closure (M/L transcribed: M1/M4/M5/M6 + C-Low A fixed; M7/M8/M10/M13-M16 + L2-L14 accepted; acceptance criteria checked). Evidence: run `31311782574` (dev 7 migrations Local==Remote, hosted 67/0 skip), 143 unit tests, production 0 migrations untouched
-- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (18 migrations applied), prod `pcexxtckvwmiquseznaz` (0 migrations)
-- M1 + remediation MILESTONE COMPLETE:
-  - Development migration workflow success (run 31252455316, commit dba67ce)
-  - Production migration history unchanged (0 migrations)
-  - 6 M1 migrations applied with composite FK ownership, function hardening, and least-privilege grants
-  - 67 total tests pass (27 unit, 40 hosted: 15 schema, 7 security including authenticated role, 18 contract including negative ownership)
-  - `database.types.ts` generated and tracked
-  - `migrate-development.yml` requires exact commit SHA + ancestor-main check
-  - `migrate-production.yml` requires development attestation run ID + independent ref
-  - GitHub Actions pinned to full commit SHAs
-- GitHub Environments `development` + `Production` created with required reviewer `@alamaby` and per-environment secrets
+- Active milestone: **Milestone 7 Production Release IN PROGRESS 2026-08-25 — prod migrate 0→25 (run 32807707561, attestation ca38ba0), deploy `albot-be.alamaby.com`, bot `@albot_ai_bot`, smoke E2E happy path lulus penuh (1 sesi/2 revisi/3 attempt, jobs succeeded:6 failed:0), 2 bug fixed (`a3b2a1a`: /start welcome + claim-fast dispatch via after()), runbook `docs/runbooks/production-handoff.md`. Closure pending approval @alamaby.**
+- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (25 migrations), prod `pcexxtckvwmiquseznaz` (25 migrations — M7 2026-08-25)
+- Production topology: Vercel `albot-be.alamaby.com` (alias `albot-ten.vercel.app`), webhook `@albot_ai_bot`, allowlist `83540732`, provider Cloudflare gpt-oss-120b (0) → Pollinations (150), Pixazo flux (0)/sdxl (5) → Pollinations flux (151)
+- Milestone 6 CLOSED 2026-08-20 (reliability/observability); M5 CLOSED 2026-08-19; M4 CLOSED 2026-08-18; M3 CLOSED 2026-08-13; M2 CLOSED 2026-08-10; M1+M0 closed
 - Health endpoint acts as readiness probe: HTTP 200 `status:ok` when DB reachable, HTTP 503 `status:degraded` otherwise, `Cache-Control: no-store`
 
 ## Active Decisions
@@ -51,13 +40,12 @@ Last updated: 2026-08-22 (pollinations review fix)
 
 ## Open Blockers
 
-- Pollinations fallback done: PollinationsImageAdapter + pollinations/pollinations_image registry + migration 20260823100000 + EXPECTED_MIGRATIONS + contract tests (8 tests) + .env.example, verifikasi hijau (db:lint ok, 25 migrations, db:types ok, 250 unit, 79 contract, lint 2 warnings, typecheck ok, build ok, format ok)
-- Pollinations review-fix done: prompt/apiKey/b64 strict + providerRequestId log + errors 402 order + openai-compatible trim/timeout parity + 6 edge tests (89 contract), all green
-- Seed Pixazo PixelForge v2 di dev + E2E Telegram picker → Generate → Ganti Model → Regenerate (await hybrid `Jadikan Default` verification); prod migrate menunggu dev E2E hijau.
-- Deploy commit dispatcher fix `5b093fd` ke Vercel preview done (`albot-bn8omcoar`, alias `albot-dev.vercel.app` updated); job stuck `033b6f11` sudah di-recover manual (`succeeded` 15:11:59 UTC).
+- M7 closure: menunggu approver `@alamaby` menandai Accepted di plan Appendix (T-20). Semua implementasi + smoke selesai.
+- Known limitation prod: `maxDuration 60s` (Vercel Hobby) < Pixazo adapter timeout 120s; recovery cron hanya dev (prod manual `POST /api/recovery/run`).
 
 ## Recent Entries
 
+- `2026-08-25/190644-milestone-7-production-release.md` — M7 production release: prod migrate 0→25 attestation-gated (32807707561), deploy albot-be.alamaby.com + @albot_ai_bot, smoke happy path lulus (linkage 1/2/3), 2 bug fixed a3b2a1a (/start welcome, claim-fast after()), runbook handoff. Closure pending approval.
 - `2026-08-22/214000-pollinations-review-fix.md` — Review-fix: prompt/apiKey/b64 validation, log providerRequestId, errors 402 order, openai parity, 6 edge tests → 89 contract.
 - `2026-08-22/213000-pollinations-provider-implemented.md` — Pollinations fallback IMPLEMENTED: PollinationsImageAdapter (flux, inject Avoid:, size map, b64_json fallback), pollinations/pollinations_image registry, 402 handling, migration 20260823100000 WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, 8 contract tests, verifikasi hijau.
 - `2026-08-22/210000-pollinations-provider-final-plan.md` — Pollinations fallback final plan konsolidasi: flux/gpt-oss priority 150/151 fallback, 2 type bukan 20, inject negativePrompt, fix private->protected + 402 + WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, plan `plans/2026-08-22-pollinations-provider-final-plan.md`.
@@ -83,6 +71,8 @@ Last updated: 2026-08-22 (pollinations review fix)
 
 ## Related Plans
 
+- `plans/2026-08-23-milestone-7-production-release-and-handoff.md` — M7 plan + T-19 evidence (closure pending)
+- `plans/2026-08-23-milestone-7-execution-checklist.md` — M7 execution checklist (T-1..T-19 done)
 - `plans/2026-08-22-pollinations-provider-final-plan.md` — Pollinations fallback final (gpt-oss + flux)
 - `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.md` — Pixazo PixelForge v2 + hybrid model selection (plan)
 - `plans/2026-08-07-telegram-image-bot-implementation-plan.md` — Active plan
