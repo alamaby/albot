@@ -2,7 +2,7 @@
 
 Created: 2026-08-24
 Source: `plans/2026-08-23-milestone-7-production-release-and-handoff.md`
-Commit frozen: `6683a69` (HEAD 2026-08-25, pushed 6683a69) — attestation SHA (prev bb73b1e superseded)
+Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod migrated (prev 6683a69/bb73b1e superseded)
 
 > Centang `- [x]` per step. Log progress di `## Progress Log` plan utama.
 
@@ -17,27 +17,24 @@ Commit frozen: `6683a69` (HEAD 2026-08-25, pushed 6683a69) — attestation SHA (
 - [x] `npm run format:check` → All matched files use Prettier code style
 - HEAD: `8e5f156` — 1 modified (`plans/2026-08-24-queue-claim-via-recovery-opsi-a.md`), 1 untracked (`plans/2026-08-23-milestone-7-production-release-and-handoff.md`)
 
-## T-2 Migrate Development (attestation source) — DONE 2026-08-25 (superseded bb73b1e → 6683a69)
-- [x] Push `bb73b1e` → run 32698079152 success (attestation valid, superseded)
-- [x] Push `6683a69` (`docs: note prod bot albot_ai_bot and Vercel prod env set for M7`) → trigger `migrate-development` `commit_sha=6683a693b5d7585b81f2c00907313009a80b882d`
-- [x] Approve `development` — run https://github.com/alamaby/albot/actions/runs/32805966799 (6m 24s, `6683a69` on `main`) `success`
-  - `supabase migration list` Local==Remote 25, `db:types:check` ok, `test:hosted` ok
-- [x] **Active attestation:** `development_run_id=32805966799` — `head_sha=6683a693b5d7585b81f2c00907313009a80b882d`, `conclusion=success`, `name=migrate-development` (prev 32698079152 superseded)
+## T-2 Migrate Development (attestation source) — DONE 2026-08-25 (ca38ba0 active)
+- [x] Push `bb73b1e` → run 32698079152 success (superseded)
+- [x] Push `6683a69` → run 32805966799 success (superseded)
+- [x] Push `ca38ba0` (`docs: update M7 checklist attestation 32805966799 for 6683a69`) → run https://github.com/alamaby/albot/actions/runs/32806879672 `success` (head_sha=ca38ba02cbda53c0aaa07afa3b75013e3bde2e58, 3m 49s)
+- [x] **Active attestation:** `development_run_id=32806879672` — `head_sha=ca38ba02cbda53c0aaa07afa3b75013e3bde2e58` (ca38ba0), matches HEAD prod deploy
 
-## T-3 Preflight Production
-- [ ] Capture `supabase migration list` prod (otomatis di `migrate-production.yml:103`, simpan evidence)
+## T-3 Preflight Production — DONE (via migrate-production)
+- [x] Capture `supabase migration list` prod (otomatis `migrate-production.yml:103`, preflight captured)
 
-## T-4 Migrate Production (attestation-gated)
-- [ ] Trigger: Actions → `migrate-production` (hanya dari `main` — `migrate-production.yml:27`) → inputs:
-  - `confirm_project_ref=pcexxtckvwmiquseznaz`
-  - `development_run_id=<dari T-2>`
-- [ ] Approve Environment `production`
-- [ ] Verify workflow steps:
-  - [ ] `EXPECTED_REF` check (`migrate-production.yml:37`)
-  - [ ] Attestation `name==migrate-development && conclusion==success && head_sha==github.sha` (`migrate-production.yml:52`)
-  - [ ] `supabase db push` success
-  - [ ] Post-check pending 0 (`grep '^\s*[0-9]{14}\s*\|\s*\|'` no match — `migrate-production.yml:116`)
-- [ ] Simpan evidence artifact `production-migration-evidence`
+## T-4 Migrate Production (attestation-gated) — DONE 2026-08-25
+- [x] Trigger: Actions → `migrate-production` (main) → `confirm_project_ref=pcexxtckvwmiquseznaz` + `development_run_id=32806879672` (ca38ba0) — run https://github.com/alamaby/albot/actions/runs/32807707561 `success` (head_sha=ca38ba02cbda53c0aaa07afa3b75013e3bde2e58, pcexxtckvwmiquseznaz)
+- [x] Approve Environment `production` — 2026-08-25
+- [x] Verify:
+  - [x] `EXPECTED_REF` check `migrate-production.yml:37` success
+  - [x] Attestation `migrate-production.yml:52` success (name=migrate-development, head_sha match)
+  - [x] `supabase db push` success — prod 0→25 migrations
+  - [x] Post-check pending 0 `migrate-production.yml:116` success
+- [x] Evidence artifact `production-migration-evidence` uploaded (38KB+ pending)
 
 ## T-5 Hosted Smoke Prod (read-only)
 - [ ] `SUPABASE_URL=https://pcexxtckvwmiquseznaz.supabase.co SUPABASE_SERVICE_ROLE_KEY=<prod> npm run test:hosted` → expect schema 25 + RLS forced + grants service_role only
@@ -114,5 +111,7 @@ Commit frozen: `6683a69` (HEAD 2026-08-25, pushed 6683a69) — attestation SHA (
 
 ## Progress Log
 - 2026-08-24 — T-1 DONE (8 checks hijau, HEAD 8e5f156). Next: push + T-2 migrate-development.
-- 2026-08-24 06:42 UTC — T-2 DONE (run 32698079152 success, bb73b1e, 25 migrations). Next: T-4 migrate-production.
-- 2026-08-25 03:45 UTC — T-2 RE-RUN DONE (run 32805966799 success, 6683a69 HEAD, supersedes 32698079152). Attestation aktif 32805966799. Next: T-4 migrate-production with 32805966799.
+- 2026-08-24 06:42 UTC — T-2 DONE (run 32698079152 bb73b1e). Next: T-4.
+- 2026-08-25 03:45 UTC — T-2 RE-RUN 32805966799 (6683a69).
+- 2026-08-25 04:03 UTC — T-2 RE-RUN 32806879672 (ca38ba0 active, matches HEAD ca38ba0).
+- 2026-08-25 04:09 UTC — T-4 DONE (run 32807707561 success, ca38ba0, prod 0→25 pcexxtckvwmiquseznaz). Next: T-7/T-8 Vercel prod health.
