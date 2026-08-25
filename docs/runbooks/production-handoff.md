@@ -201,6 +201,7 @@ test:unit && lint && typecheck && build && format:check`.
 ## 15. Monitoring & retentions
 
 - Health harian: `/api/health?include=readiness` (queued/failed/dead/cooldown).
+- **Recovery cron production**: GitHub Actions `recovery-production.yml` tiap 20 menit → `POST /api/recovery/run` (environment `recovery-production`, secret `JOB_PROCESSOR_SECRET` prod). Menutup lease expired, claim queued (batch 3), dead job, session expiry, retention purge. Manual dispatch tersedia di tab workflow. Jika schedule di-disable GitHub (repo idle 60 hari), aktifkan ulang di tab Actions.
 - Retention metadata 30 hari via `purge_expired_metadata` (sweep recovery).
 - Session expiry 24 jam otomatis + notifikasi user.
 - `npm audit --omit=dev --audit-level=high` berjalan di CI `validate.yml`.

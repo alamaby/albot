@@ -73,9 +73,13 @@ Nama secret sama di kedua environment; nilainya berbeda.
 - `SUPABASE_SERVICE_ROLE_KEY` = service role key project production
 - `SUPABASE_PUBLISHABLE_KEY` = publishable/anon key project production
 - `PROVIDER_KEY_ENCRYPTION_KEY` = base64 32-byte root key project production
-- `TELEGRAM_BOT_TOKEN` = token bot Telegram production (dari BotFather)
+- `TELEGRAM_BOT_TOKEN` = token bot Telegram production `@albot_ai_bot` (dari BotFather)
 - `TELEGRAM_WEBHOOK_SECRET` = shared secret webhook production (min 8 char URL-safe base64)
 - `JOB_PROCESSOR_SECRET` = shared secret internal job processor production (min 32 char)
+
+### `recovery-production` (cron recovery prod, tanpa protection)
+
+- `JOB_PROCESSOR_SECRET` = nilai prod (sama dengan di atas) — dipakai workflow `recovery-production.yml` (*/20)
 
 ## Requirements by Milestone
 

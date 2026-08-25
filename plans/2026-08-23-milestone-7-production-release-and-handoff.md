@@ -237,8 +237,8 @@ Supabase migration version: 25 (prod pcexxtckvwmiquseznaz) == 25 (dev) Local==Re
 2. Dispatcher timeout 5s < enhancement 10-30s → "Gagal memulai pemrosesan" palsu tiap prompt → claim-fast + after() di process route (a3b2a1a)
 
 ### Known Limitations
+- ~~Recovery cron hanya development~~ — **resolved 2026-08-25**: `recovery-production.yml` (*/20, curl-only, environment `recovery-production`) — `plans/2026-08-25-recovery-production-cron.md`
 - maxDuration 60s (Vercel Hobby) < Pixazo adapter timeout 120s — generation yang melebihi 60s akan terkill platform (belum terjadi di smoke; lease recovery menutup)
-- Recovery cron hanya development; prod mengandalkan dispatch feedback + manual recovery endpoint
 - Vercel Hobby duration/quota; Supabase free tier pause risk
 
 ### Decision

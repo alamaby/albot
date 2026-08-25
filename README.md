@@ -36,7 +36,7 @@ npm run build
 
 - `GET /api/health` — health check dengan DB reachability yang sanitized. Tambahkan `?include=readiness` untuk snapshot operasional (job counts, dead jobs, session expiry, key cooldown) tanpa biaya provider.
 - `POST /api/jobs/process` — internal job processor (Bearer `JOB_PROCESSOR_SECRET`).
-- `POST /api/recovery/run` — internal recovery sweep: lease-expiry recovery, dead-job marking, session expiry, retention purge (dijalankan oleh cron GitHub Actions tiap 5 menit di development).
+- `POST /api/recovery/run` — internal recovery sweep: lease-expiry recovery, queued claim (batch 3), dead-job marking, session expiry, retention purge. Cron GitHub Actions tiap 20 menit: `recovery-development.yml` (dev, alias `albot-dev.vercel.app`) dan `recovery-production.yml` (prod, `albot-be.alamaby.com`).
 - `GET /api/admin/diagnostics` — internal read-only status operasional (Bearer `JOB_PROCESSOR_SECRET`).
 
 ## Docs
