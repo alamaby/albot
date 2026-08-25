@@ -83,6 +83,8 @@ Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod mig
 - [x] 6. Regenerate → "Gambar 2 dari revisi 1 berhasil dibuat." 18:36 — attempt 2 same revision, tanpa revisi baru ✓
 - [x] 8. Selesai → "Sesi selesai. Terima kasih sudah menggunakan bot ini!" 18:42 — session completed ✓
 - [x] 1. Wrong secret → curl POST tanpa header → `401` ✓ (readiness `succeeded:6, failed:0, dead:0`)
+- [x] /start fix verified → "Selamat datang!..." 18:52, tanpa session/job ✓
+- [x] 2. Non-allowlisted user — ACCEPTED (tidak ada akun ke-2; tercover unit test access_denied + RLS security tests)
 - [ ] 1. Missing/wrong `X-Telegram-Bot-Api-Secret-Token` → 401, no DB row
 - [ ] 2. Non-allowlisted user → access-denied, no job
 - [ ] 9. Replay `callback_query_id` → dedupe, single transition

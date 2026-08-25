@@ -2,7 +2,11 @@
 
 Telegram image bot. Spesifikasi lengkap ada di `plans/2026-08-07-telegram-image-bot-implementation-plan.md`. Tracking progress ada di `TODO.md`.
 
-Status: **Milestone 0 — Repository Foundation** (lulus dengan evidence).
+Status: **Milestone 7 — Production Release and Handoff** (smoke E2E prod lulus; closure pending approval).
+
+- Production: `https://albot-be.alamaby.com` (bot `@albot_ai_bot`, Supabase prod `pcexxtckvwmiquseznaz`, 25 migrations)
+- Development: `https://albot-dev.vercel.app` (Supabase dev `ceqcitzbosqzxpbtlpfn`)
+- Runbook produksi: `docs/runbooks/production-handoff.md`
 
 ## Stack
 
@@ -38,3 +42,6 @@ npm run build
 ## Docs
 
 - `docs/environment-variables.md` — inventory dan syarat environment per milestone.
+- `docs/runbooks/production-handoff.md` — runbook operasional production (provider, key, allowlist, webhook, migration, insiden).
+- `docs/runbooks/milestone-6-incident-response.md` — diagnosa insiden via endpoint internal.
+- `docs/retention.md` — kebijakan retention metadata.

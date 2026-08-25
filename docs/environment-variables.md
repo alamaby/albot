@@ -12,12 +12,18 @@ Status nilai: `empty` = harus diisi, `reserved` = belum dipakai pada milestone s
 
 ## Project References (non-secret)
 
-| Environment | Project ref            | Notes                                         |
-| ----------- | ---------------------- | --------------------------------------------- |
-| Development | `ceqcitzbosqzxpbtlpfn` | Dedicated hosted Supabase development project |
-| Production  | `pcexxtckvwmiquseznaz` | Dedicated hosted Supabase production project  |
+| Environment | Project ref            | Notes                                                            |
+| ----------- | ---------------------- | ---------------------------------------------------------------- |
+| Development | `ceqcitzbosqzxpbtlpfn` | Dedicated hosted Supabase development project                    |
+| Production  | `pcexxtckvwmiquseznaz` | Dedicated hosted Supabase production project (M7 migrated 25/25) |
 
-Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb`). Milestone 1 hanya boleh mengeksekusi migration ke development. Workflow production memverifikasi target terhadap ref repository-reviewed di atas (`pcexxtckvwmiquseznaz`), terlepas dari nilai secret, agar secret yang salah tidak bisa mengalihkan target.
+Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb`). Migration production diverifikasi terhadap ref repository-reviewed di atas (`pcexxtckvwmiquseznaz`), terlepas dari nilai secret, agar secret yang salah tidak bisa mengalihkan target.
+
+## Production Deployment (M7)
+
+- Vercel production domain: `https://albot-be.alamaby.com` (alias bawaan `albot-ten.vercel.app`).
+- Bot production: `@albot_ai_bot` (token di Vercel Production + GitHub Environment `production`).
+- Webhook production: `https://albot-be.alamaby.com/api/telegram/webhook` (set via `scripts/set-telegram-webhook.mjs --allow-prod`).
 
 ## Variables
 

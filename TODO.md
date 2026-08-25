@@ -4,17 +4,15 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 6: Reliability, Security, and Observability (**CLOSED 2026-08-20** — lihat Completed)
+Milestone 7: Production Release and Handoff (**IN PROGRESS** — migration prod 25/25, deploy, smoke E2E happy path lulus; closure pending approval. Plan: `plans/2026-08-23-milestone-7-production-release-and-handoff.md`, checklist: `plans/2026-08-23-milestone-7-execution-checklist.md`)
 
 ## In Progress
 
-- (none) — Milestone 6 CLOSED 2026-08-20. Lihat bagian Completed.
+- Milestone 7 closure: T-19 evidence record + T-20 gate close (approver `@alamaby`)
 
 ## Pending
 
-- [ ] Implement Milestone 7 dan record verification evidence
-- [ ] Execute production release checklist dan operational handoff
-- [ ] Implementasi Pollinations provider (DEFERRED 2026-08-22 — menunggu dispatcher stabil) — plan: `plans/2026-08-22-pollinations-provider-implementation-plan.md`
+- [ ] Execute production release checklist dan operational handoff — tersisa approval closure M7
 
 ### Bot no-response recovery (2026-08-22)
 
