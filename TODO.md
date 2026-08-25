@@ -4,15 +4,15 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 7: Production Release and Handoff (**IN PROGRESS** — migration prod 25/25, deploy, smoke E2E happy path lulus; closure pending approval. Plan: `plans/2026-08-23-milestone-7-production-release-and-handoff.md`, checklist: `plans/2026-08-23-milestone-7-execution-checklist.md`)
+Milestone 7: Production Release and Handoff (**CLOSED 2026-08-25** — accepted @alamaby. Prod migrate 25/25, deploy `albot-be.alamaby.com`, smoke E2E lulus, runbook handoff. Plan: `plans/2026-08-23-milestone-7-production-release-and-handoff.md`)
 
 ## In Progress
 
-- Milestone 7 closure: T-19 evidence record + T-20 gate close (approver `@alamaby`)
+- (none) — M7 CLOSED 2026-08-25. Next milestone belum dijadwalkan (kandidat: Enhancement Backlog).
 
 ## Pending
 
-- [ ] Execute production release checklist dan operational handoff — tersisa approval closure M7
+- [ ] Rencanakan milestone berikutnya (Enhancement Backlog: image-reference poster composition, dll)
 
 ### Bot no-response recovery (2026-08-22)
 

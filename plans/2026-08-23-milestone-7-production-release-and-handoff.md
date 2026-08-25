@@ -151,6 +151,7 @@ Inspect: `telegram_updates` dedupe, `callback_events` dedupe, `jobs` claim `FOR 
 - 2026-08-23 09:00:00 — Plan dibuat. Objective Fase 0-6, 20 tasks, risks/mitigasi, release sequence attestation-gated, smoke 10 skenario, dan evidence template terdokumentasi. Implementasi belum dimulai — menunggu Go/No-Go approval dan eksekusi `migrate-development` → `migrate-production` di branch `main`.
 - _Update log ini per `AGENTS.md:7` saat task dikerjakan: `YYYY-MM-DD HH:mm:ss — <done/pending/blocked + alasan>` dan checklist `## Tasks` di-`[x]`._
 - 2026-08-25 — Eksekusi M7 lengkap: T-1 local green (HEAD bb73b1e) → T-2 attestation 3x re-run (bb73b1e→6683a69→ca38ba0, final run 32806879672) → T-4 migrate-prod 0→25 (run 32807707561) → T-6 env fix (ENCRYPTION_KEY bukan standard base64; validator `scripts/verify-env-format.mjs`) → T-7/T-8 deploy+health ok/reachable (domain custom albot-be.alamaby.com) → T-9..T-12 seed+webhook (@albot_ai_bot, --allow-prod flag) → T-13 smoke: skenario 1,3,4/7,5,6,8 + /start + Batal lulus; linkage 1 sesi/2 revisi/3 attempt sesuai master plan; jobs succeeded:6 failed:0. 2 bug ditemukan & fixed (a3b2a1a): /start sebagai prompt → welcome command; dispatcher timeout 5s → claim-fast + after(). T-17 runbook + T-18 docs sync (4a879f2). T-19 evidence terisi. T-20 pending approval @alamaby.
+- 2026-08-25 19:15 — **M7 CLOSED — Accepted oleh @alamaby.** Semua 20 tasks selesai. Milestone berikutnya: enhancement backlog / fitur baru (belum dijadwalkan).
 
 ## Notes
 
@@ -241,9 +242,9 @@ Supabase migration version: 25 (prod pcexxtckvwmiquseznaz) == 25 (dev) Local==Re
 - Vercel Hobby duration/quota; Supabase free tier pause risk
 
 ### Decision
-- [ ] Accepted
+- [x] Accepted
 - [ ] Blocked
 
 Approver: @alamaby
-Date: <pending>
+Date: 2026-08-25 19:15:00 (+07)
 ```

@@ -1,11 +1,12 @@
 # Project Memory
 
-Last updated: 2026-08-25 (Milestone 7 production release)
+Last updated: 2026-08-25 (Milestone 7 CLOSED)
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: **Milestone 7 Production Release IN PROGRESS 2026-08-25 — prod migrate 0→25 (run 32807707561, attestation ca38ba0), deploy `albot-be.alamaby.com`, bot `@albot_ai_bot`, smoke E2E happy path lulus penuh (1 sesi/2 revisi/3 attempt, jobs succeeded:6 failed:0), 2 bug fixed (`a3b2a1a`: /start welcome + claim-fast dispatch via after()), runbook `docs/runbooks/production-handoff.md`. Closure pending approval @alamaby.**
+- Active milestone: **Milestone 7 Production Release CLOSED 2026-08-25 (accepted @alamaby) — prod migrate 0→25 (run 32807707561, attestation ca38ba0), deploy `albot-be.alamaby.com`, bot `@albot_ai_bot`, smoke E2E lulus penuh (1 sesi/2 revisi/3 attempt, jobs succeeded:6 failed:0), 2 bug fixed (`a3b2a1a`: /start welcome + claim-fast dispatch via after()), runbook `docs/runbooks/production-handoff.md`. Next milestone belum dijadwalkan.**
+- Semua milestone M0-M7 CLOSED. Master plan `plans/2026-08-07-telegram-image-bot-implementation-plan.md` tasks selesai sampai M7; production release checklist terpenuhi.
 - Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (25 migrations), prod `pcexxtckvwmiquseznaz` (25 migrations — M7 2026-08-25)
 - Production topology: Vercel `albot-be.alamaby.com` (alias `albot-ten.vercel.app`), webhook `@albot_ai_bot`, allowlist `83540732`, provider Cloudflare gpt-oss-120b (0) → Pollinations (150), Pixazo flux (0)/sdxl (5) → Pollinations flux (151)
 - Milestone 6 CLOSED 2026-08-20 (reliability/observability); M5 CLOSED 2026-08-19; M4 CLOSED 2026-08-18; M3 CLOSED 2026-08-13; M2 CLOSED 2026-08-10; M1+M0 closed
@@ -40,12 +41,12 @@ Last updated: 2026-08-25 (Milestone 7 production release)
 
 ## Open Blockers
 
-- M7 closure: menunggu approver `@alamaby` menandai Accepted di plan Appendix (T-20). Semua implementasi + smoke selesai.
+- (none — M7 closed)
 - Known limitation prod: `maxDuration 60s` (Vercel Hobby) < Pixazo adapter timeout 120s; recovery cron hanya dev (prod manual `POST /api/recovery/run`).
 
 ## Recent Entries
 
-- `2026-08-25/190644-milestone-7-production-release.md` — M7 production release: prod migrate 0→25 attestation-gated (32807707561), deploy albot-be.alamaby.com + @albot_ai_bot, smoke happy path lulus (linkage 1/2/3), 2 bug fixed a3b2a1a (/start welcome, claim-fast after()), runbook handoff. Closure pending approval.
+- `2026-08-25/190644-milestone-7-production-release.md` — M7 CLOSED (accepted @alamaby): prod migrate 0→25 attestation-gated (32807707561), deploy albot-be.alamaby.com + @albot_ai_bot, smoke happy path lulus (linkage 1/2/3), 2 bug fixed a3b2a1a (/start welcome, claim-fast after()), runbook handoff.
 - `2026-08-22/214000-pollinations-review-fix.md` — Review-fix: prompt/apiKey/b64 validation, log providerRequestId, errors 402 order, openai parity, 6 edge tests → 89 contract.
 - `2026-08-22/213000-pollinations-provider-implemented.md` — Pollinations fallback IMPLEMENTED: PollinationsImageAdapter (flux, inject Avoid:, size map, b64_json fallback), pollinations/pollinations_image registry, 402 handling, migration 20260823100000 WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, 8 contract tests, verifikasi hijau.
 - `2026-08-22/210000-pollinations-provider-final-plan.md` — Pollinations fallback final plan konsolidasi: flux/gpt-oss priority 150/151 fallback, 2 type bukan 20, inject negativePrompt, fix private->protected + 402 + WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, plan `plans/2026-08-22-pollinations-provider-final-plan.md`.

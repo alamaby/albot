@@ -1,7 +1,7 @@
 # Milestone 7 — Production Release and Handoff
 
 Date: 2026-08-25 19:06:44
-Status: Implementation complete — closure pending approver sign-off (@alamaby)
+Status: CLOSED — Accepted @alamaby 2026-08-25 19:15
 
 ## Task / Problem
 
@@ -46,7 +46,7 @@ Menutup M7: migration 0→25 ke prod `pcexxtckvwmiquseznaz` (attestation-gated),
 
 ## Blockers / Unresolved
 
-- T-20 gate close: menunggu approver `@alamaby` menandai Accepted di plan Appendix.
+- T-20 gate close: DONE — Accepted @alamaby 2026-08-25 19:15.
 
 ## Conventional Commit Proposal
 

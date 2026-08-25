@@ -1,8 +1,9 @@
 # Milestone 7 — Execution Checklist
 
 Created: 2026-08-24
+Status: **CLOSED — Accepted @alamaby 2026-08-25 19:15** (T-1..T-20 semua selesai)
 Source: `plans/2026-08-23-milestone-7-production-release-and-handoff.md`
-Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod migrated (prev 6683a69/bb73b1e superseded)
+Commit frozen: `ca38ba0` (attestation/migration) → `a3b2a1a` (deploy final)
 
 > Centang `- [x]` per step. Log progress di `## Progress Log` plan utama.
 
@@ -109,8 +110,9 @@ Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod mig
 ## T-19 Evidence Record
 - [ ] Isi block `Milestone Verification` di Appendix plan utama — commit SHA, Vercel URL, migration 25/25, CI/migration run URLs, prod E2E session UUID, sanitized outputs
 
-## T-20 Gate Close
-- [ ] Approver `@alamaby` Accepted + `.memory/YYYY-MM-DD/HHmmss-milestone-7-production-release.md` + `.memory/README.md:1` update
+## T-20 Gate Close — DONE 2026-08-25
+- [x] Approver `@alamaby` **Accepted** (2026-08-25 19:15) — plan Appendix Decision ditandai
+- [x] `.memory/2026-08-25/190644-milestone-7-production-release.md` + `.memory/README.md` update
 
 ## Progress Log
 - 2026-08-24 — T-1 DONE (8 checks hijau, HEAD 8e5f156). Next: push + T-2 migrate-development.
