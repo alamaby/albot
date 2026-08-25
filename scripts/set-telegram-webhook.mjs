@@ -99,9 +99,7 @@ switch (command) {
     // APP_ENV guard: production webhook requires explicit opt-in (Milestone 7)
     const appEnv = process.env.APP_ENV || "development";
     if (appEnv === "production" && !allowProd) {
-      fail(
-        "refusing to set webhook in production environment without --allow-prod flag",
-      );
+      fail("refusing to set webhook in production environment without --allow-prod flag");
     }
     await setWebhook(botToken, url, secretToken);
     break;

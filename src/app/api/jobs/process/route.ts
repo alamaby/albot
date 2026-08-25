@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { getServerEnv } from "@/env";
 import { verifyProcessorSecret } from "@/server/jobs/auth";
-import { processNextJob } from "@/server/jobs/processor";
+import { claimNextJob, executeClaimedJob, generateWorkerId } from "@/server/jobs/processor";
 import { withCorrelation } from "@/server/observability/correlation";
 import { logStructured } from "@/server/observability/logger";
 
 export const runtime = "nodejs";
+
+// Headroom for background job execution (provider calls can take tens of
+// seconds). The HTTP response itself returns immediately after the claim.
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const env = getServerEnv();
@@ -16,15 +21,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const correlationId = request.headers.get("x-correlation-id");
 
+  let workerId: string;
+  let job: Awaited<ReturnType<typeof claimNextJob>>;
   try {
-    const result = await withCorrelation(correlationId, async () => {
+    const claimed = await withCorrelation(correlationId, async () => {
       logStructured("info", "processor.requested", {});
-      return processNextJob();
+      workerId = generateWorkerId();
+      return claimNextJob(workerId);
     });
-    return NextResponse.json({ ok: true, ...result });
+    job = claimed;
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown";
-    logStructured("error", "processor.failed", { detail });
+    logStructured("error", "processor.claim_failed", { detail });
     return NextResponse.json({ ok: false, reason: "internal" }, { status: 500 });
   }
+
+  if (!job) {
+    return NextResponse.json({ ok: true, status: "idle" });
+  }
+
+  // Execute after the response so the dispatcher (5s timeout) is never blocked
+  // by provider latency. Lease expiry + recovery sweep cover a crashed
+  // background execution, so this stays durable.
+  after(() =>
+    withCorrelation(correlationId, () => executeClaimedJob(job!, workerId!)).catch((error) => {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "processor.background_failed", { jobId: job!.id, detail });
+    }),
+  );
+
+  return NextResponse.json({ ok: true, status: "claimed", jobId: job.id });
 }

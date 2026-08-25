@@ -50,7 +50,9 @@ check("PROVIDER_KEY_ENCRYPTION_KEY", (v) => {
     throw new Error("base64 does not round-trip cleanly");
   }
   if (decoded.length !== 32) {
-    throw new Error(`decodes to ${decoded.length} bytes, must be exactly 32 (hint: randomBytes(32).toString('base64'))`);
+    throw new Error(
+      `decodes to ${decoded.length} bytes, must be exactly 32 (hint: randomBytes(32).toString('base64'))`,
+    );
   }
   if (decoded.every((b) => b === 0)) throw new Error("all-zero key");
 });
@@ -63,7 +65,9 @@ check("TELEGRAM_BOT_TOKEN", (v) => {
 
 check("TELEGRAM_WEBHOOK_SECRET", (v) => {
   if (!/^[A-Za-z0-9_-]+$/.test(v)) {
-    throw new Error("contains characters outside [A-Za-z0-9_-] (hint: use base64url, NOT base64 with +/-/=)");
+    throw new Error(
+      "contains characters outside [A-Za-z0-9_-] (hint: use base64url, NOT base64 with +/-/=)",
+    );
   }
   if (v.length < 8) throw new Error("shorter than 8 characters");
 });
@@ -73,5 +77,9 @@ check("JOB_PROCESSOR_SECRET", (v) => {
 });
 
 console.log(results.join("\n"));
-console.log(failures === 0 ? "\nAll env formats valid." : `\n${failures} variable(s) failed — fix before redeploying.`);
+console.log(
+  failures === 0
+    ? "\nAll env formats valid."
+    : `\n${failures} variable(s) failed — fix before redeploying.`,
+);
 process.exit(failures === 0 ? 0 : 1);

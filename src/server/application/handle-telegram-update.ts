@@ -27,9 +27,14 @@ export const ACCESS_CONTROLS = {
 } as const;
 
 const CANCEL_COMMAND_RE = /^\/(cancel|batal)(@\w+)?\s*$/i;
+const START_COMMAND_RE = /^\/start(@\w+)?\s*$/i;
 
 export function isCancelCommand(text: string): boolean {
   return CANCEL_COMMAND_RE.test(text.trim());
+}
+
+export function isStartCommand(text: string): boolean {
+  return START_COMMAND_RE.test(text.trim());
 }
 
 // Inject repositories so unit tests can stub the database layer.
@@ -275,7 +280,14 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 3. Slash /cancel (or /batal) — cancel the latest active session so the
+  // 3. Slash /start — onboarding welcome. Must not create a session or spend
+  //    provider credit: the text "/start" is not a prompt.
+  if (isStartCommand(message.text)) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("welcome"));
+    return;
+  }
+
+  // 4. Slash /cancel (or /batal) — cancel the latest active session so the
   //    user can start a new prompt. Takes precedence over revision-input mode
   //    so a stuck awaiting_revision_input can be escaped.
   if (isCancelCommand(message.text)) {
@@ -310,7 +322,7 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 4. Revision-input mode: a session in awaiting_revision_input consumes the
+  // 5. Revision-input mode: a session in awaiting_revision_input consumes the
   //    next message as a revision instruction instead of a new prompt.
   const activeSession = await deps.sessionRepository.findActiveByUserId(message.userId);
   if (activeSession && activeSession.status === "awaiting_revision_input") {
@@ -332,13 +344,13 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 5. Prompt length limit.
+  // 6. Prompt length limit.
   if (message.text.length > ACCESS_CONTROLS.maxPromptLength) {
     await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
     return;
   }
 
-  // 6. Abuse controls (derived from prompt_sessions).
+  // 7. Abuse controls (derived from prompt_sessions).
   const policy = await deps.sessionPolicyRepository.getPolicyState(message.userId, {
     rateLimitWindowMinutes: ACCESS_CONTROLS.rateLimitWindowMinutes,
     rateLimitMaxSubmissions: ACCESS_CONTROLS.rateLimitMaxSubmissions,
@@ -354,7 +366,7 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 7. Atomically create session + first revision + enhancement job.
+  // 8. Atomically create session + first revision + enhancement job.
   await deps.initialSessionRepository.create({
     telegramUserId: message.userId,
     telegramChatId: message.chatId,

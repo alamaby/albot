@@ -77,17 +77,15 @@ export async function rescheduleUnhandledJob(
   if (error) throw new Error(`reschedule job failed: ${error.message}`);
 }
 
-// Entry point used by the processor route. Claims one job and dispatches it.
-// Returns the claimed job id (or null when idle) so the route can respond.
-export async function processNextJob(): Promise<{ status: "processed" | "idle"; jobId?: string }> {
-  const workerId = generateWorkerId();
-  const job = await claimNextJob(workerId);
-  if (!job) return { status: "idle" };
-
+// Executes a claimed job with its registered handler. Unhandled job types are
+// rescheduled (never failed) and unexpected handler throws are rescheduled too,
+// so the durable job is never lost. Exported for the process route's
+// claim-fast/execute-in-background flow (`after`).
+export async function executeClaimedJob(job: JobRow, workerId: string): Promise<void> {
   const handler = handlers[job.job_type];
   if (!handler) {
     await rescheduleUnhandledJob(job.id, workerId, "unknown_job_type");
-    return { status: "processed", jobId: job.id };
+    return;
   }
 
   try {
@@ -103,5 +101,17 @@ export async function processNextJob(): Promise<{ status: "processed" | "idle"; 
     });
     await rescheduleUnhandledJob(job.id, workerId, "handler_error");
   }
+}
+
+// Entry point used by the recovery sweep (inline execution). Claims one job and
+// dispatches it. Returns the claimed job id (or null when idle) so the caller
+// can respond. The process route uses claimNextJob + executeClaimedJob with
+// `after` instead so the HTTP response is not blocked by provider latency.
+export async function processNextJob(): Promise<{ status: "processed" | "idle"; jobId?: string }> {
+  const workerId = generateWorkerId();
+  const job = await claimNextJob(workerId);
+  if (!job) return { status: "idle" };
+
+  await executeClaimedJob(job, workerId);
   return { status: "processed", jobId: job.id };
 }

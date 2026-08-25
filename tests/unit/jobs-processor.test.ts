@@ -5,6 +5,7 @@ import {
   claimNextJob,
   rescheduleUnhandledJob,
   processNextJob,
+  executeClaimedJob,
 } from "@/server/jobs/processor";
 import { getSupabaseAdmin } from "@/server/supabase/admin";
 import { resetServerEnvCache } from "@/env";
@@ -161,5 +162,38 @@ describe("processNextJob", () => {
     expect(updateMock).toHaveBeenCalled();
     expect(eqFirst).toHaveBeenCalledWith("id", "job-1");
     expect(eqSecond).toHaveBeenCalledWith("locked_by", expect.stringMatching(/^processor-/));
+  });
+});
+
+describe("executeClaimedJob", () => {
+  it("reschedules an unhandled job type instead of failing it", async () => {
+    withEnv();
+    const admin = getSupabaseAdmin();
+    const eqSecond = vi.fn(() => Promise.resolve({ error: null }));
+    const eqFirst = vi.fn(() => ({ eq: eqSecond }));
+    const updateMock = vi.fn(() => ({ eq: eqFirst }));
+    vi.spyOn(admin, "from").mockReturnValue({ update: updateMock } as never);
+
+    await executeClaimedJob(jobRow({ job_type: "unknown_type" }), "worker-1");
+    expect(updateMock).toHaveBeenCalled();
+    expect(eqFirst).toHaveBeenCalledWith("id", "job-1");
+    expect(eqSecond).toHaveBeenCalledWith("locked_by", "worker-1");
+  });
+
+  it("resolves without double-rescheduling when the handler handles its own error", async () => {
+    withEnv();
+    // Real enhancePromptHandler reschedules internally with its own worker id
+    // when its provider call fails; executeClaimedJob must not reschedule again.
+    const admin = getSupabaseAdmin();
+    vi.spyOn(admin, "rpc").mockReturnValue({
+      maybeSingle: vi.fn(() => Promise.resolve({ data: jobRow(), error: null })),
+    } as never);
+    const eqSecond = vi.fn(() => Promise.resolve({ error: null }));
+    const eqFirst = vi.fn(() => ({ eq: eqSecond }));
+    const updateMock = vi.fn(() => ({ eq: eqFirst }));
+    vi.spyOn(admin, "from").mockReturnValue({ update: updateMock } as never);
+
+    await expect(executeClaimedJob(jobRow(), "worker-1")).resolves.toBeUndefined();
+    expect(updateMock).toHaveBeenCalledTimes(1);
   });
 });

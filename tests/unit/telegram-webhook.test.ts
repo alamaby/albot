@@ -4,6 +4,7 @@ import {
   createDefaultWebhookDeps,
   ACCESS_CONTROLS,
   isCancelCommand,
+  isStartCommand,
   type TelegramWebhookDeps,
 } from "@/server/application/handle-telegram-update";
 import { resetServerEnvCache } from "@/env";
@@ -430,6 +431,39 @@ describe("isCancelCommand", () => {
     expect(isCancelCommand("cancel")).toBe(false);
     expect(isCancelCommand("batalkan sesi")).toBe(false);
     expect(isCancelCommand("")).toBe(false);
+  });
+});
+
+describe("isStartCommand", () => {
+  it("matches /start variants", () => {
+    expect(isStartCommand("/start")).toBe(true);
+    expect(isStartCommand("/START")).toBe(true);
+    expect(isStartCommand("/start@albot")).toBe(true);
+    expect(isStartCommand(" /start ")).toBe(true);
+  });
+
+  it("rejects non-start text", () => {
+    expect(isStartCommand("/started")).toBe(false);
+    expect(isStartCommand("/start now")).toBe(false);
+    expect(isStartCommand("start")).toBe(false);
+    expect(isStartCommand("")).toBe(false);
+  });
+});
+
+describe("handleTelegramUpdate - slash start", () => {
+  it("replies with a welcome message without creating a session or job", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps();
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/start" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("Selamat datang"))).toBe(true);
+    expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
+    expect(deps.dispatchToProcessor).not.toHaveBeenCalled();
+    expect(deps.sessionRepository.findActiveByUserId).not.toHaveBeenCalled();
   });
 });
 

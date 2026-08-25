@@ -16,7 +16,8 @@ export type BotMessage =
   | "enhancement_failed"
   | "generation_failed"
   | "session_cancelled"
-  | "no_active_session";
+  | "no_active_session"
+  | "welcome";
 
 export function buildBotMessage(
   kind: BotMessage,
@@ -51,6 +52,8 @@ export function buildBotMessage(
       return "Sesi dibatalkan.";
     case "no_active_session":
       return "Tidak ada sesi aktif untuk dibatalkan.";
+    case "welcome":
+      return 'Selamat datang! Kirim prompt gambar (mis. "kucing oren duduk di atap saat senja") dan saya akan memperbaiki prompt lalu membuat gambarnya. Gunakan /cancel atau /batal untuk membatalkan sesi aktif.';
   }
 }
 
