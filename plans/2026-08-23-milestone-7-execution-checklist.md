@@ -71,15 +71,20 @@ Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod mig
 - [x] Webhook set via `--allow-prod` → `url=https://albot-be.alamaby.com/api/telegram/webhook`, secret match Vercel prod
 - [x] `get` verify ok (pending 0, allowed_updates message+callback_query)
 
-## T-13 Smoke E2E Prod (10 skenario)
-- [ ] 1. Missing/wrong `X-Telegram-Bot-Api-Secret-Token` → 401, no DB row
-- [ ] 2. Non-allowlisted user → access-denied, no job
-- [ ] 3. Initial prompt → `awaiting_confirmation` + `[Generate][Revise Lagi][Batal]`
+## T-13 Smoke E2E Prod (10 skenario) — IN PROGRESS 2026-08-25
+- [x] 3. Initial prompt → `awaiting_confirmation` + `[Generate][Revise Lagi][Batal]` ✓ (sesi "/start" landscape — lihat catatan bug)
+- [x] 8-parsial. `Batal` → "Sesi dibatalkan." ✓
+- [x] 3-ulang. Prompt kucing → enhancement topik sesuai + keyboard ✓ (tapi lihat bug dispatch timeout)
+- [ ] **Bug ditemukan #1 (fixed `a3b2a1a`, pending deploy):** `/start` diperlakukan sebagai prompt (parser tanpa command handling) → sesi sampah + buang credit. Fix: `isStartCommand` → welcome message, tanpa session/job.
+- [ ] **Bug ditemukan #2 (fixed `a3b2a1a`, pending deploy):** dispatcher timeout 5s < enhancement 10-30s → "Gagal memulai pemrosesan" palsu setiap prompt padahal job sukses (processor sinkron). Fix: process route claim-fast + `after()` (maxDuration 60).
+- [ ] Redeploy prod `a3b2a1a` → verifikasi /start welcome + tanpa pesan gagal palsu
 - [ ] 4. Revise Lagi → instruction → new revision (old immutable)
-- [ ] 5. Generate → `succeeded` + foto + `[Regenerate][Revise Prompt][Selesai]`
+- [ ] 5. Generate → `succeeded` + foto + `[Regenerate][Revise Prompt][Selesai]` (sesi kucing masih `awaiting_confirmation`, 24h expiry)
 - [ ] 6. Regenerate → attempt baru same revision
 - [ ] 7. Revise after result → new revision → generate → linkage 1/2/3
 - [ ] 8. Selesai → `completed`, callback lama rejected
+- [ ] 1. Missing/wrong `X-Telegram-Bot-Api-Secret-Token` → 401, no DB row
+- [ ] 2. Non-allowlisted user → access-denied, no job
 - [ ] 9. Replay `callback_query_id` → dedupe, single transition
 - [ ] 10. `getWebhookInfo` + logs + `job_events`/`provider_requests` redacted — simpan screenshot + session_id
 
