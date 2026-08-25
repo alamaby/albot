@@ -78,11 +78,11 @@ Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod mig
 - [ ] **Bug ditemukan #1 (fixed `a3b2a1a`, pending deploy):** `/start` diperlakukan sebagai prompt (parser tanpa command handling) → sesi sampah + buang credit. Fix: `isStartCommand` → welcome message, tanpa session/job.
 - [ ] **Bug ditemukan #2 (fixed `a3b2a1a`, pending deploy):** dispatcher timeout 5s < enhancement 10-30s → "Gagal memulai pemrosesan" palsu setiap prompt padahal job sukses (processor sinkron). Fix: process route claim-fast + `after()` (maxDuration 60).
 - [x] Redeploy prod `a3b2a1a` → verifikasi: tanpa "Gagal memulai pemrosesan" palsu ✓
-- [ ] 4. Revise Lagi → instruction → new revision (old immutable) — tercakup skenario 7 (revise after result)
-- [x] 5. Generate → foto kucing oren di atap senja terkirim + `[Regenerate][Revise Prompt][Selesai]` + `Ganti Model` ✓ (18:28, `jobs.succeeded:3`, caption "Gambar 1 dari revisi 1.")
-- [ ] 6. Regenerate → attempt baru same revision
-- [ ] 7. Revise after result → new revision → generate → linkage 1/2/3
-- [ ] 8. Selesai → `completed`, callback lama rejected
+- [x] 4/7. Revise Prompt → "tambahkan awan dramatis dan burung terbang" → revisi 2 (topik sesuai, konfirmasi ulang) → Generate → "Gambar 3 dari revisi 2." 18:41 ✓ — linkage `1 sesi / 2 revisi / 3 attempt` (a1,a2→rev1; a3→rev2) sesuai master plan
+- [x] 5. Generate → foto kucing oren di atap senja terkirim + `[Regenerate][Revise Prompt][Selesai]` + `Ganti Model` ✓ (18:28, caption "Gambar 1 dari revisi 1.")
+- [x] 6. Regenerate → "Gambar 2 dari revisi 1 berhasil dibuat." 18:36 — attempt 2 same revision, tanpa revisi baru ✓
+- [x] 8. Selesai → "Sesi selesai. Terima kasih sudah menggunakan bot ini!" 18:42 — session completed ✓
+- [x] 1. Wrong secret → curl POST tanpa header → `401` ✓ (readiness `succeeded:6, failed:0, dead:0`)
 - [ ] 1. Missing/wrong `X-Telegram-Bot-Api-Secret-Token` → 401, no DB row
 - [ ] 2. Non-allowlisted user → access-denied, no job
 - [ ] 9. Replay `callback_query_id` → dedupe, single transition
