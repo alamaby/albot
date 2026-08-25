@@ -45,7 +45,9 @@ Commit frozen: `bb73b1e` (HEAD saat T-1 green, pushed 2026-08-24) — attestatio
 ## T-5 Hosted Smoke Prod (read-only)
 - [ ] `SUPABASE_URL=https://pcexxtckvwmiquseznaz.supabase.co SUPABASE_SERVICE_ROLE_KEY=<prod> npm run test:hosted` → expect schema 25 + RLS forced + grants service_role only
 
-## T-6 Vercel Production Env Validate
+> **Bot prod:** `@albot_ai_bot` — token prod sudah set di Vercel Production + GitHub Environment `production` (2026-08-24).
+
+## T-6 Vercel Production Env Validate — DONE 2026-08-24 (user set)
 - [ ] Vercel Dashboard → `albot` → Settings → Environment Variables → **Production** (≠ Preview):
   - [ ] `SUPABASE_URL=https://pcexxtckvwmiquseznaz.supabase.co`
   - [ ] `SUPABASE_SERVICE_ROLE_KEY` (prod, ≠ dev)
