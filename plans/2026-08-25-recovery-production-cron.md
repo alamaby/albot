@@ -28,15 +28,15 @@ Out of scope: alerting eksternal, perubahan logika recovery, retry/queue redesig
 
 ## Tasks
 
-- [x] T-1 (user): GitHub Environment `recovery-production` + secret `JOB_PROCESSOR_SECRET` prod
-- [ ] T-2: `maxDuration = 60` di recovery route
-- [ ] T-3: Workflow `recovery-production.yml`
-- [ ] T-4: Verifikasi lokal (lint/typecheck/test:unit/build/format)
-- [ ] T-5: Commit + push `main`
+- [ ] T-1 (user): GitHub Environment `recovery-production` + secret `JOB_PROCESSOR_SECRET` prod
+- [x] T-2: `maxDuration = 60` di recovery route
+- [x] T-3: Workflow `recovery-production.yml`
+- [x] T-4: Verifikasi lokal (lint 0 error, typecheck ok, 255 unit, build ok, format ok)
+- [x] T-5: Commit + push `main` (`ab6e729` + docs `f1286fd`)
 - [ ] T-6 (user): Manual dispatch → expect HTTP 200 + JSON sweep
 - [ ] T-7 (user): Verifikasi scheduled run pertama jalan
-- [ ] T-8: Docs sync
-- [ ] T-9: Appendix M7 limitation → resolved
+- [x] T-8: Docs sync
+- [x] T-9: Appendix M7 limitation → resolved
 
 ## Risks
 
@@ -51,6 +51,7 @@ Out of scope: alerting eksternal, perubahan logika recovery, retry/queue redesig
 ## Progress Log
 
 - 2026-08-25 — Plan dibuat + dikonfirmasi user (minimal curl-only, `*/20`, `maxDuration=60`). Eksekusi dimulai.
+- 2026-08-25 22:01 — T-2..T-5, T-8, T-9 DONE (`ab6e729` + `f1286fd`). Sisa T-1/T-6/T-7 milik user (GitHub): buat environment `recovery-production` + secret prod, manual dispatch, verifikasi schedule run pertama.
 
 ## Notes
 
