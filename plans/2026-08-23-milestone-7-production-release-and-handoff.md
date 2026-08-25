@@ -150,6 +150,7 @@ Inspect: `telegram_updates` dedupe, `callback_events` dedupe, `jobs` claim `FOR 
 
 - 2026-08-23 09:00:00 — Plan dibuat. Objective Fase 0-6, 20 tasks, risks/mitigasi, release sequence attestation-gated, smoke 10 skenario, dan evidence template terdokumentasi. Implementasi belum dimulai — menunggu Go/No-Go approval dan eksekusi `migrate-development` → `migrate-production` di branch `main`.
 - _Update log ini per `AGENTS.md:7` saat task dikerjakan: `YYYY-MM-DD HH:mm:ss — <done/pending/blocked + alasan>` dan checklist `## Tasks` di-`[x]`._
+- 2026-08-25 — Eksekusi M7 lengkap: T-1 local green (HEAD bb73b1e) → T-2 attestation 3x re-run (bb73b1e→6683a69→ca38ba0, final run 32806879672) → T-4 migrate-prod 0→25 (run 32807707561) → T-6 env fix (ENCRYPTION_KEY bukan standard base64; validator `scripts/verify-env-format.mjs`) → T-7/T-8 deploy+health ok/reachable (domain custom albot-be.alamaby.com) → T-9..T-12 seed+webhook (@albot_ai_bot, --allow-prod flag) → T-13 smoke: skenario 1,3,4/7,5,6,8 + /start + Batal lulus; linkage 1 sesi/2 revisi/3 attempt sesuai master plan; jobs succeeded:6 failed:0. 2 bug ditemukan & fixed (a3b2a1a): /start sebagai prompt → welcome command; dispatcher timeout 5s → claim-fast + after(). T-17 runbook + T-18 docs sync (4a879f2). T-19 evidence terisi. T-20 pending approval @alamaby.
 
 ## Notes
 
@@ -189,47 +190,60 @@ node scripts/set-telegram-webhook.mjs --env production get
 supabase migration list
 ```
 
-## Appendix — Milestone Verification Template (isi saat closure)
+## Appendix — Milestone Verification (T-19, terisi 2026-08-25)
 
 ```md
 ## Milestone Verification
 
 Milestone: 7 — Production Release and Handoff
 Environment: production
-Commit: <git-sha 40-char exact>
-Vercel deployment: <https://albot-ten.vercel.app + deployment id>
-Supabase migration version: 25 (prod) / 25 (dev) Local==Remote
+Commit: ca38ba02cbda53c0aaa07afa3b75013e3bde2e58 (attestation/migration) → a3b2a1a (deploy final, 2 smoke bug fixes)
+Vercel deployment: https://albot-be.alamaby.com (custom domain; alias albot-ten.vercel.app)
+Supabase migration version: 25 (prod pcexxtckvwmiquseznaz) == 25 (dev) Local==Remote
 
 ### Automated Checks
-- [ ] Install (`npm ci`)
-- [ ] Lint (`npm run lint`)
-- [ ] Typecheck (`npm run typecheck`)
-- [ ] Unit tests (`npm run test:unit` — 250+)
-- [ ] Contract tests (`npm run test:contract` — 89 pollinations edge incl.)
-- [ ] Hosted integration tests (`npm run test:hosted` — schema 25 + RLS + recovery RPC)
-- [ ] Build (`npm run build`)
-- [ ] Secret scan (gitleaks `validate.yml:54`)
+- [x] Install (`npm ci`)
+- [x] Lint — 0 errors (2 warnings pre-existing e2e-m6 script)
+- [x] Typecheck — clean
+- [x] Unit tests — 255 passed (termasuk +5 test M7: executeClaimedJob x2, isStartCommand x2, slash-start x1)
+- [x] Contract tests — 89 (incl. pollinations edge)
+- [x] Hosted integration — schema 25 + RLS + recovery (via migrate-development REQUIRED_HOSTED_TESTS)
+- [x] Build — clean
+- [x] Secret scan — gitleaks green (validate.yml per push)
 
-### Manual Checks
-- [ ] 10 smoke skenario prod (Fase 5) + getWebhookInfo prod clean
-- [ ] Dedup replay (update_id + callback_query_id) no duplicate
-- [ ] Advisor prod disposition recorded
+### Migration Runs
+- migrate-development: https://github.com/alamaby/albot/actions/runs/32806879672 (ca38ba02..., success)
+- migrate-production: https://github.com/alamaby/albot/actions/runs/32807707561 (attestation valid, 0→25, success)
 
-### Evidence
-- CI run: <validate.yml URL>
-- Migration dev run: <migrate-development run URL + development_run_id>
-- Migration prod run: <migrate-production run URL>
-- Test session ID: <uuid prod E2E session>
-- Sanitized output: <health + readiness + getWebhookInfo + migration list>
-- Relational proof: <SELECT session/revisions/attempts linkage>
+### Manual Checks (Smoke E2E prod @albot_ai_bot, user 83540732)
+- [x] 1. Wrong secret → 401 (curl, no DB row)
+- [x] 3. Initial prompt → enhancement topik sesuai + [Generate][Revise Lagi][Batal] + Pilih Model
+- [x] 4/7. Revise → revisi 2 (awan dramatis + burung) → Generate → "Gambar 3 dari revisi 2."
+- [x] 5. Generate → foto terkirim + result keyboard + Ganti Model
+- [x] 6. Regenerate → "Gambar 2 dari revisi 1" (attempt 2, tanpa revisi baru)
+- [x] 8. Selesai → "Sesi selesai" (completed)
+- [x] /start → welcome (fix a3b2a1a), Batal → "Sesi dibatalkan."
+- [x] Relational proof: 1 sesi / 2 revisi / 3 attempt (a1,a2→rev1; a3→rev2) — sesuai master plan
+- ACCEPTED (2): non-allowlisted user — tanpa akun ke-2, tercover unit+RLS tests; dedupe replay — tercover contract tests (callback_events unique + CAS transition_prompt_session)
+- [x] 10. getWebhookInfo — verified saat T-12 (url benar, secret match, pending 0)
+
+### Health & Readiness
+- GET /api/health → {"status":"ok","environment":"production","database":"reachable"}
+- GET /api/health?include=readiness → jobs succeeded:6, failed:0, dead:0, cooldownKeys:0
+
+### Bugs Ditemukan & Fixed Saat Smoke
+1. /start diperlakukan sebagai prompt (parser tanpa command handling) → welcome command (a3b2a1a)
+2. Dispatcher timeout 5s < enhancement 10-30s → "Gagal memulai pemrosesan" palsu tiap prompt → claim-fast + after() di process route (a3b2a1a)
 
 ### Known Limitations
-- Vercel Hobby duration bound, no Pollinations async polling, single active session/user, 24h expiry (`20260819100000`)
+- maxDuration 60s (Vercel Hobby) < Pixazo adapter timeout 120s — generation yang melebihi 60s akan terkill platform (belum terjadi di smoke; lease recovery menutup)
+- Recovery cron hanya development; prod mengandalkan dispatch feedback + manual recovery endpoint
+- Vercel Hobby duration/quota; Supabase free tier pause risk
 
 ### Decision
 - [ ] Accepted
 - [ ] Blocked
 
 Approver: @alamaby
-Date: <timestamp>
+Date: <pending>
 ```
