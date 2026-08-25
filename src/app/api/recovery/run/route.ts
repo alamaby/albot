@@ -7,6 +7,10 @@ import { logStructured } from "@/server/observability/logger";
 
 export const runtime = "nodejs";
 
+// Headroom for the sweep: lease recovery + up to 3 inline job claims (provider
+// calls can take tens of seconds each) + dead-job/session/purge batches.
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const env = getServerEnv();
   const authorization = request.headers.get("authorization");

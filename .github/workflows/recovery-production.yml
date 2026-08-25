@@ -1,0 +1,77 @@
+name: recovery-production
+
+on:
+  schedule:
+    # Every 20 minutes: recovery sweep (lease, queued claim batch 3, dead-job,
+    # stale-session, retention) on production. Mirrors recovery-development.
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+    inputs:
+      recovery_url:
+        description: "Production recovery endpoint URL (default: custom prod domain)"
+        type: string
+        required: false
+        default: "https://albot-be.alamaby.com/api/recovery/run"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-production
+  cancel-in-progress: false
+
+jobs:
+  recovery-production:
+    name: Run recovery sweep (production)
+    runs-on: ubuntu-latest
+    # Dedicated environment WITHOUT protection rules so the 20-minute cron can
+    # run unattended (M6 lesson: protected environment piles up approvals).
+    # Holds only JOB_PROCESSOR_SECRET (production value).
+    environment: recovery-production
+    timeout-minutes: 10
+    steps:
+      - name: Compute recovery URL
+        id: url
+        run: |
+          if [ -n "${{ inputs.recovery_url }}" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "url=${{ inputs.recovery_url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=https://albot-be.alamaby.com/api/recovery/run" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Invoke recovery endpoint
+        id: recovery
+        env:
+          RECOVERY_URL: ${{ steps.url.outputs.url }}
+          JOB_PROCESSOR_SECRET: ${{ secrets.JOB_PROCESSOR_SECRET }}
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl -sS -f -X POST \
+            -H "Authorization: Bearer ${JOB_PROCESSOR_SECRET}" \
+            -H "Content-Type: application/json" \
+            -H "X-Correlation-Id: gh-${GITHUB_RUN_ID}" \
+            -d '{"source":"github-actions-cron"}' \
+            -w "\n%{http_code}" \
+            "${RECOVERY_URL}")"
+          HTTP_CODE="$(printf '%s' "${RESPONSE}" | tail -n1)"
+          BODY="$(printf '%s' "${RESPONSE}" | sed '$d')"
+          echo "http_code=${HTTP_CODE}"
+          echo "body=${BODY}"
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::error::recovery endpoint returned HTTP ${HTTP_CODE}"
+            exit 1
+          fi
+          echo "result=${BODY}" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize recovery run
+        if: always()
+        run: |
+          {
+            echo "## Recovery sweep (production)"
+            echo ""
+            echo "HTTP \`${{ steps.recovery.outputs.http_code }}\`"
+            echo ""
+            echo "\`\`\`json"
+            echo "${{ steps.recovery.outputs.result }}"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
