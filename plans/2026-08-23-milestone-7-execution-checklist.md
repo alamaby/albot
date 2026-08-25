@@ -67,9 +67,10 @@ Commit frozen: `ca38ba0` (HEAD 2026-08-25, attestation 32806879672) — prod mig
 - [x] `bot_users` upsert `83540732` is_allowed+is_admin via SQL editor prod
 
 ## T-12 Webhook Prod Set
+- [x] Custom domain production: `https://albot-be.alamaby.com` (2026-08-25) — health `ok/reachable` verified di domain custom + `albot-ten.vercel.app` tetap jalan
 - [ ] `node scripts/set-telegram-webhook.mjs get "$TOKEN"` → expect not set
-- [ ] `APP_ENV=production node scripts/set-telegram-webhook.mjs set "$TOKEN" https://albot-ten.vercel.app/api/telegram/webhook "<PROD_WEBHOOK_SECRET>" --allow-prod`
-- [ ] `get` verify: `url==https://albot-ten.vercel.app/api/telegram/webhook`, `pending_update_count==0`, `allowed_updates==["message","callback_query"]`, `last_error_message==null`
+- [ ] `APP_ENV=production node scripts/set-telegram-webhook.mjs set "$TOKEN" https://albot-be.alamaby.com/api/telegram/webhook "<PROD_WEBHOOK_SECRET>" --allow-prod`
+- [ ] `get` verify: `url==https://albot-be.alamaby.com/api/telegram/webhook`, `pending_update_count==0`, `allowed_updates==["message","callback_query"]`, `last_error_message==null`
 
 ## T-13 Smoke E2E Prod (10 skenario)
 - [ ] 1. Missing/wrong `X-Telegram-Bot-Api-Secret-Token` → 401, no DB row
