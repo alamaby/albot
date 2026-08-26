@@ -48,6 +48,7 @@ Menutup M7: migration 0→25 ke prod `pcexxtckvwmiquseznaz` (attestation-gated),
 
 - T-20 gate close: DONE — Accepted @alamaby 2026-08-25 19:15.
 - Follow-up 2026-08-25 22:01: recovery cron production ditambahkan (`recovery-production.yml` */20 curl-only, env `recovery-production`, `maxDuration=60` di recovery route) — plan `plans/2026-08-25-recovery-production-cron.md`, commit `ab6e729`. Verifikasi user: buat GitHub Environment + secret, manual dispatch, schedule run pertama.
+- Review-fix 2026-08-25: F1 input dispatch via `env:` (anti script injection), F2 hapus `curl -f` (status/body error terlihat), F3 sync stale "5 menit" → */20 + cron prod (4 docs) — kedua workflow dev+prod, commit `7baac63`, plan `plans/2026-08-25-recovery-workflow-review-fix.md`.
 
 ## Conventional Commit Proposal
 
