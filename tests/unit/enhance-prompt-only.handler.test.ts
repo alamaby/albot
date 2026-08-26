@@ -123,6 +123,22 @@ describe("EnhancePromptOnlyHandler", () => {
     expect(sentMessages).toHaveLength(0);
   });
 
+  it("fails fast on non-numeric ids instead of throwing into retry", async () => {
+    withEnv();
+    const { handler, enhancePrompt, markSucceeded, markFailed, retry, sentMessages } =
+      buildHandler();
+    await handler.handle(
+      jobRow({ payload: { telegram_user_id: "abc", telegram_chat_id: "456", source_prompt: "x" } }),
+      "worker-1",
+    );
+
+    expect(enhancePrompt.enhanceOnly).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith("job-1", "worker-1", expect.anything());
+    expect(markSucceeded).not.toHaveBeenCalled();
+    expect(retry.apply).not.toHaveBeenCalled();
+    expect(sentMessages).toHaveLength(0);
+  });
+
   it("retries a retryable provider error and sends nothing yet", async () => {
     withEnv();
     const { handler, markSucceeded, markRetryScheduled, retry, sentMessages } = buildHandler({

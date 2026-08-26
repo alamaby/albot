@@ -43,11 +43,17 @@ function parsePayload(payload: Record<string, unknown>): EnhanceOnlyPayload | nu
   ) {
     return null;
   }
-  return {
-    telegramUserId: BigInt(userId),
-    telegramChatId: BigInt(chatId),
-    sourcePrompt,
-  };
+  try {
+    return {
+      telegramUserId: BigInt(userId),
+      telegramChatId: BigInt(chatId),
+      sourcePrompt,
+    };
+  } catch {
+    // Non-numeric ids: malformed beyond repair — the caller marks the job
+    // failed immediately instead of burning retry attempts.
+    return null;
+  }
 }
 
 function normalizeToProviderError(error: unknown): ProviderErrorShape {

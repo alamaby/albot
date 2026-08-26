@@ -154,4 +154,86 @@ describe.skipIf(skip)("create_initial_session contract", () => {
     });
     expect(error).not.toBeNull();
   });
+
+  it("direct mode (enhanced_prompt) creates a generating session with a completed revision and generate_image job", async () => {
+    const repo = new InitialSessionRepository();
+    const result = await repo.create({
+      telegramUserId: USER_ID + 2000n,
+      telegramChatId: CHAT_ID + 2000n,
+      sourcePrompt: "an orange cat on a tiled rooftop at sunset",
+      updateId: BigInt(UPDATE_ID + 20),
+      enhancedPrompt: "a highly detailed orange tabby cat on a tiled rooftop at sunset",
+    });
+    track(result);
+
+    const admin = getAdminClient();
+    const { data: session } = await admin
+      .from("prompt_sessions")
+      .select("id, status, active_revision_id")
+      .eq("id", result.sessionId)
+      .single();
+    expect(session).toMatchObject({
+      id: result.sessionId,
+      status: "generating",
+      active_revision_id: result.revisionId,
+    });
+
+    const { data: revision } = await admin
+      .from("prompt_revisions")
+      .select("id, source_prompt, enhanced_prompt, status, completed_at")
+      .eq("id", result.revisionId)
+      .single();
+    expect(revision).toMatchObject({
+      id: result.revisionId,
+      session_id: result.sessionId,
+      revision_number: 1,
+      source_prompt: "an orange cat on a tiled rooftop at sunset",
+      enhanced_prompt: "a highly detailed orange tabby cat on a tiled rooftop at sunset",
+      status: "completed",
+    });
+    expect(revision!.completed_at).not.toBeNull();
+
+    const { data: job } = await admin
+      .from("jobs")
+      .select("id, job_type, prompt_session_id, prompt_revision_id, status")
+      .eq("id", result.jobId)
+      .single();
+    expect(job).toMatchObject({
+      id: result.jobId,
+      job_type: "generate_image",
+      prompt_session_id: result.sessionId,
+      prompt_revision_id: result.revisionId,
+      status: "queued",
+    });
+  });
+
+  it("direct mode rejects a blank or over-length enhanced prompt", async () => {
+    const repo = new InitialSessionRepository();
+    await expect(
+      repo.create({
+        telegramUserId: USER_ID + 3000n,
+        telegramChatId: CHAT_ID + 3000n,
+        sourcePrompt: "a cozy cabin",
+        updateId: BigInt(UPDATE_ID + 30),
+        enhancedPrompt: "   ",
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      repo.create({
+        telegramUserId: USER_ID + 3000n,
+        telegramChatId: CHAT_ID + 3000n,
+        sourcePrompt: "a cozy cabin",
+        updateId: BigInt(UPDATE_ID + 30),
+        enhancedPrompt: "x".repeat(4001),
+      }),
+    ).rejects.toThrow();
+
+    const admin = getAdminClient();
+    const { count } = await admin
+      .from("prompt_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("telegram_user_id", Number(USER_ID + 3000n));
+    expect(count ?? 0).toBe(0);
+  });
 });

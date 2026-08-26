@@ -565,6 +565,42 @@ describe("handleTelegramUpdate - slash generate-image", () => {
     expect(calls.sentMessages.some((m) => m.text.includes("Masih ada sesi aktif"))).toBe(true);
     expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
   });
+
+  it("persists the status message id when the send returns one", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps({
+      sendTelegramMessage: vi.fn(async (_token: string, chatId: bigint, text: string) => {
+        calls.sentMessages.push({ chatId, text });
+        return { messageId: 99 };
+      }),
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/generate-image kucing oren" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(deps.sessionRepository.saveStatusMessageId).toHaveBeenCalledWith("session-1", 99);
+  });
+
+  it("reports dispatch failure without a status message", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps({
+      dispatchToProcessor: vi.fn(async () => ({
+        ok: false as const,
+        error: "timeout",
+      })),
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/generate-image kucing oren" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("Gagal memulai pemrosesan"))).toBe(true);
+    expect(calls.sentMessages.some((m) => m.text.includes("Sedang membuat gambar"))).toBe(false);
+    expect(deps.sessionRepository.saveStatusMessageId).not.toHaveBeenCalled();
+  });
 });
 
 describe("handleTelegramUpdate - slash enhance-prompt", () => {

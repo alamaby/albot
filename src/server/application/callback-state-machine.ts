@@ -896,7 +896,7 @@ export class CallbackStateMachine {
 
 // The sendTelegramMessage dep is typed Promise<unknown> so tests can return
 // anything; production sendMessage returns { messageId }. Tolerate both.
-function extractMessageId(result: unknown): number | null {
+export function extractMessageId(result: unknown): number | null {
   if (typeof result === "object" && result !== null) {
     const candidate = (result as { messageId?: unknown }).messageId;
     if (typeof candidate === "number" && Number.isInteger(candidate)) return candidate;

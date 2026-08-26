@@ -23,7 +23,11 @@ import { SessionRepository } from "@/server/repositories/session.repository";
 import { JobRepository } from "@/server/repositories/job.repository";
 import { logStructured } from "@/server/observability/logger";
 import { RevisionInputUseCase } from "./revision-input";
-import { CallbackStateMachine, type CallbackAction } from "./callback-state-machine";
+import {
+  CallbackStateMachine,
+  extractMessageId,
+  type CallbackAction,
+} from "./callback-state-machine";
 
 export const ACCESS_CONTROLS = {
   maxPromptLength: TELEGRAM_MAX_PROMPT_LENGTH,
@@ -296,8 +300,8 @@ async function handlePrivateTextMessage(
   }
 
   // 3b. Slash /help — command reference. Static text, no side effects.
-  const helpCommand = parseSlashCommand(message.text);
-  if (helpCommand?.name === "help") {
+  const command = parseSlashCommand(message.text);
+  if (command?.name === "help") {
     await trySendMessage(env, deps, message.chatId, buildBotMessage("help"));
     return;
   }
@@ -305,15 +309,15 @@ async function handlePrivateTextMessage(
   // 3c. Slash /generate-image (or /generate_image) — direct generation without
   //     enhancement. Same guards as the default text flow; the RPC creates the
   //     session directly in `generating` with a completed revision.
-  if (helpCommand?.name === "generate_image") {
-    await handleDirectGenerateCommand(env, deps, message, helpCommand.args, origin);
+  if (command?.name === "generate_image") {
+    await handleDirectGenerateCommand(env, deps, message, command.args, origin);
     return;
   }
 
   // 3d. Slash /enhance-prompt (or /enhance_prompt) — enhance-only: replies
   //     with the enhanced prompt as plain text. No session, no generation.
-  if (helpCommand?.name === "enhance_prompt") {
-    await handleEnhanceOnlyCommand(env, deps, message, helpCommand.args, origin);
+  if (command?.name === "enhance_prompt") {
+    await handleEnhanceOnlyCommand(env, deps, message, command.args, origin);
     return;
   }
 
@@ -506,7 +510,7 @@ async function handleDirectGenerateCommand(
       message.chatId,
       buildGenerationStatusMessage("generating"),
     );
-    const messageId = extractSentMessageId(result);
+    const messageId = extractMessageId(result);
     if (messageId !== null) {
       await deps.sessionRepository.saveStatusMessageId(created.sessionId, messageId);
     }
@@ -557,13 +561,4 @@ async function handleEnhanceOnlyCommand(
     });
     await trySendMessage(env, deps, message.chatId, buildBotMessage("dispatch_failed"));
   }
-}
-
-// Tolerates both the production client ({messageId}) and test stubs.
-function extractSentMessageId(result: unknown): number | null {
-  if (typeof result === "object" && result !== null) {
-    const candidate = (result as { messageId?: unknown }).messageId;
-    if (typeof candidate === "number" && Number.isInteger(candidate)) return candidate;
-  }
-  return null;
 }
