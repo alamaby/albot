@@ -4,11 +4,11 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Milestone 7: Production Release and Handoff (**CLOSED 2026-08-25** — accepted @alamaby. Prod migrate 25/25, deploy `albot-be.alamaby.com`, smoke E2E lulus, runbook handoff. Plan: `plans/2026-08-23-milestone-7-production-release-and-handoff.md`)
+Command Expansion: `/help`, `/generate-image`, `/enhance-prompt` (**CLOSED 2026-08-26** — 274 unit, hosted 126/126, prod 26/26, E2E OK)
 
 ## In Progress
 
-- (none) — M7 CLOSED 2026-08-25. Next milestone belum dijadwalkan (kandidat: Enhancement Backlog).
+- (none) — M7 + Command Expansion CLOSED 2026-08-26. Next milestone belum dijadwalkan.
 
 ## Pending
 

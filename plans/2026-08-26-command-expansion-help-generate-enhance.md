@@ -1,7 +1,7 @@
 # Command Expansion — /help, /generate-image, /enhance-prompt
 
 Created: 2026-08-26
-Status: In progress
+Status: **CLOSED** — Accepted @alamaby 2026-08-26 (prod 26/26, 274 unit, E2E OK)
 
 ## Objective
 
@@ -32,8 +32,8 @@ Empat command baru: `/help` (daftar command), `/start` revisi (welcome + daftar 
 - [x] T-7: Unit tests (274 pass) + hosted contract test direct-mode (initial-session.contract)
 - [x] T-8: Verifikasi lokal 8 checks (db:types:check hijau pasca-regen)
 - [x] T-9: `migrate-development` (32952466785, run ke-3 setelah F8 types + fix test) → `migrate-production` (32953970159, prod 26/26, attestation `2323678` match) → deploy Vercel (auto, health ok)
-- [ ] T-10: E2E dev/prod Telegram
-- [ ] T-11: Docs sync + evidence
+- [x] T-10: E2E prod verified 2026-08-26 — `/help`+`/start` daftar command, `/generate-image` direct generate (foto + result keyboard), varian underscore, `/enhance-prompt` teks hasil penyempurnaan, active-session guard, setMyCommands dev+prod
+- [x] T-11: Docs sync + evidence
 
 ## Risks
 
@@ -49,3 +49,4 @@ Empat command baru: `/help` (daftar command), `/start` revisi (welcome + daftar 
 
 - 2026-08-26 — Plan disetujui user, eksekusi dimulai.
 - 2026-08-26 — T-1..T-9 DONE (3 run migrate-dev: types union + fix test; prod 26/26 attestation `2323678`). Sisa T-10 E2E + T-11 docs.
+- 2026-08-26 — T-10/T-11 DONE: E2E prod lulus (bot @albot_ai_bot, domain albot-be.alamaby.com); docs synced; evidence recorded. Plan CLOSED.

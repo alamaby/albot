@@ -1,7 +1,7 @@
 # Command Expansion Review Fix
 
 Created: 2026-08-26
-Source: review implementasi `plans/2026-08-26-command-expansion-help-generate-enhance.md` (commit `6f86f1b`)
+Status: **CLOSED** — Accepted (hosted 126/126, T-9 migrate done, E2E OK, included in parent plan close)
 
 ## Objective
 

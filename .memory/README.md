@@ -1,14 +1,14 @@
 # Project Memory
 
-Last updated: 2026-08-25 (Milestone 7 CLOSED)
+Last updated: 2026-08-26 (Command Expansion CLOSED)
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: **Milestone 7 Production Release CLOSED 2026-08-25 (accepted @alamaby) — prod migrate 0→25 (run 32807707561, attestation ca38ba0), deploy `albot-be.alamaby.com`, bot `@albot_ai_bot`, smoke E2E lulus penuh (1 sesi/2 revisi/3 attempt, jobs succeeded:6 failed:0), 2 bug fixed (`a3b2a1a`: /start welcome + claim-fast dispatch via after()), runbook `docs/runbooks/production-handoff.md`. Next milestone belum dijadwalkan.**
+- Active milestone: **Command Expansion CLOSED 2026-08-26 — `/help`, `/generate-image` direct (RPC overload 6-arg `p_enhanced_prompt`, `enhance_only` job), `/enhance-prompt` enhance-only, parsing hyphen/underscore/@bot, `setMyCommands` dev+prod, 274 unit, hosted 126/126, prod 26/26. Smoke di `@albot_ai_bot` lulus: welcome+help, direct generate (foto tanpa enhancement), enhance-prompt (teks saja), active-session guard. Pre-M7 container: Milestone 7 Production Release CLOSED 2026-08-25.
 - Semua milestone M0-M7 CLOSED. Master plan `plans/2026-08-07-telegram-image-bot-implementation-plan.md` tasks selesai sampai M7; production release checklist terpenuhi.
-- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (25 migrations), prod `pcexxtckvwmiquseznaz` (25 migrations — M7 2026-08-25)
-- Production topology: Vercel `albot-be.alamaby.com` (alias `albot-ten.vercel.app`), webhook `@albot_ai_bot`, allowlist `83540732`, provider Cloudflare gpt-oss-120b (0) → Pollinations (150), Pixazo flux (0)/sdxl (5) → Pollinations flux (151)
+- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (26 migrations), prod `pcexxtckvwmiquseznaz` (26 migrations — M7 25, command expansion 26)
+- Production topology: Vercel `albot-be.alamaby.com` (alias `albot-ten.vercel.app`, maxDuration 60), webhook `@albot_ai_bot`, allowlist `83540732`, provider Cloudflare gpt-oss-120b (0) → Pollinations (150), Pixazo flux (0)/sdxl (5) → Pollinations flux (151)
 - Milestone 6 CLOSED 2026-08-20 (reliability/observability); M5 CLOSED 2026-08-19; M4 CLOSED 2026-08-18; M3 CLOSED 2026-08-13; M2 CLOSED 2026-08-10; M1+M0 closed
 - Health endpoint acts as readiness probe: HTTP 200 `status:ok` when DB reachable, HTTP 503 `status:degraded` otherwise, `Cache-Control: no-store`
 
@@ -34,7 +34,8 @@ Last updated: 2026-08-25 (Milestone 7 CLOSED)
 - M4 callbacks: inline di webhook (generate/revise/cancel), `callback_events` dedupe + owner check + CAS transition
 - M4 retry: bounded (`classifyEnhancementError`, backoff 60s*2^n cap 8m), `mark_revision_failed` guard-patched, worker-ownership updates
 - Pixazo PixelForge v2 (plan 2026-08-21): endpoint `pixelforge-image-v2/v1/text-to-image` auth `Ocp-Apim-Subscription-Key`, body `text`/`type`/`seed`/`size` → `results[].url` https + `caption`; `type` Opsi 2 via `settings.type` default `tags,caption` allowlist `tags`/`caption`/`tags,caption`; `size` default `1`; drop `negativePrompt`/`aspectRatio` untuk PF; hybrid selection per-session FK + per-user `user_image_preferences` tabel terpisah; 3 model tetap aktif; shortCode `flux|sdxl|pf2` `mp:<code>:<uuid>` ≤64
-- Dispatcher observability (2026-08-22): `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); `handlePrivateTextMessage` kirim "Gagal memulai pemrosesan. Silakan coba lagi sebentar." saat `ok:false` — tidak ada lagi silent failure
+  - Dispatcher observability (2026-08-22): `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); `handlePrivateTextMessage` kirim "Gagal memulai pemrosesan. Silakan coba lagi sebentar." saat `ok:false` — tidak ada lagi silent failure
+  - Command expansion (2026-08-26): 4 command `/start` welcome+command list, `/help` static, `/generate-image` direct (RPC 6-arg overload), `/enhance-prompt` enhance-only `enhance_only` job tanpa sesi; parser `parseSlashCommand` (hyphen/underscore/@bot), `setMyCommands` menu
 - Process-jobs cron (2026-08-22): ditambahkan lalu dihapus per opsi 1 — andalkan feedback dispatcher + retry manual user, bukan cron auto-claim
 - Pollinations provider (review-fix 2026-08-22): **REVIEW-FIX — hardening** prompt/apiKey/b64/log + errors 402 order + openai-compatible parity + 10 pollinations edge tests (89 contract)
 - Pollinations provider (implemented 2026-08-22): **IMPLEMENTED — fallback** reasoning `gpt-oss` priority 150 + image `flux` priority 151 via `https://gen.pollinations.ai/v1`, `PollinationsImageAdapter` POST `/v1/images/generations` size mapping, inject `negativePrompt` via `Avoid:`, 2 adapter types (`pollinations`/`pollinations_image`), 402 -> provider_rate_limited, `.env.example` POLLINATIONS_API_KEY, migration 20260823100000
@@ -47,6 +48,7 @@ Last updated: 2026-08-25 (Milestone 7 CLOSED)
 
 ## Recent Entries
 
+- `2026-08-26/xxx-command-expansion.md` — Command expansion CLOSED: `/help`, `/generate-image` direct, `/enhance-prompt` enhance-only, 274 unit, hosted 126/126, prod 26/26, E2E OK.
 - `2026-08-25/190644-milestone-7-production-release.md` — M7 CLOSED (accepted @alamaby): prod migrate 0→25 attestation-gated (32807707561), deploy albot-be.alamaby.com + @albot_ai_bot, smoke happy path lulus (linkage 1/2/3), 2 bug fixed a3b2a1a (/start welcome, claim-fast after()), runbook handoff.
 - `2026-08-22/214000-pollinations-review-fix.md` — Review-fix: prompt/apiKey/b64 validation, log providerRequestId, errors 402 order, openai parity, 6 edge tests → 89 contract.
 - `2026-08-22/213000-pollinations-provider-implemented.md` — Pollinations fallback IMPLEMENTED: PollinationsImageAdapter (flux, inject Avoid:, size map, b64_json fallback), pollinations/pollinations_image registry, 402 handling, migration 20260823100000 WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, 8 contract tests, verifikasi hijau.
