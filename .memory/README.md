@@ -41,8 +41,9 @@ Last updated: 2026-08-25 (Milestone 7 CLOSED)
 
 ## Open Blockers
 
-- (none — M7 closed)
-- Known limitation prod: `maxDuration 60s` (Vercel Hobby) < Pixazo adapter timeout 120s; recovery cron hanya dev (prod manual `POST /api/recovery/run`).
+- (none — M7 closed; recovery cron prod live & hijau sejak 2026-08-26)
+- Known limitation prod: `maxDuration 60s` (Vercel Hobby) < Pixazo adapter timeout 120s.
+- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual.
 
 ## Recent Entries
 
