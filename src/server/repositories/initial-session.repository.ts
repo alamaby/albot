@@ -11,6 +11,10 @@ export type CreateInitialSessionInput = {
   telegramChatId: bigint;
   sourcePrompt: string;
   updateId: bigint;
+  // Direct-generation mode (/generate-image): when set, the RPC marks the
+  // revision completed with this prompt, starts the session in `generating`,
+  // and enqueues a generate_image job instead of an enhancement job.
+  enhancedPrompt?: string;
 };
 
 export type CreateInitialSessionResult = {
@@ -34,6 +38,7 @@ export class InitialSessionRepository {
         p_source_prompt: input.sourcePrompt,
         p_update_id: bigintToDb(input.updateId),
         p_job_type: "enhance_prompt",
+        p_enhanced_prompt: input.enhancedPrompt ?? null,
       } as unknown as InitialSessionRpcArgs)
       .single();
 

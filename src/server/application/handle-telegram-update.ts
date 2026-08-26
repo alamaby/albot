@@ -7,8 +7,12 @@
 
 import { getServerEnv, type ServerEnv } from "@/env";
 import { sendMessage, answerCallbackQuery } from "@/server/telegram/client";
-import { buildBotMessage } from "@/server/telegram/messages";
-import { parseCallbackAction, TELEGRAM_MAX_PROMPT_LENGTH } from "@/server/telegram/parser";
+import { buildBotMessage, buildGenerationStatusMessage } from "@/server/telegram/messages";
+import {
+  parseCallbackAction,
+  parseSlashCommand,
+  TELEGRAM_MAX_PROMPT_LENGTH,
+} from "@/server/telegram/parser";
 import type { ParsedUpdate } from "@/server/telegram/parser";
 import { BotUserRepository } from "@/server/repositories/bot-user.repository";
 import { SessionPolicyRepository } from "@/server/repositories/session-policy.repository";
@@ -16,6 +20,7 @@ import { TelegramUpdateRepository } from "@/server/repositories/telegram-update.
 import { CallbackEventRepository } from "@/server/repositories/callback-event.repository";
 import { InitialSessionRepository } from "@/server/repositories/initial-session.repository";
 import { SessionRepository } from "@/server/repositories/session.repository";
+import { JobRepository } from "@/server/repositories/job.repository";
 import { logStructured } from "@/server/observability/logger";
 import { RevisionInputUseCase } from "./revision-input";
 import { CallbackStateMachine, type CallbackAction } from "./callback-state-machine";
@@ -45,6 +50,7 @@ export type TelegramWebhookDeps = {
   callbackEventRepository: CallbackEventRepository;
   initialSessionRepository: InitialSessionRepository;
   sessionRepository: SessionRepository;
+  jobRepository: JobRepository;
   revisionInput: RevisionInputUseCase;
   callbackStateMachine: CallbackStateMachine;
   sendTelegramMessage: (token: string, chatId: bigint, text: string) => Promise<unknown>;
@@ -71,6 +77,7 @@ export function createDefaultWebhookDeps(): TelegramWebhookDeps {
     callbackEventRepository: new CallbackEventRepository(),
     initialSessionRepository: new InitialSessionRepository(),
     sessionRepository: new SessionRepository(),
+    jobRepository: new JobRepository(),
     // Wire the real Telegram client + dispatcher into the M4 use cases; their
     // default stubs throw "not wired" and would break callbacks/revision input.
     revisionInput: new RevisionInputUseCase({
@@ -280,10 +287,33 @@ async function handlePrivateTextMessage(
     return;
   }
 
-  // 3. Slash /start — onboarding welcome. Must not create a session or spend
-  //    provider credit: the text "/start" is not a prompt.
+  // 3. Slash /start — onboarding welcome with the command list. Must not
+  //    create a session or spend provider credit: the text "/start" is not a
+  //    prompt.
   if (isStartCommand(message.text)) {
     await trySendMessage(env, deps, message.chatId, buildBotMessage("welcome"));
+    return;
+  }
+
+  // 3b. Slash /help — command reference. Static text, no side effects.
+  const helpCommand = parseSlashCommand(message.text);
+  if (helpCommand?.name === "help") {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("help"));
+    return;
+  }
+
+  // 3c. Slash /generate-image (or /generate_image) — direct generation without
+  //     enhancement. Same guards as the default text flow; the RPC creates the
+  //     session directly in `generating` with a completed revision.
+  if (helpCommand?.name === "generate_image") {
+    await handleDirectGenerateCommand(env, deps, message, helpCommand.args, origin);
+    return;
+  }
+
+  // 3d. Slash /enhance-prompt (or /enhance_prompt) — enhance-only: replies
+  //     with the enhanced prompt as plain text. No session, no generation.
+  if (helpCommand?.name === "enhance_prompt") {
+    await handleEnhanceOnlyCommand(env, deps, message, helpCommand.args, origin);
     return;
   }
 
@@ -396,4 +426,144 @@ async function handlePrivateTextMessage(
       "Gagal memulai pemrosesan. Silakan coba lagi sebentar.",
     );
   }
+}
+
+// Shared guard block for prompt-carrying commands (/generate-image): prompt
+// length, rate limit, and the one-active-session rule. Returns true when the
+// command may proceed.
+async function checkPromptCommandGuards(
+  env: ServerEnv,
+  deps: TelegramWebhookDeps,
+  message: Extract<ParsedUpdate, { kind: "private_text_message" }>,
+  prompt: string,
+): Promise<boolean> {
+  if (prompt.length > ACCESS_CONTROLS.maxPromptLength) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
+    return false;
+  }
+
+  const policy = await deps.sessionPolicyRepository.getPolicyState(message.userId, {
+    rateLimitWindowMinutes: ACCESS_CONTROLS.rateLimitWindowMinutes,
+    rateLimitMaxSubmissions: ACCESS_CONTROLS.rateLimitMaxSubmissions,
+  });
+  if (policy.recentSubmissionCount >= ACCESS_CONTROLS.rateLimitMaxSubmissions) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("rate_limited"));
+    return false;
+  }
+  if (policy.activeSessionCount > 0) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("active_session_exists"));
+    return false;
+  }
+  return true;
+}
+
+// /generate-image <prompt>: direct generation without enhancement. Creates the
+// session directly in `generating` with a completed revision (RPC), enqueues
+// generate_image, dispatches, and persists a status message the worker edits
+// to the final outcome (mirrors the callback generate path).
+async function handleDirectGenerateCommand(
+  env: ServerEnv,
+  deps: TelegramWebhookDeps,
+  message: Extract<ParsedUpdate, { kind: "private_text_message" }>,
+  args: string,
+  origin: string,
+): Promise<void> {
+  if (args.length === 0) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("generate_usage"));
+    return;
+  }
+
+  const allowed = await checkPromptCommandGuards(env, deps, message, args);
+  if (!allowed) return;
+
+  const created = await deps.initialSessionRepository.create({
+    telegramUserId: message.userId,
+    telegramChatId: message.chatId,
+    sourcePrompt: args,
+    updateId: message.updateId,
+    enhancedPrompt: args,
+  });
+
+  const dispatchResult = await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, {
+    sessionOrigin: "webhook",
+  });
+  if (!dispatchResult.ok) {
+    logStructured("error", "webhook.direct_generate_dispatch_error", {
+      sessionId: created.sessionId,
+      status: dispatchResult.status ?? null,
+      error: dispatchResult.error,
+    });
+    // Durable job row remains; the recovery sweep claims it.
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("dispatch_failed"));
+    return;
+  }
+
+  // Persisted status message (worker edits it to the outcome), mirroring the
+  // callback generate path. Best-effort.
+  try {
+    const result = await deps.sendTelegramMessage(
+      env.TELEGRAM_BOT_TOKEN,
+      message.chatId,
+      buildGenerationStatusMessage("generating"),
+    );
+    const messageId = extractSentMessageId(result);
+    if (messageId !== null) {
+      await deps.sessionRepository.saveStatusMessageId(created.sessionId, messageId);
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown";
+    logStructured("error", "webhook.direct_generate_status_failed", {
+      sessionId: created.sessionId,
+      detail,
+    });
+  }
+}
+
+// /enhance-prompt <prompt>: enhance-only. Inserts a session-less enhance_only
+// job and dispatches; the handler replies with the enhanced prompt as plain
+// text. Not counted by the session-based rate limit (documented limitation).
+async function handleEnhanceOnlyCommand(
+  env: ServerEnv,
+  deps: TelegramWebhookDeps,
+  message: Extract<ParsedUpdate, { kind: "private_text_message" }>,
+  args: string,
+  origin: string,
+): Promise<void> {
+  if (args.length === 0) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("enhance_usage"));
+    return;
+  }
+
+  if (args.length > ACCESS_CONTROLS.maxPromptLength) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
+    return;
+  }
+
+  await deps.jobRepository.insertEnhanceOnlyJob({
+    telegramUserId: message.userId,
+    telegramChatId: message.chatId,
+    sourcePrompt: args,
+  });
+
+  const dispatchResult = await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, {
+    sessionOrigin: "webhook",
+  });
+  if (dispatchResult.ok) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("enhance_only_received"));
+  } else {
+    logStructured("error", "webhook.enhance_only_dispatch_error", {
+      status: dispatchResult.status ?? null,
+      error: dispatchResult.error,
+    });
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("dispatch_failed"));
+  }
+}
+
+// Tolerates both the production client ({messageId}) and test stubs.
+function extractSentMessageId(result: unknown): number | null {
+  if (typeof result === "object" && result !== null) {
+    const candidate = (result as { messageId?: unknown }).messageId;
+    if (typeof candidate === "number" && Number.isInteger(candidate)) return candidate;
+  }
+  return null;
 }

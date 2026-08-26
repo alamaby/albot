@@ -87,6 +87,30 @@ export type ParsedCallbackQuery = {
 
 export type ParsedUpdate = ParsedPrivateTextMessage | ParsedCallbackQuery | { kind: "unsupported" };
 
+// A parsed slash command: canonical lowercase name (hyphens normalized to
+// underscores, @botname suffix stripped) and the trimmed remainder text.
+export type ParsedSlashCommand = {
+  name: string;
+  args: string;
+};
+
+// Parses "/command@botname rest of text" into { name, args }. Returns null for
+// non-commands. Hyphens normalize to underscores so "/generate-image" and
+// "/generate_image" are the same command (the Telegram command menu itself
+// only accepts underscores).
+export function parseSlashCommand(text: string): ParsedSlashCommand | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("/")) return null;
+  const withoutSlash = trimmed.slice(1);
+  const spaceIndex = withoutSlash.indexOf(" ");
+  const token = spaceIndex === -1 ? withoutSlash : withoutSlash.slice(0, spaceIndex);
+  const args = spaceIndex === -1 ? "" : withoutSlash.slice(spaceIndex + 1).trim();
+  const rawName = token.split("@")[0] ?? "";
+  const name = rawName.toLowerCase().replace(/-/g, "_");
+  if (name.length === 0 || !/^[a-z0-9_]+$/.test(name)) return null;
+  return { name, args };
+}
+
 // Callback actions currently recognized by the database constraint and the M4
 // callback state machine. Any other data maps to `unknown` and is only logged
 // (M3 does not own callback processing).

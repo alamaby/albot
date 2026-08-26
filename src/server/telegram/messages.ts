@@ -4,6 +4,8 @@
 // currently sends plain text so no escaping is required, but builders are the
 // single place to change that later.
 
+import type { EnhancedPromptStructured } from "@/server/providers/prompt-structure";
+
 export type BotMessage =
   | "access_denied"
   | "prompt_too_long"
@@ -17,7 +19,13 @@ export type BotMessage =
   | "generation_failed"
   | "session_cancelled"
   | "no_active_session"
-  | "welcome";
+  | "welcome"
+  | "help"
+  | "generate_usage"
+  | "enhance_usage"
+  | "enhance_only_received"
+  | "enhance_only_failed"
+  | "dispatch_failed";
 
 export function buildBotMessage(
   kind: BotMessage,
@@ -53,8 +61,58 @@ export function buildBotMessage(
     case "no_active_session":
       return "Tidak ada sesi aktif untuk dibatalkan.";
     case "welcome":
-      return 'Selamat datang! Kirim prompt gambar (mis. "kucing oren duduk di atap saat senja") dan saya akan memperbaiki prompt lalu membuat gambarnya. Gunakan /cancel atau /batal untuk membatalkan sesi aktif.';
+      return [
+        "Selamat datang! Saya membuat gambar dari prompt Anda.",
+        "",
+        COMMAND_HELP_TEXT,
+        "",
+        'Atau kirim teks biasa — prompt otomatis disempurnakan dulu, mis. "kucing oren duduk di atap saat senja".',
+      ].join("\n");
+    case "help":
+      return [
+        "Command yang tersedia:",
+        "",
+        COMMAND_HELP_TEXT,
+        "",
+        "Tanpa command: kirim teks biasa untuk flow lengkap dengan penyempurnaan prompt dan konfirmasi.",
+      ].join("\n");
+    case "generate_usage":
+      return "Kirim /generate-image <prompt> untuk langsung membuat gambar tanpa penyempurnaan. Contoh: /generate-image kucing oren duduk di atap saat senja";
+    case "enhance_usage":
+      return "Kirim /enhance-prompt <prompt> untuk menyempurnakan prompt. Contoh: /enhance-prompt kucing oren duduk di atap saat senja";
+    case "enhance_only_received":
+      return "Sedang menyempurnakan prompt, mohon tunggu...";
+    case "enhance_only_failed":
+      return "Gagal menyempurnakan prompt. Silakan coba lagi.";
+    case "dispatch_failed":
+      return "Gagal memulai pemrosesan. Silakan coba lagi sebentar.";
   }
+}
+
+// Shared command list used by /start (welcome) and /help.
+export const COMMAND_HELP_TEXT = [
+  "/generate-image <prompt> — langsung buat gambar tanpa penyempurnaan",
+  "/enhance-prompt <prompt> — sempurnakan prompt (hasil teks saja)",
+  "/cancel atau /batal — batalkan sesi aktif",
+  "/help — bantuan",
+].join("\n");
+
+// Enhance-only result: the enhanced prompt as plain copyable text.
+export function buildEnhanceOnlyMessage(prompt: EnhancedPromptStructured): string {
+  const lines = ["✨ Prompt hasil penyempurnaan:", "", prompt.prompt];
+  if (prompt.negative_prompt) {
+    lines.push("", `Negative prompt: ${prompt.negative_prompt}`);
+  }
+  if (prompt.aspect_ratio) {
+    lines.push("", `Aspect ratio: ${prompt.aspect_ratio}`);
+  }
+  lines.push(
+    "",
+    "—",
+    "",
+    "Salin prompt di atas, lalu kirim /generate-image <prompt> untuk membuat gambar.",
+  );
+  return lines.join("\n");
 }
 
 // Enhanced prompt confirmation message. Shows the (user-editable) enhanced

@@ -3,6 +3,7 @@
 // inserting follow-up jobs and completing/retrying/failing claimed jobs.
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
+import { bigintToDb } from "@/server/application/bigint-helper";
 import type { Database } from "@/server/supabase/database.types";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
@@ -100,6 +101,35 @@ export class JobRepository {
       .eq("id", jobId);
 
     if (error) throw new Error(`job attach generation attempt failed: ${error.message}`);
+  }
+
+  // Creates a session-less enhance_only job (/enhance-prompt). The raw prompt
+  // travels in the payload; there is no session or revision row. The handler
+  // replies with the enhanced prompt as plain text.
+  async insertEnhanceOnlyJob(input: {
+    telegramUserId: bigint;
+    telegramChatId: bigint;
+    sourcePrompt: string;
+  }): Promise<string> {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("jobs")
+      .insert({
+        job_type: "enhance_only",
+        prompt_session_id: null,
+        prompt_revision_id: null,
+        status: "queued",
+        payload: {
+          telegram_user_id: bigintToDb(input.telegramUserId),
+          telegram_chat_id: bigintToDb(input.telegramChatId),
+          source_prompt: input.sourcePrompt,
+        },
+      } as Database["public"]["Tables"]["jobs"]["Insert"])
+      .select("id")
+      .single();
+
+    if (error) throw new Error(`enhance only job insert failed: ${error.message}`);
+    return data!.id;
   }
 
   // Creates a generate_image job from a confirmed revision (Milestone 5 owns

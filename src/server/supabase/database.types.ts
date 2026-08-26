@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -770,6 +770,7 @@ export type Database = {
       }
       create_initial_session: {
         Args: {
+          p_enhanced_prompt?: string
           p_job_type?: string
           p_source_prompt: string
           p_telegram_chat_id: number

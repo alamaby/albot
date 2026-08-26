@@ -7,6 +7,7 @@ import {
   isStartCommand,
   type TelegramWebhookDeps,
 } from "@/server/application/handle-telegram-update";
+import { parseSlashCommand } from "@/server/telegram/parser";
 import { resetServerEnvCache } from "@/env";
 
 const TOKEN = "123456789:AAexamplebotToken000";
@@ -85,7 +86,11 @@ function buildDeps(overrides: Partial<MutableDeps> = {}): {
       findActiveByUserId: vi.fn(async () => null),
       getById: vi.fn(async () => null),
       cancelActiveSession: vi.fn(async () => true),
+      saveStatusMessageId: vi.fn(async () => {}),
     } as unknown as TelegramWebhookDeps["sessionRepository"],
+    jobRepository: {
+      insertEnhanceOnlyJob: vi.fn(async () => "job-enhance-only-1"),
+    } as unknown as TelegramWebhookDeps["jobRepository"],
     revisionInput: {
       handle: vi.fn(async () => ({ status: "ignored" })),
     } as unknown as TelegramWebhookDeps["revisionInput"],
@@ -447,6 +452,171 @@ describe("isStartCommand", () => {
     expect(isStartCommand("/start now")).toBe(false);
     expect(isStartCommand("start")).toBe(false);
     expect(isStartCommand("")).toBe(false);
+  });
+});
+
+describe("parseSlashCommand", () => {
+  it("parses name and args", () => {
+    expect(parseSlashCommand("/generate-image kucing oren")).toEqual({
+      name: "generate_image",
+      args: "kucing oren",
+    });
+  });
+
+  it("normalizes @botname suffix and hyphens", () => {
+    expect(parseSlashCommand("/Generate-Image@Albot kucing")).toEqual({
+      name: "generate_image",
+      args: "kucing",
+    });
+  });
+
+  it("returns empty args when no text follows", () => {
+    expect(parseSlashCommand("/help")?.args).toBe("");
+  });
+
+  it("returns null for non-commands and invalid names", () => {
+    expect(parseSlashCommand("hello world")).toBeNull();
+    expect(parseSlashCommand("/")).toBeNull();
+    expect(parseSlashCommand("/bad!")).toBeNull();
+  });
+});
+
+describe("handleTelegramUpdate - slash help", () => {
+  it("replies with the command list without side effects", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps();
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/help" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("/generate-image"))).toBe(true);
+    expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
+    expect(deps.dispatchToProcessor).not.toHaveBeenCalled();
+  });
+});
+
+describe("handleTelegramUpdate - slash generate-image", () => {
+  it("creates a direct-generation session, dispatches, and persists a status message", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps();
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/generate-image kucing oren di atap" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(deps.initialSessionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePrompt: "kucing oren di atap",
+        enhancedPrompt: "kucing oren di atap",
+      }),
+    );
+    expect(deps.dispatchToProcessor).toHaveBeenCalledTimes(1);
+    expect(deps.sessionRepository.saveStatusMessageId).not.toHaveBeenCalled(); // stub returns no messageId
+    expect(calls.sentMessages.some((m) => m.text.includes("Sedang membuat gambar"))).toBe(true);
+  });
+
+  it("accepts the underscore variant", async () => {
+    withEnv();
+    const { deps } = buildDeps();
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/generate_image kucing" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(deps.initialSessionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ enhancedPrompt: "kucing" }),
+    );
+  });
+
+  it("replies with usage when args are empty", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps();
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/generate-image" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("/generate-image <prompt>"))).toBe(true);
+    expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
+    expect(deps.dispatchToProcessor).not.toHaveBeenCalled();
+  });
+
+  it("rejects when an active session exists", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps({
+      sessionPolicyRepository: {
+        getPolicyState: vi.fn(async () => ({
+          activeSessionCount: 1,
+          recentSubmissionCount: 0,
+        })),
+      } as unknown as TelegramWebhookDeps["sessionPolicyRepository"],
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/generate-image kucing" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("Masih ada sesi aktif"))).toBe(true);
+    expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("handleTelegramUpdate - slash enhance-prompt", () => {
+  it("inserts a session-less enhance_only job and dispatches", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps();
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/enhance-prompt kucing oren" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(deps.jobRepository.insertEnhanceOnlyJob).toHaveBeenCalledWith({
+      telegramUserId: 123n,
+      telegramChatId: 456n,
+      sourcePrompt: "kucing oren",
+    });
+    expect(deps.dispatchToProcessor).toHaveBeenCalledTimes(1);
+    expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
+    expect(calls.sentMessages.some((m) => m.text.includes("Sedang menyempurnakan prompt"))).toBe(
+      true,
+    );
+  });
+
+  it("replies with usage when args are empty", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps();
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/enhance-prompt" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("/enhance-prompt <prompt>"))).toBe(true);
+    expect(deps.jobRepository.insertEnhanceOnlyJob).not.toHaveBeenCalled();
+  });
+
+  it("reports dispatch failure explicitly", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps({
+      dispatchToProcessor: vi.fn(async () => ({
+        ok: false as const,
+        error: "timeout",
+      })),
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/enhance-prompt kucing" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(calls.sentMessages.some((m) => m.text.includes("Gagal memulai pemrosesan"))).toBe(true);
   });
 });
 

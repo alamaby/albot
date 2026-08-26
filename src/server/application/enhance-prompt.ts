@@ -51,6 +51,13 @@ export type EnhancementOutcome =
     }
   | { status: "expired" };
 
+// Result of the session-less enhance-only flow (/enhance-prompt): the
+// structured prompt plus the provider config used (for diagnostics).
+export type EnhanceOnlyOutcome = {
+  prompt: EnhancedPromptStructured;
+  providerConfigId: string;
+};
+
 export type EnhancePromptDeps = {
   providerConfigRepository?: ProviderConfigRepository;
   providerKeyRepository?: ProviderKeyRepository;
@@ -169,6 +176,71 @@ export class EnhancePromptUseCase {
     }
   }
 
+  // Session-less enhancement for /enhance-prompt: provider select, audit row,
+  // adapter call, structured validation. No session/revision writes — the
+  // caller owns the job lifecycle and user messaging. Throws ProviderError on
+  // failure (caller decides retry).
+  async enhanceOnly(input: { jobId: string; sourcePrompt: string }): Promise<EnhanceOnlyOutcome> {
+    const { selected, startedAt } = await this.selectProvider(input.jobId);
+
+    const requestId = await this.enhancementRepository.recordProviderRequest({
+      jobId: input.jobId,
+      providerConfigId: selected.config.id,
+      providerKeyId: selected.key.id,
+      capability: "reasoning",
+    });
+
+    try {
+      const adapter = await this.createAdapter(selected);
+
+      const result = await adapter.enhancePrompt({
+        sourcePrompt: input.sourcePrompt,
+        systemPrompt: ENHANCEMENT_SYSTEM_PROMPT,
+        options: {
+          ...(selected.config.settings["response_format"] !== undefined
+            ? { response_format: selected.config.settings["response_format"] }
+            : {}),
+        },
+      });
+
+      const structured = parseEnhancedPromptContent(result.prompt);
+
+      await this.enhancementRepository.markProviderRequestSucceeded({
+        requestId,
+        providerRequestId: result.metadata["providerRequestId"] as string | undefined,
+        httpStatus: 200,
+        latencyMs: Date.now() - startedAt,
+      });
+
+      await this.providerKeyRepository.markSuccess({
+        keyId: selected.key.id,
+        providerConfigId: selected.config.id,
+      });
+
+      return { prompt: structured, providerConfigId: selected.config.id };
+    } catch (error) {
+      const providerError = normalizeEnhancementError(error);
+      await this.enhancementRepository.markProviderRequestFailed({
+        requestId,
+        errorCode: providerError.code,
+        httpStatus: providerError.httpStatus,
+      });
+
+      if (
+        providerError.code === "provider_rate_limited" ||
+        providerError.code === "provider_authentication_failed" ||
+        providerError.code === "provider_authorization_failed"
+      ) {
+        await this.providerKeyRepository.markFailure({
+          keyId: selected.key.id,
+          providerConfigId: selected.config.id,
+        });
+      }
+
+      throw providerError;
+    }
+  }
+
   async execute(job: JobSafe): Promise<EnhancementOutcome> {
     const session = await this.sessionRepository.getById(job.promptSessionId ?? "");
     if (!session) {
@@ -219,18 +291,7 @@ export class EnhancePromptUseCase {
     });
 
     try {
-      // Adapter factories read base_url/model from the config payload; merge
-      // the DB row's columns (baseUrl, model) into the settings so the adapter
-      // hits the configured endpoint instead of the factory default.
-      const adapter = getProviderRegistry().createReasoningProvider(
-        selected.config.adapterType,
-        {
-          ...selected.config.settings,
-          base_url: selected.config.baseUrl,
-          model: selected.config.model,
-        },
-        await this.decryptKey(selected),
-      );
+      const adapter = await this.createAdapter(selected);
 
       const result = await adapter.enhancePrompt({
         sourcePrompt: revision.sourcePrompt,
@@ -322,6 +383,21 @@ export class EnhancePromptUseCase {
       { seed: sessionId },
     );
     return { selected, startedAt: Date.now() };
+  }
+
+  // Adapter factories read base_url/model from the config payload; merge the
+  // DB row's columns (baseUrl, model) into the settings so the adapter hits
+  // the configured endpoint instead of the factory default.
+  private async createAdapter(selected: SelectedProvider) {
+    return getProviderRegistry().createReasoningProvider(
+      selected.config.adapterType,
+      {
+        ...selected.config.settings,
+        base_url: selected.config.baseUrl,
+        model: selected.config.model,
+      },
+      await this.decryptKey(selected),
+    );
   }
 
   private async decryptKey(selected: SelectedProvider): Promise<string> {
