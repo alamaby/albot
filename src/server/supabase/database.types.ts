@@ -768,21 +768,36 @@ export type Database = {
           attempt_number: number
         }[]
       }
-      create_initial_session: {
-        Args: {
-          p_enhanced_prompt?: string
-          p_job_type?: string
-          p_source_prompt: string
-          p_telegram_chat_id: number
-          p_telegram_user_id: number
-          p_update_id: number
-        }
-        Returns: {
-          job_id: string
-          revision_id: string
-          session_id: string
-        }[]
-      }
+      create_initial_session:
+        | {
+            Args: {
+              p_job_type?: string
+              p_source_prompt: string
+              p_telegram_chat_id: number
+              p_telegram_user_id: number
+              p_update_id: number
+            }
+            Returns: {
+              job_id: string
+              revision_id: string
+              session_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_enhanced_prompt?: string
+              p_job_type?: string
+              p_source_prompt: string
+              p_telegram_chat_id: number
+              p_telegram_user_id: number
+              p_update_id: number
+            }
+            Returns: {
+              job_id: string
+              revision_id: string
+              session_id: string
+            }[]
+          }
       create_revision: {
         Args: {
           p_previous_prompt: string
