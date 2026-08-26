@@ -44,3 +44,4 @@ Menutup temuan review F1-F6 sebelum migration workflow. F2 (hosted contract test
 
 - 2026-08-26 — Plan dibuat setelah review; eksekusi dimulai.
 - 2026-08-26 — T-1..T-8 DONE, pushed `c92b4e8` (274 unit pass). Sisa T-9: user trigger migrate-development dengan SHA `c92b4e8f06a5c2926b94901c2c6a17cb93443e43`.
+- 2026-08-26 — **F8 kontingensi tereksekusi**: migrate-development gagal di `db:types:check` — gen types merepresentasikan overload sebagai UNION (`5-arg | 6-arg`), bukan merged optional seperti pre-stage manual. Migration SUDAH ter-apply ke dev (push sukses sebelum types check). Regen lokal `b76cc42` → semua check hijau. **Re-trigger migrate-development dengan SHA `b76cc42b097f74df4051f8149dc5cfa64ab1bb14`** (db push akan no-op, lalu types check + hosted tests jalan).
