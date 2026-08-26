@@ -22,15 +22,15 @@ Menutup temuan review F1-F6 sebelum migration workflow. F2 (hosted contract test
 
 ## Tasks
 
-- [ ] T-1 (F1): parsePayload BigInt try/catch → null + test payload non-numerik
-- [ ] T-2 (F2): contract test direct path 6-arg (session generating, revision completed+enhanced_prompt, job generate_image) + reject blank/over-length
-- [ ] T-3 (F3+F4): unit test persist status sukses + dispatch-failure path
-- [ ] T-4 (F5): rename `helpCommand` → `command`
-- [ ] T-5 (F6): export `extractMessageId` dari callback-state-machine, hapus duplikat
-- [ ] T-6 (F7): dokumentasi Progress Log
-- [ ] T-7: Verifikasi lokal (lint/typecheck/test:unit/build/format; db:types:check expected-red sampai migrate-dev)
-- [ ] T-8: Commit + push
-- [ ] T-9: User trigger migrate-development (HEAD baru) → migrate-production → deploy → E2E
+- [x] T-1 (F1): parsePayload BigInt try/catch → null + test payload non-numerik
+- [x] T-2 (F2): contract test direct path 6-arg (session generating, revision completed+enhanced_prompt, job generate_image) + reject blank/over-length
+- [x] T-3 (F3+F4): unit test persist status sukses + dispatch-failure path
+- [x] T-4 (F5): rename `helpCommand` → `command`
+- [x] T-5 (F6): export `extractMessageId` dari callback-state-machine, hapus duplikat
+- [x] T-6 (F7): dokumentasi Progress Log — `/generate-image` saat `awaiting_revision_input` ditolak guard active-session (by design; user /cancel dulu atau kirim revisi)
+- [x] T-7: Verifikasi lokal (lint 0 error/2 warning pre-existing, typecheck ok, 274 unit, build ok, format ok; db:types:check expected-red sampai migrate-dev — types pre-staged)
+- [x] T-8: Commit + push `c92b4e8`
+- [ ] T-9: User trigger migrate-development (`c92b4e8f06a5c2926b94901c2c6a17cb93443e43`) → migrate-production → deploy → E2E
 
 ## Risks
 
@@ -43,3 +43,4 @@ Menutup temuan review F1-F6 sebelum migration workflow. F2 (hosted contract test
 ## Progress Log
 
 - 2026-08-26 — Plan dibuat setelah review; eksekusi dimulai.
+- 2026-08-26 — T-1..T-8 DONE, pushed `c92b4e8` (274 unit pass). Sisa T-9: user trigger migrate-development dengan SHA `c92b4e8f06a5c2926b94901c2c6a17cb93443e43`.
