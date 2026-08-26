@@ -180,7 +180,9 @@ describe.skipIf(skip)("create_initial_session contract", () => {
 
     const { data: revision } = await admin
       .from("prompt_revisions")
-      .select("id, source_prompt, enhanced_prompt, status, completed_at")
+      .select(
+        "id, session_id, revision_number, source_prompt, enhanced_prompt, status, completed_at",
+      )
       .eq("id", result.revisionId)
       .single();
     expect(revision).toMatchObject({

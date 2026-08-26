@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { getAdminClient, assertHostedOrSkip, getHostedEnv } from "../helpers/hosted";
 import { resetServerEnvCache } from "@/env";
 import { TelegramUpdateRepository } from "@/server/repositories/telegram-update.repository";
@@ -25,6 +25,16 @@ const BASE_UPDATE_ID = 880000000 + ((RUN_SEED % 9999) + 20000);
 const CALLBACK_ID = `cb_${Date.now()}_${RUN_SEED}`;
 
 const cleanup: { table: "telegram_updates" | "callback_events"; id: string }[] = [];
+
+beforeAll(async () => {
+  if (skip) return;
+  const admin = getAdminClient();
+  // The seed space is small (9999 values); a colliding earlier run that failed
+  // mid-cleanup would leave a row on this update_id and flip the first insert
+  // into a duplicate. Clear the slot before the run.
+  await admin.from("telegram_updates").delete().eq("update_id", BASE_UPDATE_ID);
+  await admin.from("callback_events").delete().like("callback_query_id", `cb_%_${RUN_SEED}`);
+});
 
 afterEach(async () => {
   const admin = getAdminClient();
