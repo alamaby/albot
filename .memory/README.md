@@ -48,7 +48,7 @@ Last updated: 2026-08-26 (Command Expansion CLOSED)
 
 ## Recent Entries
 
-- `2026-08-26/xxx-command-expansion.md` — Command expansion CLOSED: `/help`, `/generate-image` direct, `/enhance-prompt` enhance-only, 274 unit, hosted 126/126, prod 26/26, E2E OK.
+- `2026-08-26/155000-command-expansion.md` — Command expansion CLOSED: `/help`, `/generate-image` direct, `/enhance-prompt` enhance-only, 274 unit, hosted 126/126, prod 26/26, E2E OK.
 - `2026-08-25/190644-milestone-7-production-release.md` — M7 CLOSED (accepted @alamaby): prod migrate 0→25 attestation-gated (32807707561), deploy albot-be.alamaby.com + @albot_ai_bot, smoke happy path lulus (linkage 1/2/3), 2 bug fixed a3b2a1a (/start welcome, claim-fast after()), runbook handoff.
 - `2026-08-22/214000-pollinations-review-fix.md` — Review-fix: prompt/apiKey/b64 validation, log providerRequestId, errors 402 order, openai parity, 6 edge tests → 89 contract.
 - `2026-08-22/213000-pollinations-provider-implemented.md` — Pollinations fallback IMPLEMENTED: PollinationsImageAdapter (flux, inject Avoid:, size map, b64_json fallback), pollinations/pollinations_image registry, 402 handling, migration 20260823100000 WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, 8 contract tests, verifikasi hijau.
