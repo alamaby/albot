@@ -100,7 +100,7 @@ tinggi dan tidak turun.
 1. Cek `available_at`: job `retry_scheduled` dengan `available_at` di masa depan
    adalah normal (backoff + jitter). Diagnostics `leaseExpired` > 0 berarti ada
    worker crash.
-2. Jalankan recovery manual: `POST /api/recovery/run` (atau tunggu cron 5 menit).
+2. Jalankan recovery manual: `POST /api/recovery/run` (atau tunggu cron 20 menit — `recovery-development.yml` di dev, `recovery-production.yml` di prod).
 3. Jika job `failed` dengan `last_error_code = dead_job`:
    - `attempt_count >= max_attempts` → ekspektasi; sesi sudah terminal
      (`generation_failed`/`enhancement_failed`).

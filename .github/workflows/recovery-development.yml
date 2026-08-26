@@ -20,7 +20,7 @@ jobs:
   recovery-development:
     name: Run recovery sweep (development)
     runs-on: ubuntu-latest
-    # Dedicated environment WITHOUT protection rules so the 5-minute cron can
+    # Dedicated environment WITHOUT protection rules so the 20-minute cron can
     # run unattended. Holds only JOB_PROCESSOR_SECRET (dev value).
     environment: recovery-development
     timeout-minutes: 10
@@ -39,9 +39,13 @@ jobs:
 
       - name: Compute recovery URL
         id: url
+        env:
+          RECOVERY_URL_INPUT: ${{ inputs.recovery_url }}
         run: |
-          if [ -n "${{ inputs.recovery_url }}" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "url=${{ inputs.recovery_url }}" >> "$GITHUB_OUTPUT"
+          # Input passed via env (never interpolated inline) to avoid script
+          # injection through workflow_dispatch inputs.
+          if [ -n "${RECOVERY_URL_INPUT}" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "url=${RECOVERY_URL_INPUT}" >> "$GITHUB_OUTPUT"
           else
             echo "url=https://albot-dev.vercel.app/api/recovery/run" >> "$GITHUB_OUTPUT"
           fi
@@ -53,7 +57,9 @@ jobs:
           JOB_PROCESSOR_SECRET: ${{ secrets.JOB_PROCESSOR_SECRET }}
         run: |
           set -euo pipefail
-          RESPONSE="$(curl -sS -f -X POST \
+          # No curl -f: we want the body + status captured so the explicit
+          # status check below can report the real HTTP code and error body.
+          RESPONSE="$(curl -sS -X POST \
             -H "Authorization: Bearer ${JOB_PROCESSOR_SECRET}" \
             -H "Content-Type: application/json" \
             -H "X-Correlation-Id: gh-${GITHUB_RUN_ID}" \
