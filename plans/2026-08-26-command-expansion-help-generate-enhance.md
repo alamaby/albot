@@ -23,16 +23,16 @@ Empat command baru: `/help` (daftar command), `/start` revisi (welcome + daftar 
 
 ## Tasks
 
-- [ ] T-1: Migration extend RPC (+ job_type check bila ada) + `EXPECTED_MIGRATIONS` + schema/contract tests + `db:types` regen
-- [ ] T-2: Parser command
-- [ ] T-3: Handler `/generate-image`
-- [ ] T-4: Job `enhance_only` + handler + registry
-- [ ] T-5: `/help` + revisi `/start`
-- [ ] T-6: Script `set-my-commands.mjs`
-- [ ] T-7: Unit tests + hosted contract test
-- [ ] T-8: Verifikasi lokal 8 checks
-- [ ] T-9: `migrate-development` → `migrate-production` → deploy
-- [ ] T-10: E2E dev
+- [x] T-1: Migration extend RPC (+ job_type check — tidak perlu, hanya non-blank) + `EXPECTED_MIGRATIONS` (26) + schema/contract tests + `db:types` regen (union overload `b76cc42`)
+- [x] T-2: Parser command
+- [x] T-3: Handler `/generate-image`
+- [x] T-4: Job `enhance_only` + handler + registry
+- [x] T-5: `/help` + revisi `/start`
+- [x] T-6: Script `set-my-commands.mjs`
+- [x] T-7: Unit tests (274 pass) + hosted contract test direct-mode (initial-session.contract)
+- [x] T-8: Verifikasi lokal 8 checks (db:types:check hijau pasca-regen)
+- [x] T-9: `migrate-development` (32952466785, run ke-3 setelah F8 types + fix test) → `migrate-production` (32953970159, prod 26/26, attestation `2323678` match) → deploy Vercel (auto, health ok)
+- [ ] T-10: E2E dev/prod Telegram
 - [ ] T-11: Docs sync + evidence
 
 ## Risks
@@ -40,10 +40,12 @@ Empat command baru: `/help` (daftar command), `/start` revisi (welcome + daftar 
 | Risiko | Mitigasi |
 |---|---|
 | Enhance-only tanpa rate limit | Allowlist gate; limitation terdokumentasi |
-| RPC extend salah backward-compat | Default null = jalur lama utuh; contract test regression net |
+| RPC extend salah backward-compat | Default null = jalur lama utuh; contract test regression net — TERBUKTI (5-arg test lama tetap hijau) |
 | Menu Telegram tak terima hyphen | Parser dua varian; menu underscore |
 | Kualitas prompt mentah direct generate | By design; Regenerate/Revise tersedia |
+| Types overload union (F8) | Regen pasca-dev migrate — sudah dieksekusi `b76cc42` |
 
 ## Progress Log
 
 - 2026-08-26 — Plan disetujui user, eksekusi dimulai.
+- 2026-08-26 — T-1..T-9 DONE (3 run migrate-dev: types union + fix test; prod 26/26 attestation `2323678`). Sisa T-10 E2E + T-11 docs.
