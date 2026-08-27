@@ -207,4 +207,29 @@ describe("GenerateImageHandler", () => {
       }),
     );
   });
+
+  it("edits the status to the content-policy message on a refusal", async () => {
+    withEnv();
+    const refused = makeNonRetryable("provider_content_rejected", "content policy");
+    rpcMock.transition = { id: "session-1" };
+
+    const { handler, generateImage, retry, editStatusMessage } = buildHandler({
+      error: refused,
+      retryResult: false,
+    });
+    generateImage.execute.mockRejectedValue(refused);
+
+    await handler.handle(jobRow(), "processor-abc");
+
+    expect(retry.apply).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "job-1" }),
+      "processor-abc",
+      expect.objectContaining({ code: "provider_content_rejected", retryable: false }),
+    );
+    expect(editStatusMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Prompt ditolak karena kebijakan konten provider. Ubah prompt dan coba lagi.",
+      }),
+    );
+  });
 });

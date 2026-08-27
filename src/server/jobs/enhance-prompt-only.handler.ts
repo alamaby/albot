@@ -123,13 +123,19 @@ export class EnhancePromptOnlyHandler {
       );
 
       if (!retried) {
-        // Terminal failure: tell the user best-effort.
+        // Terminal failure: tell the user best-effort. Distinguish a
+        // content-policy refusal (which the same input cannot resolve) so the
+        // user knows the prompt was declined rather than "failed".
         try {
           const env = getServerEnv();
           await this.sendMessage(
             env.TELEGRAM_BOT_TOKEN,
             payload.telegramChatId,
-            buildBotMessage("enhance_only_failed"),
+            buildBotMessage(
+              providerError.code === "provider_content_rejected"
+                ? "content_policy_declined"
+                : "enhance_only_failed",
+            ),
           );
         } catch (sendError) {
           const detail = sendError instanceof Error ? sendError.message : "unknown";

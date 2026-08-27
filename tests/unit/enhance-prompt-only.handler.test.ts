@@ -166,4 +166,20 @@ describe("EnhancePromptOnlyHandler", () => {
     const failure = sentMessages.find((m) => m.text.includes("Gagal menyempurnakan prompt"));
     expect(failure).toBeDefined();
   });
+
+  it("sends the content-policy message on a refusal instead of generic failure", async () => {
+    withEnv();
+    const { handler, markSucceeded, retry, sentMessages } = buildHandler({
+      enhanceError: makeNonRetryable("provider_content_rejected", "content policy"),
+      retryResult: false,
+    });
+    await handler.handle(jobRow(), "worker-1");
+
+    expect(retry.apply).toHaveBeenCalled();
+    expect(markSucceeded).not.toHaveBeenCalled();
+    const refused = sentMessages.find((m) => m.text.includes("ditolak karena kebijakan konten"));
+    expect(refused).toBeDefined();
+    const generic = sentMessages.find((m) => m.text.includes("Gagal menyempurnakan prompt"));
+    expect(generic).toBeUndefined();
+  });
 });
