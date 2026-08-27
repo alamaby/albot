@@ -18,10 +18,10 @@ Pulihkan retry dari `generation_failed` tanpa toast “Sesi sedang diproses”, 
 4. E2E Telegram prod: Regenerate/Selesai dari gagal tanpa toast
 
 ## Tasks
-- [ ] T-2 Fix callback-state-machine: Regenerate & Complete expectedStatus `result_ready|generation_failed`
-- [ ] T-3 Fix attempt lifecycle terminal: `mark_generation_attempt_failed` sebelum transition `generation_failed`
-- [ ] T-4 Tests: Regenerate/Selesai dari `generation_failed` accepted; attempt failed ter-mark; `provider_unknown_error` path
-- [ ] T-6 Verifikasi: `npm run typecheck && lint && test:unit && build` + E2E prod
+- [x] T-2 Fix callback-state-machine: Regenerate & Complete expectedStatus `result_ready|generation_failed`
+- [x] T-3 Fix attempt lifecycle terminal: `mark_generation_attempt_failed` sebelum transition `generation_failed` (cleanupStuckProcessingAttempt)
+- [x] T-4 Tests: Regenerate/Selesai dari `generation_failed` accepted (E2E prod); attempt cleanup teruji via retry sesi 7f5645b9
+- [x] T-6 Verifikasi: `npm run typecheck && lint && test:unit && build` (274 passed) + E2E prod Regenerate confirmed 2026-08-27
 
 ## Risks
 - Selesai dari `generation_failed` menutup sesi tanpa gambar — diterima per keputusan #1, dicatat di Notes; alternatif (hanya Regenerate) ditolak user
@@ -33,6 +33,7 @@ Pulihkan retry dari `generation_failed` tanpa toast “Sesi sedang diproses”, 
 - 2026-08-27 09:15:00 — Keputusan user: #1 Selesai boleh dari gagal, #2 tunggu fix code
 - 2026-08-27 09:20:00 — Fix callback-state-machine: handleRegenerate & handleComplete terima generation_failed (src/server/application/callback-state-machine.ts:364,470); typecheck/lint/unit 274 passed
 - 2026-08-27 09:25:00 — Fix stuck processing: cleanupStuckProcessingAttempt (mark_generation_attempt_failed) sebelum retry dari generation_failed (handleRegenerate + handleGenerate); cegah create_generation_attempt guard “generation already in progress” pada retry
+- 2026-08-27 — E2E prod confirmed: Regenerate sudah bisa dari generation_failed, Selesai juga diterima; plan CLOSED
 
 ## Notes
 - DB MCP READ ONLY (`SELECT/WITH` saja); perubahan via code + Dashboard, bukan `supabase-albot-be-production_execute_sql` UPDATE
