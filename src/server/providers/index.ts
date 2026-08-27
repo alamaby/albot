@@ -34,6 +34,18 @@ registry.registerReasoning("pollinations", (config, apiKey) => {
   );
 });
 
+// Bynara reasoning router - reuses OpenAI-compatible adapter
+registry.registerReasoning("bynara", (config, apiKey) => {
+  return new OpenAICompatibleReasoningAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? "https://router.bynara.id/v1",
+      model: (config["model"] as string) ?? "laguna-s-2.1",
+      timeoutMs: (config["timeout_ms"] as number) ?? 60000,
+    },
+    apiKey,
+  );
+});
+
 // Register Pixazo image adapters.
 registry.registerImage("pixazo_flux_schnell", (config, apiKey) => {
   return new PixazoImageAdapter(
@@ -67,6 +79,18 @@ registry.registerImage("pollinations_image", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://gen.pollinations.ai/v1",
       model: (config["model"] as string) ?? "flux",
+      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+    },
+    apiKey,
+  );
+});
+
+// Bynara image generation - OpenAI-compatible, model via config.model
+registry.registerImage("bynara_image", (config, apiKey) => {
+  return new PollinationsImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
+      model: (config["model"] as string) ?? "agnes-image-2.1-flash",
       timeoutMs: (config["timeout_ms"] as number) ?? 120000,
     },
     apiKey,
