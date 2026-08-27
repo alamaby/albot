@@ -29,8 +29,10 @@ Pulihkan retry dari `generation_failed` tanpa toast “Sesi sedang diproses”, 
 - `provider_unknown_error` sebelum HTTP (selektor/key/encryption) — perlu audit `provider_configs.is_active`, `provider_keys.cooldown_until`, `PROVIDER_KEY_ENCRYPTION_KEY`
 
 ## Progress Log
-- 2026-08-27 09:15:00 — Plan dibuat (RCA via prod READ ONLY: job 42ec7df3 failed, attempt 559f8439 processing, session generation_failed; callback reject karena expectedStatus hanya result_ready)
+- 2026-08-27 09:15:00 — Plan dibuat (RCA via prod READ ONLY: job 42ec7df3 failed 3/3 provider_unknown_error, attempt 559f8439 processing stuck, session 7f5645b9 generation_failed; callback reject karena handleRegenerate hanya result_ready)
 - 2026-08-27 09:15:00 — Keputusan user: #1 Selesai boleh dari gagal, #2 tunggu fix code
+- 2026-08-27 09:20:00 — Fix callback-state-machine: handleRegenerate & handleComplete terima generation_failed (src/server/application/callback-state-machine.ts:364,470); typecheck/lint/unit 274 passed
+- 2026-08-27 09:25:00 — Fix stuck processing: cleanupStuckProcessingAttempt (mark_generation_attempt_failed) sebelum retry dari generation_failed (handleRegenerate + handleGenerate); cegah create_generation_attempt guard “generation already in progress” pada retry
 
 ## Notes
 - DB MCP READ ONLY (`SELECT/WITH` saja); perubahan via code + Dashboard, bukan `supabase-albot-be-production_execute_sql` UPDATE

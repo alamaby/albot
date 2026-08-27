@@ -350,6 +350,9 @@ export class CallbackStateMachine {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
     }
+    if (input.session.status === "generation_failed") {
+      await this.cleanupStuckProcessingAttempt(input.sessionId);
+    }
     return this.enqueueGeneration(
       input,
       expectedStatus,
@@ -377,6 +380,13 @@ export class CallbackStateMachine {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
     }
+    // Best-effort: clean stuck `processing` attempt that blocks
+    // create_generation_attempt (guard queued|processing). This handles the
+    // prod stuck case 559f8439 where the job failed but the attempt was never
+    // marked failed.
+    if (input.session.status === "generation_failed") {
+      await this.cleanupStuckProcessingAttempt(input.sessionId);
+    }
     const expectedStatus =
       input.session.status === "generation_failed" ? "generation_failed" : "result_ready";
     return this.enqueueGeneration(
@@ -388,6 +398,43 @@ export class CallbackStateMachine {
       callbackQueryId,
       webhookOrigin,
     );
+  }
+
+  // Best-effort: mark any `processing` attempt for the session as failed
+  // so a retried generation can create a fresh attempt. Uses the guarded RPC
+  // (service_role, security definer) — safe to call even when no stuck row.
+  private async cleanupStuckProcessingAttempt(sessionId: string): Promise<void> {
+    try {
+      const { getSupabaseAdmin } = await import("@/server/supabase/admin");
+      const supabase = getSupabaseAdmin();
+      const { data: stuck } = await supabase
+        .from("generation_attempts")
+        .select("id")
+        .eq("session_id", sessionId)
+        .eq("status", "processing")
+        .limit(1)
+        .maybeSingle();
+      if (stuck && (stuck as { id: string }).id) {
+        const attemptId = (stuck as { id: string }).id;
+        const { error } = await supabase.rpc("mark_generation_attempt_failed", {
+          p_attempt_id: attemptId,
+          p_error_code: "stuck_processing_cleanup",
+          p_error_message_redacted: "cleanup before retry from generation_failed",
+        } as never);
+        if (error) {
+          logStructured("warn", "callback.cleanup_stuck_attempt_failed", {
+            sessionId,
+            attemptId,
+            detail: error.message,
+          });
+        } else {
+          logStructured("info", "callback.cleanup_stuck_attempt", { sessionId, attemptId });
+        }
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("warn", "callback.cleanup_stuck_attempt_error", { sessionId, detail });
+    }
   }
 
   private async handleRevise(
