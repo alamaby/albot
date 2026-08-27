@@ -97,6 +97,52 @@ registry.registerImage("bynara_image", (config, apiKey) => {
   );
 });
 
+// Bynara image picker models - one adapter_type per model so the Telegram
+// model picker can route by adapter_type. Reuses PollinationsImageAdapter.
+registry.registerImage("bynara_a20f", (config, apiKey) => {
+  return new PollinationsImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
+      model: (config["model"] as string) ?? "agnes-image-2.0-flash",
+      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+    },
+    apiKey,
+  );
+});
+
+registry.registerImage("bynara_a21f", (config, apiKey) => {
+  return new PollinationsImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
+      model: (config["model"] as string) ?? "agnes-image-2.1-flash",
+      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+    },
+    apiKey,
+  );
+});
+
+registry.registerImage("bynara_grok", (config, apiKey) => {
+  return new PollinationsImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
+      model: (config["model"] as string) ?? "grok-imagine",
+      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+    },
+    apiKey,
+  );
+});
+
+registry.registerImage("bynara_nbn", (config, apiKey) => {
+  return new PollinationsImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
+      model: (config["model"] as string) ?? "nano-banana-pro",
+      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+    },
+    apiKey,
+  );
+});
+
 // Export mock factories for testing.
 export { createDefaultMockReasoningProvider } from "./mock/mock-reasoning.adapter";
 export { createDefaultMockImageProvider } from "./mock/mock-image.adapter";

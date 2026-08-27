@@ -20,7 +20,16 @@ import { join } from "node:path";
 
 const ADAPTERS_BY_CAPABILITY = {
   reasoning: ["openai_compatible", "pollinations", "bynara"],
-  image_generation: ["pixazo_flux_schnell", "pixazo_sdxl", "pollinations_image", "bynara_image"],
+  image_generation: [
+    "pixazo_flux_schnell",
+    "pixazo_sdxl",
+    "pollinations_image",
+    "bynara_image",
+    "bynara_a20f",
+    "bynara_a21f",
+    "bynara_grok",
+    "bynara_nbn",
+  ],
 };
 const CAPABILITIES = ["reasoning", "image_generation"];
 const STRATEGIES = ["priority_failover", "weighted"];

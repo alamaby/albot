@@ -23,22 +23,34 @@ export const MODEL_PICKER_ACTIONS = [
 ] as const;
 export type ModelPickerAction = (typeof MODEL_PICKER_ACTIONS)[number];
 
-export const MODEL_SHORT_CODES = ["flux", "sdxl"] as const;
+export const MODEL_SHORT_CODES = ["flux", "sdxl", "a20f", "a21f", "grok", "nbn"] as const;
 export type ModelShortCode = (typeof MODEL_SHORT_CODES)[number];
 
 export const MODEL_CODE_TO_ADAPTER: Record<ModelShortCode, string> = {
   flux: "pixazo_flux_schnell",
   sdxl: "pixazo_sdxl",
+  a20f: "bynara_a20f",
+  a21f: "bynara_a21f",
+  grok: "bynara_grok",
+  nbn: "bynara_nbn",
 };
 
 export const ADAPTER_TO_MODEL_CODE: Record<string, ModelShortCode> = {
   pixazo_flux_schnell: "flux",
   pixazo_sdxl: "sdxl",
+  bynara_a20f: "a20f",
+  bynara_a21f: "a21f",
+  bynara_grok: "grok",
+  bynara_nbn: "nbn",
 };
 
 export const MODEL_CODE_LABEL: Record<ModelShortCode, string> = {
   flux: "Flux Schnell",
   sdxl: "SDXL",
+  a20f: "Agnes 2.0 Flash",
+  a21f: "Agnes 2.1 Flash",
+  grok: "Grok Imagine",
+  nbn: "Nano Banana Pro",
 };
 
 export function buildCallbackData(
@@ -127,22 +139,36 @@ export function modelPickerKeyboard(
 ): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
-  const row = MODEL_SHORT_CODES.map((code) => {
-    const isSelected = code === selectedCode;
-    const label = MODEL_CODE_LABEL[code] + (isSelected ? " ✓" : "");
-    return { text: label, callback_data: buildModelPickedCallback(code, sessionId, false) };
-  });
-  const defaultRow = MODEL_SHORT_CODES.map((code) => ({
-    text: `${MODEL_CODE_LABEL[code]} ★`,
-    callback_data: buildModelPickedCallback(code, sessionId, true),
-  }));
+  const rows = chunked(
+    MODEL_SHORT_CODES.map((code) => {
+      const isSelected = code === selectedCode;
+      const label = MODEL_CODE_LABEL[code] + (isSelected ? " ✓" : "");
+      return { text: label, callback_data: buildModelPickedCallback(code, sessionId, false) };
+    }),
+    2,
+  );
+  const defaultRows = chunked(
+    MODEL_SHORT_CODES.map((code) => ({
+      text: `${MODEL_CODE_LABEL[code]} ★`,
+      callback_data: buildModelPickedCallback(code, sessionId, true),
+    })),
+    2,
+  );
   return {
     inline_keyboard: [
-      row,
-      defaultRow,
+      ...rows,
+      ...defaultRows,
       [{ text: "Kembali", callback_data: `model_picker_back:${sessionId}` }],
     ],
   };
+}
+
+function chunked<T>(items: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
 }
 
 // Result keyboard shown with the generated image: Regenerate / Revise Prompt /
