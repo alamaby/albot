@@ -25,8 +25,10 @@ export type EnhancePromptHandlerDeps = {
   jobRepository?: JobRepository;
   retry?: EnhancementJobRetry;
   // Sends a retry message with the "Coba Lagi" keyboard after a terminal
-  // enhancement failure. Best-effort; injected for tests.
-  sendRetryMessage?: (input: { session: SessionSafe }) => Promise<void>;
+  // enhancement failure. When contentPolicy is true, adds a "Prompt Baru"
+  // button and a content-policy message (retrying the same input cannot
+  // resolve a refusal). Best-effort; injected for tests.
+  sendRetryMessage?: (input: { session: SessionSafe; contentPolicy?: boolean }) => Promise<void>;
 };
 
 export class EnhancePromptHandler {
@@ -35,7 +37,10 @@ export class EnhancePromptHandler {
   private readonly sessionRepository: SessionRepository;
   private readonly jobRepository: JobRepository;
   private readonly retry: EnhancementJobRetry;
-  private readonly sendRetryMessage: (input: { session: SessionSafe }) => Promise<void>;
+  private readonly sendRetryMessage: (input: {
+    session: SessionSafe;
+    contentPolicy?: boolean;
+  }) => Promise<void>;
 
   constructor(deps: EnhancePromptHandlerDeps = {}) {
     this.enhancePrompt = deps.enhancePrompt ?? new EnhancePromptUseCase();
@@ -52,8 +57,8 @@ export class EnhancePromptHandler {
         await sendMessageWithKeyboard(
           env.TELEGRAM_BOT_TOKEN,
           input.session.telegramChatId,
-          buildBotMessage("enhancement_failed"),
-          retryKeyboard(input.session.id),
+          buildBotMessage(input.contentPolicy ? "content_policy_declined" : "enhancement_failed"),
+          retryKeyboard(input.session.id, { showNewPrompt: input.contentPolicy }),
         );
       });
   }
@@ -134,8 +139,10 @@ export class EnhancePromptHandler {
             detail,
           });
         }
-        // Tell the user with a "Coba Lagi" button. Best-effort.
-        await this.sendRetryTo(sessionId);
+        // Tell the user the outcome with a retry keyboard. Best-effort.
+        // A content-policy refusal is terminal for the same input, so surface
+        // a "Prompt Baru" button instead of a pointless retry.
+        await this.sendRetryTo(sessionId, providerError.code === "provider_content_rejected");
       }
     }
   }
@@ -162,11 +169,11 @@ export class EnhancePromptHandler {
 
   // Best-effort retry message. Loads the session fresh so it can never act on
   // stale ids.
-  private async sendRetryTo(sessionId: string): Promise<void> {
+  private async sendRetryTo(sessionId: string, contentPolicy = false): Promise<void> {
     try {
       const session = await this.sessionRepository.getById(sessionId);
       if (!session) return;
-      await this.sendRetryMessage({ session });
+      await this.sendRetryMessage({ session, contentPolicy });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
       logStructured("error", "enhance.retry_message_failed", { sessionId, detail });

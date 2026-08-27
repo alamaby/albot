@@ -17,6 +17,7 @@ export type BotMessage =
   | "session_expired"
   | "enhancement_failed"
   | "generation_failed"
+  | "content_policy_declined"
   | "session_cancelled"
   | "no_active_session"
   | "welcome"
@@ -56,6 +57,8 @@ export function buildBotMessage(
       return "Gagal memproses prompt. Silakan coba lagi.";
     case "generation_failed":
       return "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.";
+    case "content_policy_declined":
+      return "Prompt ditolak karena kebijakan konten provider. Ubah prompt dan coba lagi.";
     case "session_cancelled":
       return "Sesi dibatalkan.";
     case "no_active_session":

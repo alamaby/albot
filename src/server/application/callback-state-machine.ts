@@ -373,10 +373,7 @@ export class CallbackStateMachine {
     // Regenerate is now allowed from both result_ready (normal) and
     // generation_failed (retry after terminal failure) — see plan
     // 2026-08-27-regenerate-after-failure-toast-fix.
-    if (
-      input.session.status !== "result_ready" &&
-      input.session.status !== "generation_failed"
-    ) {
+    if (input.session.status !== "result_ready" && input.session.status !== "generation_failed") {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
     }
@@ -493,7 +490,16 @@ export class CallbackStateMachine {
     token: string,
     callbackQueryId: string,
   ): Promise<CallbackOutcome> {
-    if (input.session.status !== "awaiting_confirmation") {
+    // Cancel is available from awaiting_confirmation (normal) and from the
+    // terminal failure states enhancement_failed/generation_failed — the
+    // "Prompt Baru" button on a failed session discards it so a new prompt can
+    // start (content-policy refusals cannot be resolved by retrying the same
+    // input).
+    const allowed =
+      input.session.status === "awaiting_confirmation" ||
+      input.session.status === "enhancement_failed" ||
+      input.session.status === "generation_failed";
+    if (!allowed) {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
     }
@@ -503,7 +509,7 @@ export class CallbackStateMachine {
     const { data, error } = await supabase
       .rpc("transition_prompt_session", {
         p_session_id: input.sessionId,
-        p_expected_status: "awaiting_confirmation",
+        p_expected_status: input.session.status,
         p_new_status: "cancelled",
       } as never)
       .maybeSingle();
@@ -515,7 +521,11 @@ export class CallbackStateMachine {
 
     await this.ack(token, callbackQueryId, "Sesi dibatalkan.");
     try {
-      await this.sendTelegramMessage(token, input.session.telegramChatId, "Sesi dibatalkan.");
+      await this.sendTelegramMessage(
+        token,
+        input.session.telegramChatId,
+        "Sesi dibatalkan. Kirim prompt baru untuk membuat gambar.",
+      );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
       logStructured("error", "callback.send_message_failed", {
@@ -533,10 +543,7 @@ export class CallbackStateMachine {
   ): Promise<CallbackOutcome> {
     // Complete is allowed from result_ready (normal) and generation_failed
     // (user decision #1 — close session without image).
-    if (
-      input.session.status !== "result_ready" &&
-      input.session.status !== "generation_failed"
-    ) {
+    if (input.session.status !== "result_ready" && input.session.status !== "generation_failed") {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
     }

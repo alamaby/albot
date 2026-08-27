@@ -19,11 +19,46 @@ export const enhancedPromptStructuredSchema = z
 
 export type EnhancedPromptStructured = z.infer<typeof enhancedPromptStructuredSchema>;
 
+export type StructuredPromptReason = "refusal" | "malformed";
+
+// Distinguishes a content-policy refusal from a malformed/invalid model output.
+// A refusal means the provider declined to produce a prompt (content policy),
+// which is terminal and should not be retried with the same input; malformed
+// means the model returned something that failed parsing/validation.
 export class StructuredPromptError extends Error {
-  constructor(message: string) {
+  readonly reason: StructuredPromptReason;
+
+  constructor(message: string, reason: StructuredPromptReason = "malformed") {
     super(message);
     this.name = "StructuredPromptError";
+    this.reason = reason;
   }
+}
+
+// Heuristic refusal markers: natural-language decline the model emits instead
+// of the requested JSON when content policy blocks the request. Only used to
+// classify an output that already failed JSON/schema parsing, so a legitimate
+// prompt that happens to contain such words is not mislabelled.
+const REFUSAL_MARKERS = [
+  "refus",
+  "i can't",
+  "i cannot",
+  "i am not able",
+  "not able to",
+  "content policy",
+  "nsfw",
+  "against our",
+  "guidelines",
+  "safeguards",
+  "cannot generate",
+  "can't generate",
+  "cannot create",
+  "policy",
+];
+
+function looksLikeRefusal(text: string): boolean {
+  const lower = text.toLowerCase();
+  return REFUSAL_MARKERS.some((marker) => lower.includes(marker));
 }
 
 // Extracts the JSON object from a model response. Accepts a raw JSON object,
@@ -41,9 +76,14 @@ export function parseEnhancedPromptContent(content: string): EnhancedPromptStruc
   try {
     parsed = JSON.parse(candidate);
   } catch (error) {
-    throw new StructuredPromptError(
-      `model response is not valid JSON: ${error instanceof Error ? error.message : "unknown"}`,
-    );
+    // Non-JSON output. If it reads like a content-policy refusal, classify it
+    // as refusal (terminal) rather than malformed so the user is told the
+    // prompt was declined instead of being offered a pointless retry.
+    const detail = error instanceof Error ? error.message : "unknown";
+    if (looksLikeRefusal(candidate)) {
+      throw new StructuredPromptError("model refused the request (content policy)", "refusal");
+    }
+    throw new StructuredPromptError(`model response is not valid JSON: ${detail}`);
   }
 
   const result = enhancedPromptStructuredSchema.safeParse(parsed);

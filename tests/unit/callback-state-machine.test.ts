@@ -242,6 +242,37 @@ describe("CallbackStateMachine", () => {
     expect(sentMessages.some((m) => m.text.includes("Sesi dibatalkan"))).toBe(true);
   });
 
+  it("accepts cancel (Prompt Baru) from enhancement_failed to discard a refused session", async () => {
+    withEnv();
+    stubRpcTransition({ id: "session-1", status: "cancelled" });
+    const { machine, sentMessages } = buildMachine();
+    const outcome = await machine.handle({
+      action: "cancel",
+      sessionId: "session-1",
+      session: session({ status: "enhancement_failed" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-newprompt",
+      origin: "https://test.origin",
+    });
+    expect(outcome.status).toBe("accepted");
+    expect(sentMessages.some((m) => m.text.includes("prompt baru"))).toBe(true);
+  });
+
+  it("rejects cancel from a non-cancellable state", async () => {
+    withEnv();
+    const { machine, acks } = buildMachine();
+    const outcome = await machine.handle({
+      action: "cancel",
+      sessionId: "session-1",
+      session: session({ status: "result_ready" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rej-cancel",
+      origin: "https://test.origin",
+    });
+    expect(outcome.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("diproses"))).toBe(true);
+  });
+
   it("treats a lost CAS as rejected_state without double-processing", async () => {
     withEnv();
     stubRpcTransition(null);

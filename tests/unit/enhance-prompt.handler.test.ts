@@ -212,4 +212,30 @@ describe("EnhancePromptHandler", () => {
       expect.objectContaining({ session: expect.objectContaining({ id: "session-1" }) }),
     );
   });
+
+  it("surfaces content-policy refusal with contentPolicy=true so the user gets a Prompt Baru button", async () => {
+    withEnv();
+    const refused = makeNonRetryable("provider_content_rejected", "content policy");
+    rpcMock.transition = { id: "session-1" };
+
+    const { handler, enhancePrompt, retry, sendRetryMessage } = buildHandler({
+      error: refused,
+      retryResult: false,
+    });
+    enhancePrompt.execute.mockRejectedValue(refused);
+
+    await handler.handle(jobRow(), "processor-abc");
+
+    expect(retry.apply).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "job-1" }),
+      "processor-abc",
+      expect.objectContaining({ code: "provider_content_rejected", retryable: false }),
+    );
+    expect(sendRetryMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session: expect.objectContaining({ id: "session-1" }),
+        contentPolicy: true,
+      }),
+    );
+  });
 });

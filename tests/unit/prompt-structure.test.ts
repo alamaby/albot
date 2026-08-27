@@ -35,6 +35,29 @@ describe("parseEnhancedPromptContent", () => {
     expect(() => parseEnhancedPromptContent("this is not json")).toThrow(StructuredPromptError);
   });
 
+  it("classifies a content-policy refusal as refusal (keyword + non-JSON)", () => {
+    const content = "I can't generate this request because it violates our content policy.";
+    try {
+      parseEnhancedPromptContent(content);
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(StructuredPromptError);
+      expect((error as StructuredPromptError).reason).toBe("refusal");
+    }
+  });
+
+  it("classifies valid JSON that schema-fails as malformed even when a refusal word appears", () => {
+    // A legitimate structured output that happens to mention "policy" but is
+    // still valid JSON must NOT be mislabelled as a refusal.
+    try {
+      parseEnhancedPromptContent('{"policy_notes": "x"}'); // schema-fail (no prompt)
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(StructuredPromptError);
+      expect((error as StructuredPromptError).reason).toBe("malformed");
+    }
+  });
+
   it("rejects invalid shapes (missing prompt)", () => {
     expect(() => parseEnhancedPromptContent('{"negative_prompt": "x"}')).toThrow(
       StructuredPromptError,

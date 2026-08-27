@@ -458,6 +458,17 @@ export class EnhancePromptUseCase {
 function normalizeEnhancementError(error: unknown): ProviderError {
   if (error instanceof ProviderError) return error;
   if (error instanceof StructuredPromptError) {
+    // Content-policy refusal is terminal with an explicit code + message so
+    // the user is told the prompt was declined; malformed output keeps the
+    // generic provider_response_invalid.
+    if (error.reason === "refusal") {
+      return new ProviderError({
+        code: "provider_content_rejected",
+        retryable: false,
+        message: "enhancement refused by content policy",
+        cause: error,
+      });
+    }
     return new ProviderError({
       code: "provider_response_invalid",
       retryable: false,

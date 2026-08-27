@@ -205,13 +205,18 @@ export function parseModelPickerData(
 }
 
 // Retry keyboard shown after a terminal enhancement failure: re-runs the
-// enhancement of the same revision.
-export function retryKeyboard(sessionId: string): {
+// enhancement of the same revision (retry) OR discards the failed session and
+// starts fresh (new_prompt). newPrompt is shown when the failure is a
+// content-policy refusal, which retrying the same input cannot resolve.
+export function retryKeyboard(
+  sessionId: string,
+  options?: { showNewPrompt?: boolean },
+): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
-  return {
-    inline_keyboard: [
-      [{ text: "Coba Lagi", callback_data: buildCallbackData("retry", sessionId) }],
-    ],
-  };
+  const row = [{ text: "Coba Lagi", callback_data: buildCallbackData("retry", sessionId) }];
+  if (options?.showNewPrompt) {
+    row.push({ text: "Prompt Baru", callback_data: buildCallbackData("cancel", sessionId) });
+  }
+  return { inline_keyboard: [row] };
 }
