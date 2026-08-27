@@ -367,9 +367,21 @@ export class CallbackStateMachine {
     callbackQueryId: string,
     webhookOrigin: string,
   ): Promise<CallbackOutcome> {
+    // Regenerate is now allowed from both result_ready (normal) and
+    // generation_failed (retry after terminal failure) — see plan
+    // 2026-08-27-regenerate-after-failure-toast-fix.
+    if (
+      input.session.status !== "result_ready" &&
+      input.session.status !== "generation_failed"
+    ) {
+      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      return { status: "rejected_state" };
+    }
+    const expectedStatus =
+      input.session.status === "generation_failed" ? "generation_failed" : "result_ready";
     return this.enqueueGeneration(
       input,
-      "result_ready",
+      expectedStatus as "result_ready" | "generation_failed",
       "callback_regenerate",
       "Mulai membuat gambar lagi...",
       token,
@@ -472,9 +484,48 @@ export class CallbackStateMachine {
     token: string,
     callbackQueryId: string,
   ): Promise<CallbackOutcome> {
-    if (input.session.status !== "result_ready") {
+    // Complete is allowed from result_ready (normal) and generation_failed
+    // (user decision #1 — close session without image).
+    if (
+      input.session.status !== "result_ready" &&
+      input.session.status !== "generation_failed"
+    ) {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
+    }
+
+    // generation_failed → completed is a terminal transition; result_ready
+    // uses the dedicated completeSession RPC (which validates terminal guard).
+    if (input.session.status === "generation_failed") {
+      const { getSupabaseAdmin } = await import("@/server/supabase/admin");
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase
+        .rpc("transition_prompt_session", {
+          p_session_id: input.sessionId,
+          p_expected_status: "generation_failed",
+          p_new_status: "completed",
+        } as never)
+        .maybeSingle();
+      if (error) throw new Error(`session transition failed: ${error.message}`);
+      if (!data) {
+        await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+        return { status: "rejected_state" };
+      }
+      await this.ack(token, callbackQueryId, "Sesi selesai.");
+      try {
+        await this.sendTelegramMessage(
+          token,
+          input.session.telegramChatId,
+          "Sesi selesai. Terima kasih sudah menggunakan bot ini!",
+        );
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "unknown";
+        logStructured("error", "callback.send_message_failed", {
+          sessionId: input.sessionId,
+          detail,
+        });
+      }
+      return { status: "accepted" };
     }
 
     try {
