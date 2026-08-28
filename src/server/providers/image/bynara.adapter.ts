@@ -167,6 +167,11 @@ export class BynaraImageAdapter implements ImageGenerationProvider {
   }
 
   private mapAspectRatio(ratio?: string): string {
+    // grok-imagine and nano-banana-pro only support 1024x1024 (other sizes
+    // return 400 bad_request). Clamp them to square.
+    if (this.model === "grok-imagine" || this.model === "nano-banana-pro") {
+      return "1024x1024";
+    }
     const map: Record<string, string> = {
       "1:1": "1024x1024",
       "16:9": "1792x1024",
