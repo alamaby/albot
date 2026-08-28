@@ -32,6 +32,33 @@ npm test
 npm run build
 ```
 
+## Production Deployment
+
+```bash
+# 1. Lokal green (wajib sebelum push, lihat AGENTS.md)
+npm run db:lint && npm run db:check-migrations && npm run db:types:check \
+ && npm run test:unit && npm run lint && npm run typecheck && npm run build && npm run format:check
+
+# 2. Push main → trigger migrate-development (auto)
+git push origin main
+# tunggu Actions → migrate-development → success (hosted tests)
+
+# 3. Trigger migrate-production (manual, butuh approval production environment)
+# GitHub → Actions → migrate-production → Run workflow
+#   confirm_project_ref: pcexxtckvwmiquseznaz
+#   development_run_id: <run ID dari migrate-development untuk commit yang sama>
+
+# 4. Seed provider keys ke prod (bila ada provider baru)
+node scripts/seed-prod-bynara.mjs  # baca .env (BYNARA_*_API_KEY) → upsert 6 rows prod (hanya fingerprint di log)
+
+# 5. Deploy Vercel production (auto via push main, atau manual)
+vercel deploy --prod
+# verifikasi
+curl -s https://albot-be.alamaby.com/api/health | jq
+curl -s "https://albot-be.alamaby.com/api/health?include=readiness" -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" | jq
+# test bot @albot_ai_bot
+```
+
 ## Routes
 
 - `GET /api/health` — health check dengan DB reachability yang sanitized. Tambahkan `?include=readiness` untuk snapshot operasional (job counts, dead jobs, session expiry, key cooldown) tanpa biaya provider.
