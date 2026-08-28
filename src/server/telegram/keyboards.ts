@@ -23,33 +23,27 @@ export const MODEL_PICKER_ACTIONS = [
 ] as const;
 export type ModelPickerAction = (typeof MODEL_PICKER_ACTIONS)[number];
 
-export const MODEL_SHORT_CODES = ["flux", "sdxl", "a20f", "a21f", "grok", "nbn"] as const;
+export const MODEL_SHORT_CODES = ["flux", "a20f", "a21f", "nbn"] as const;
 export type ModelShortCode = (typeof MODEL_SHORT_CODES)[number];
 
 export const MODEL_CODE_TO_ADAPTER: Record<ModelShortCode, string> = {
   flux: "pixazo_flux_schnell",
-  sdxl: "pixazo_sdxl",
   a20f: "bynara_a20f",
   a21f: "bynara_a21f",
-  grok: "bynara_grok",
   nbn: "bynara_nbn",
 };
 
 export const ADAPTER_TO_MODEL_CODE: Record<string, ModelShortCode> = {
   pixazo_flux_schnell: "flux",
-  pixazo_sdxl: "sdxl",
   bynara_a20f: "a20f",
   bynara_a21f: "a21f",
-  bynara_grok: "grok",
   bynara_nbn: "nbn",
 };
 
 export const MODEL_CODE_LABEL: Record<ModelShortCode, string> = {
   flux: "Flux Schnell",
-  sdxl: "SDXL",
   a20f: "Agnes 2.0 Flash",
   a21f: "Agnes 2.1 Flash",
-  grok: "Grok Imagine",
   nbn: "Nano Banana Pro",
 };
 
