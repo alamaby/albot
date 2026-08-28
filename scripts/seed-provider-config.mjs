@@ -5,7 +5,7 @@
 //       <selection_strategy> <priority> <weight> --key <plaintext_key> [--label <label>] \
 //       [--capability <reasoning|image_generation>]
 //
-// Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / PROVIDER_KEY_ENCRYPTION_KEY from
+// Reads SUPABASE_URL / SUPABASE_SECRET_KEY / PROVIDER_KEY_ENCRYPTION_KEY from
 // the environment (same as the server). Inserts a provider_configs row
 // (capability defaults to reasoning, is_active=true) and an encrypted
 // provider_keys row. Never prints the plaintext key.
@@ -150,16 +150,13 @@ async function main() {
 
   const env = {
     SUPABASE_URL: resolveEnv(["SUPABASE_URL", "SUPABASE_URL_DEV"]),
-    SUPABASE_SERVICE_ROLE_KEY: resolveEnv([
-      "SUPABASE_SERVICE_ROLE_KEY",
-      "SUPABASE_SERVICE_ROLE_KEY_DEV",
-    ]),
+    SUPABASE_SECRET_KEY: resolveEnv(["SUPABASE_SECRET_KEY", "SUPABASE_SECRET_KEY_DEV"]),
     PROVIDER_KEY_ENCRYPTION_KEY: resolveEnv(["PROVIDER_KEY_ENCRYPTION_KEY"]),
   };
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
     fail(
-      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars are required " +
-        "(resolves SUPABASE_URL_DEV / SUPABASE_SERVICE_ROLE_KEY_DEV from .env)",
+      "SUPABASE_URL and SUPABASE_SECRET_KEY env vars are required " +
+        "(resolves SUPABASE_URL_DEV / SUPABASE_SECRET_KEY_DEV from .env)",
     );
   }
   if (!env.PROVIDER_KEY_ENCRYPTION_KEY) {
@@ -167,7 +164,7 @@ async function main() {
   }
 
   const rootKey = parseEncryptionKey(env.PROVIDER_KEY_ENCRYPTION_KEY);
-  const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false },
   });
 

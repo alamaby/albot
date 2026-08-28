@@ -18,7 +18,7 @@
 // Prints config id, key id, and key fingerprint prefix; never prints the
 // plaintext key.
 //
-// Reads SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY /
+// Reads SUPABASE_URL / SUPABASE_SECRET_KEY /
 // PROVIDER_KEY_ENCRYPTION_KEY from environment (same as the seed script).
 
 import { createClient } from "@supabase/supabase-js";
@@ -134,17 +134,17 @@ async function main() {
 
   const env = {
     SUPABASE_URL: resolveEnv(["SUPABASE_URL", "SUPABASE_URL_DEV", "SUPABASE_URL_PROD"]),
-    SUPABASE_SERVICE_ROLE_KEY: resolveEnv([
-      "SUPABASE_SERVICE_ROLE_KEY",
-      "SUPABASE_SERVICE_ROLE_KEY_DEV",
-      "SUPABASE_SERVICE_ROLE_KEY_PROD",
+    SUPABASE_SECRET_KEY: resolveEnv([
+      "SUPABASE_SECRET_KEY",
+      "SUPABASE_SECRET_KEY_DEV",
+      "SUPABASE_SECRET_KEY_PROD",
     ]),
     PROVIDER_KEY_ENCRYPTION_KEY: resolveEnv(["PROVIDER_KEY_ENCRYPTION_KEY"]),
   };
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
     fail(
-      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars are required " +
-        "(resolves SUPABASE_URL_* / SUPABASE_SERVICE_ROLE_KEY_* from .env.local)",
+      "SUPABASE_URL and SUPABASE_SECRET_KEY env vars are required " +
+        "(resolves SUPABASE_URL_* / SUPABASE_SECRET_KEY_* from .env.local)",
     );
   }
   if (!env.PROVIDER_KEY_ENCRYPTION_KEY) {
@@ -152,7 +152,7 @@ async function main() {
   }
 
   const rootKey = parseEncryptionKey(env.PROVIDER_KEY_ENCRYPTION_KEY);
-  const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false },
   });
 

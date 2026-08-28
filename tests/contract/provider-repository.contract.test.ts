@@ -18,7 +18,7 @@ const TEST_ROOT_KEY = Buffer.alloc(32, 1);
 const ASSOCIATED_DATA_PREFIX = "albot/provider-key/v1";
 
 // ProviderKeyRepository resolves its admin client through getServerEnv(), which
-// reads the base environment names (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).
+// reads the base environment names (SUPABASE_URL, SUPABASE_SECRET_KEY).
 // The hosted test harness uses _DEV suffixed names, so map them onto the base
 // names and reset the env cache before the repository is used. The Telegram and
 // processor secrets are required by the env schema since Milestone 3; dummy
@@ -27,7 +27,7 @@ if (!skip) {
   const env = getHostedEnv();
   if (env) {
     process.env.SUPABASE_URL = env.url;
-    process.env.SUPABASE_SERVICE_ROLE_KEY = env.serviceRoleKey;
+    process.env.SUPABASE_SECRET_KEY = env.secretKey;
     process.env.PROVIDER_KEY_ENCRYPTION_KEY = TEST_ROOT_KEY.toString("base64");
     process.env.TELEGRAM_BOT_TOKEN = "123456789:AAexamplebotToken000";
     process.env.TELEGRAM_WEBHOOK_SECRET = "webhook-secret-abc";

@@ -9,7 +9,10 @@ const serverEnvSchema = z.object({
     .string()
     .url()
     .transform((url) => url.replace(/\/+$/, "")),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  SUPABASE_SECRET_KEY: z
+    .string()
+    .min(1)
+    .regex(/^sb_secret_/, "SUPABASE_SECRET_KEY must start with sb_secret_"),
   PROVIDER_KEY_ENCRYPTION_KEY: z
     .string()
     .min(1)
@@ -59,7 +62,7 @@ export function parseServerEnv(source: Record<string, string | undefined>): Serv
     APP_ENV: source.APP_ENV,
     VERCEL_ENV: source.VERCEL_ENV,
     SUPABASE_URL: source.SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY: source.SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_SECRET_KEY: source.SUPABASE_SECRET_KEY,
     PROVIDER_KEY_ENCRYPTION_KEY: source.PROVIDER_KEY_ENCRYPTION_KEY,
     TELEGRAM_BOT_TOKEN: source.TELEGRAM_BOT_TOKEN,
     TELEGRAM_WEBHOOK_SECRET: source.TELEGRAM_WEBHOOK_SECRET,

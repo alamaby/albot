@@ -10,7 +10,7 @@ if (!skip) {
   const env = getHostedEnv();
   if (env) {
     process.env.SUPABASE_URL = env.url;
-    process.env.SUPABASE_SERVICE_ROLE_KEY = env.serviceRoleKey;
+    process.env.SUPABASE_SECRET_KEY = env.secretKey;
     process.env.PROVIDER_KEY_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
     process.env.TELEGRAM_BOT_TOKEN = "123456789:AAexamplebotToken000";
     process.env.TELEGRAM_WEBHOOK_SECRET = "webhook-secret-abc";

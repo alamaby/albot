@@ -48,7 +48,7 @@ Setiap shell command atau file read yang menampilkan isi `.env`, `.env.local`, `
 **Kapan env HARUS di-set via inline `KEY=val command`** (mis. run `upsert-provider-key.mjs` ad-hoc):
 
 - Aman selama tidak di-echo atau di-log. `KEY1=val1 KEY2=val2 node script.mjs` — env var tidak muncul di stdout selama script tidak mencetaknya.
-- Untuk secret yang sensitif (`PROVIDER_KEY_ENCRYPTION_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `BYNARA_*_API_KEY`), **utamakan wrapper script** di atas pola inline. Pola inline hanya untuk debugging cepat di mana output di-truncate.
+- Untuk secret yang sensitif (`PROVIDER_KEY_ENCRYPTION_KEY`, `SUPABASE_SECRET_KEY`, `BYNARA_*_API_KEY`), **utamakan wrapper script** di atas pola inline. Pola inline hanya untuk debugging cepat di mana output di-truncate.
 
 **Setelah rotasi / kebocoran**:
 

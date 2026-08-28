@@ -33,7 +33,7 @@ Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb
 | `APP_ENV`                     | Opsional                | `development` / `production`; override manual       | Milestone 0   |
 | `VERCEL_ENV`                  | Otomatis oleh Vercel    | `production` / `preview` / `development`            | Milestone 0   |
 | `SUPABASE_URL`                | Development, Production | `empty` (nilai `https://<ref>.supabase.co` di env)  | Milestone 0   |
-| `SUPABASE_SERVICE_ROLE_KEY`   | Development, Production | `empty` (secret)                                    | Milestone 0   |
+| `SUPABASE_SECRET_KEY`         | Development, Production | `empty` (secret; format `sb_secret_...`)            | Milestone 0   |
 | `SUPABASE_PROJECT_REF`        | GitHub Environment      | `recorded` di dokumen ini; secret tersimpan per env | Milestone 1   |
 | `SUPABASE_ACCESS_TOKEN`       | GitHub Environment      | `empty` (secret personal access token CLI)          | Milestone 1   |
 | `SUPABASE_DB_PASSWORD`        | GitHub Environment      | `empty` (secret)                                    | Milestone 1   |
@@ -57,7 +57,7 @@ Nama secret sama di kedua environment; nilainya berbeda.
 - `SUPABASE_DB_PASSWORD` = password DB project development
 - `SUPABASE_ACCESS_TOKEN` = personal access token Supabase (CLI)
 - `SUPABASE_URL` = `https://ceqcitzbosqzxpbtlpfn.supabase.co`
-- `SUPABASE_SERVICE_ROLE_KEY` = service role key project development
+- `SUPABASE_SECRET_KEY` = Supabase Secret Key project development (format `sb_secret_...`)
 - `SUPABASE_PUBLISHABLE_KEY` = publishable/anon key project development
 - `PROVIDER_KEY_ENCRYPTION_KEY` = base64 32-byte root key project development
 - `TELEGRAM_BOT_TOKEN` = token bot Telegram development (dari BotFather)
@@ -70,7 +70,7 @@ Nama secret sama di kedua environment; nilainya berbeda.
 - `SUPABASE_DB_PASSWORD` = password DB project production
 - `SUPABASE_ACCESS_TOKEN` = personal access token Supabase (CLI)
 - `SUPABASE_URL` = `https://pcexxtckvwmiquseznaz.supabase.co`
-- `SUPABASE_SERVICE_ROLE_KEY` = service role key project production
+- `SUPABASE_SECRET_KEY` = Supabase Secret Key project production (format `sb_secret_...`)
 - `SUPABASE_PUBLISHABLE_KEY` = publishable/anon key project production
 - `PROVIDER_KEY_ENCRYPTION_KEY` = base64 32-byte root key project production
 - `TELEGRAM_BOT_TOKEN` = token bot Telegram production `@albot_ai_bot` (dari BotFather)
@@ -86,7 +86,7 @@ Nama secret sama di kedua environment; nilainya berbeda.
 ### Milestone 0 (current)
 
 - `SUPABASE_URL`: URL dari Supabase project, contoh `https://<project-ref>.supabase.co`.
-- `SUPABASE_SERVICE_ROLE_KEY`: service role key dari Supabase project. Minimal 1 karakter.
+- `SUPABASE_SECRET_KEY`: Supabase Secret Key dari Supabase project (format `sb_secret_...`, replacement untuk legacy service-role key). Minimal 1 karakter, harus prefix `sb_secret_`.
 - `NODE_ENV` diisi otomatis oleh platform; tidak perlu di-set manual di Vercel.
 - Label `environment` pada `/api/health` diturunkan dari `VERCEL_ENV` (Vercel menetapkan otomatis), atau di-override dengan `APP_ENV`.
 

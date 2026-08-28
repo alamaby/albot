@@ -1,6 +1,6 @@
 // Validate Vercel Production env var formats against src/env.ts rules.
 // Usage (values are never printed):
-//   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... PROVIDER_KEY_ENCRYPTION_KEY=... \
+//   SUPABASE_URL=... SUPABASE_SECRET_KEY=... PROVIDER_KEY_ENCRYPTION_KEY=... \
 //   TELEGRAM_BOT_TOKEN=... TELEGRAM_WEBHOOK_SECRET=... JOB_PROCESSOR_SECRET=... \
 //   node scripts/verify-env-format.mjs
 //
@@ -36,9 +36,11 @@ check("SUPABASE_URL", (v) => {
   if (url.protocol !== "https:") throw new Error("must be https");
 });
 
-check("SUPABASE_SERVICE_ROLE_KEY", (v) => {
+check("SUPABASE_SECRET_KEY", (v) => {
   if (v.length < 1) throw new Error("empty");
-  if (!/^eyJ/.test(v)) throw new Error("does not look like a JWT (should start with eyJ)");
+  if (!/^sb_secret_/.test(v)) {
+    throw new Error("does not look like a Supabase Secret Key (should start with sb_secret_)");
+  }
 });
 
 check("PROVIDER_KEY_ENCRYPTION_KEY", (v) => {

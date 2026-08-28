@@ -11,7 +11,7 @@
 //   8. Health readiness -> non-paid, includes counts
 //
 // Usage: node scripts/e2e-m6-fault-injection.mjs <RECOVERY_URL> [--skip-telegram]
-// Requires env: SUPABASE_URL_DEV, SUPABASE_SERVICE_ROLE_KEY_DEV, JOB_PROCESSOR_SECRET.
+// Requires env: SUPABASE_URL_DEV, SUPABASE_SECRET_KEY_DEV, JOB_PROCESSOR_SECRET.
 
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
@@ -30,16 +30,16 @@ const RECOVERY_URL = args.find((a) => a.startsWith("http")) ?? process.env.RECOV
 const SKIP_TELEGRAM = args.includes("--skip-telegram");
 
 const SUPABASE_URL = process.env.SUPABASE_URL_DEV;
-const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY_DEV;
+const SECRET_KEY = process.env.SUPABASE_SECRET_KEY_DEV;
 const JOB_PROCESSOR_SECRET =
   process.env.JOB_PROCESSOR_SECRET_DEV ?? process.env.JOB_PROCESSOR_SECRET;
 
-if (!SUPABASE_URL || !SERVICE_ROLE) {
-  console.error("missing SUPABASE_URL_DEV / SUPABASE_SERVICE_ROLE_KEY_DEV");
+if (!SUPABASE_URL || !SECRET_KEY) {
+  console.error("missing SUPABASE_URL_DEV / SUPABASE_SECRET_KEY_DEV");
   process.exit(1);
 }
 
-const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+const admin = createClient(SUPABASE_URL, SECRET_KEY, { auth: { persistSession: false } });
 
 let passed = 0;
 let failed = 0;

@@ -4,9 +4,9 @@ Menjalankan enhancement → confirmation → revision loop secara end-to-end di 
 
 ## Prerequisites
 
-- Milestone 3 sudah closed: webhook terpasang, admin allowlisted (`83540732`/`alamaby`), Vercel Preview env vars lengkap (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`, `SUPABASE_URL` dev, `SUPABASE_SERVICE_ROLE_KEY` dev, `PROVIDER_KEY_ENCRYPTION_KEY` dev).
+- Milestone 3 sudah closed: webhook terpasang, admin allowlisted (`83540732`/`alamaby`), Vercel Preview env vars lengkap (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`, `SUPABASE_URL` dev, `SUPABASE_SECRET_KEY` dev, `PROVIDER_KEY_ENCRYPTION_KEY` dev).
 - Migration M4 sudah diapply ke dev (`migrate-development.yml`, 11/11).
-- `.env` lokal berisi kredensial Supabase dev (`SUPABASE_URL_DEV`, `SUPABASE_SERVICE_ROLE_KEY_DEV`), `PROVIDER_KEY_ENCRYPTION_KEY` **identik dengan nilai di Vercel Preview** (script seed mengenkripsi key provider memakai key ini; runtime di Vercel mendekripsi memakai key yang sama — beda nilai = gagal decrypt saat E2E), dan key provider reasoning.
+- `.env` lokal berisi kredensial Supabase dev (`SUPABASE_URL_DEV`, `SUPABASE_SECRET_KEY_DEV`), `PROVIDER_KEY_ENCRYPTION_KEY` **identik dengan nilai di Vercel Preview** (script seed mengenkripsi key provider memakai key ini; runtime di Vercel mendekripsi memakai key yang sama — beda nilai = gagal decrypt saat E2E), dan key provider reasoning.
 
 ## 1. Seed Provider Reasoning (dev)
 
@@ -31,7 +31,7 @@ node scripts/seed-provider-config.mjs add \
 ```dotenv
 # Supabase dev (sudah ada)
 SUPABASE_URL_DEV=https://ceqcitzbosqzxpbtlpfn.supabase.co
-SUPABASE_SERVICE_ROLE_KEY_DEV=<dev-service-role-key>
+SUPABASE_SECRET_KEY_DEV=<dev-sb_secret-key>
 # WAJIB SAMA dengan nilai di Vercel Preview
 PROVIDER_KEY_ENCRYPTION_KEY=<base64-32-bytes>
 # API key provider (bebas; di-baca script via --env-key)
@@ -40,7 +40,7 @@ OPENROUTER_API_KEY=<openrouter-key>
 
 Catatan:
 
-- Secret (`SUPABASE_SERVICE_ROLE_KEY`, `PROVIDER_KEY_ENCRYPTION_KEY`, key plaintext) tidak boleh ditulis ke chat/commit. Cukup simpan di `.env` lokal (gitignored).
+- Secret (`SUPABASE_SECRET_KEY`, `PROVIDER_KEY_ENCRYPTION_KEY`, key plaintext) tidak boleh ditulis ke chat/commit. Cukup simpan di `.env` lokal (gitignored).
 - Untuk failover test: `add` config kedua dengan `priority 1` + key kedua; key yang invalid menghasilkan 401 → `markFailure` → cooldown → selector fallback ke key berikutnya.
 - `--env-key NAMA_VAR` membaca key dari environment (termasuk `.env` lokal); alternatif `--key <key>` untuk satu kali atau `PROVIDER_KEY` env.
 

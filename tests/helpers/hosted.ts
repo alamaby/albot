@@ -5,7 +5,7 @@ export interface HostedEnv {
   projectRef: string;
   dbPassword: string;
   url: string;
-  serviceRoleKey: string;
+  secretKey: string;
   publishableKey: string;
   accessToken: string;
 }
@@ -17,16 +17,15 @@ export function getHostedEnv(): HostedEnv | null {
   const projectRef = process.env.SUPABASE_PROJECT_REF ?? process.env.SUPABASE_PROJECT_REF_DEV;
   const dbPassword = process.env.SUPABASE_DB_PASSWORD ?? process.env.SUPABASE_DB_PASSWORD_DEV;
   const url = process.env.SUPABASE_URL ?? process.env.SUPABASE_URL_DEV;
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY_DEV;
+  const secretKey = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SECRET_KEY_DEV;
   const publishableKey =
     process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY_DEV;
   const accessToken = process.env.SUPABASE_ACCESS_TOKEN ?? "";
 
-  if (!projectRef || !dbPassword || !url || !serviceRoleKey || !publishableKey) {
+  if (!projectRef || !dbPassword || !url || !secretKey || !publishableKey) {
     return null;
   }
-  return { projectRef, dbPassword, url, serviceRoleKey, publishableKey, accessToken };
+  return { projectRef, dbPassword, url, secretKey, publishableKey, accessToken };
 }
 
 export function isHostedConfigured(): boolean {
@@ -50,7 +49,7 @@ export function assertHostedOrSkip(): boolean {
 export function getAdminClient(): SupabaseClient<Database> {
   const env = getHostedEnv();
   if (!env) throw new Error("hosted credentials not configured");
-  return createClient<Database>(env.url, env.serviceRoleKey, {
+  return createClient<Database>(env.url, env.secretKey, {
     auth: { persistSession: false },
   });
 }

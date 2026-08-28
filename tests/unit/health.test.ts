@@ -5,7 +5,7 @@ import { resetServerEnvCache } from "@/env";
 
 function withSupabaseEnv() {
   process.env.SUPABASE_URL = "https://example.supabase.co";
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+  process.env.SUPABASE_SECRET_KEY = "sb_secret_test-placeholder-value-1234567890";
   process.env.PROVIDER_KEY_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
   process.env.TELEGRAM_BOT_TOKEN = "123456789:AAexamplebotToken000";
   process.env.TELEGRAM_WEBHOOK_SECRET = "webhook-secret-abc";
@@ -28,7 +28,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   delete process.env.SUPABASE_URL;
-  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  delete process.env.SUPABASE_SECRET_KEY;
   delete process.env.PROVIDER_KEY_ENCRYPTION_KEY;
   delete process.env.TELEGRAM_BOT_TOKEN;
   delete process.env.TELEGRAM_WEBHOOK_SECRET;

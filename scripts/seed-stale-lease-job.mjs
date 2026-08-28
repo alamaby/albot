@@ -2,7 +2,7 @@
 // workflow_dispatch) picks it up, proving end-to-end lease recovery + event
 // recording through the real application layer (runRecovery -> job_events).
 // Usage: node scripts/seed-stale-lease-job.mjs
-// Requires env: SUPABASE_URL_DEV, SUPABASE_SERVICE_ROLE_KEY_DEV.
+// Requires env: SUPABASE_URL_DEV, SUPABASE_SECRET_KEY_DEV.
 
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
@@ -12,13 +12,9 @@ for (const line of readFileSync(".env", "utf8").split("\n")) {
   if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
 }
 
-const admin = createClient(
-  process.env.SUPABASE_URL_DEV,
-  process.env.SUPABASE_SERVICE_ROLE_KEY_DEV,
-  {
-    auth: { persistSession: false },
-  },
-);
+const admin = createClient(process.env.SUPABASE_URL_DEV, process.env.SUPABASE_SECRET_KEY_DEV, {
+  auth: { persistSession: false },
+});
 
 const userId = 557999500;
 const past = new Date(Date.now() - 120_000).toISOString();

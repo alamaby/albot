@@ -9,7 +9,7 @@ let cachedClient: SupabaseClient<Database> | undefined;
 export function getSupabaseAdmin(): SupabaseClient<Database> {
   if (!cachedClient) {
     const env = getServerEnv();
-    cachedClient = createClient<Database>(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    cachedClient = createClient<Database>(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -27,8 +27,8 @@ export async function checkDatabaseReachability(): Promise<DatabaseReachability>
     const url = `${env.SUPABASE_URL}/rest/v1/_health_probe?select=*&limit=1`;
     response = await fetch(url, {
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
       },
     });
   } catch {

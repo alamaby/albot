@@ -112,6 +112,8 @@ const SECRET_PATTERNS = [
   { name: "JWT-like token", re: /eyJ[A-Za-z0-9_.-]{20,}/ },
   { name: "telegram bot token", re: /\b\d{8,}:[A-Za-z0-9_-]{30,}\b/ },
   { name: "service role key hint", re: /service_role.*(eyJ|=\s*["'][A-Za-z0-9])/i },
+  { name: "supabase secret key hint", re: /secret_key.*(sb_secret_|=\s*["']sb_)/i },
+  { name: "supabase sb_secret_ literal", re: /sb_secret_[A-Za-z0-9_-]{16,}/ },
 ];
 
 let failed = false;

@@ -6,7 +6,7 @@ const VALID_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
 const validSource: Record<string, string> = {
   NODE_ENV: "development",
   SUPABASE_URL: "https://example.supabase.co",
-  SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+  SUPABASE_SECRET_KEY: "sb_secret_test-placeholder-value-1234567890",
   PROVIDER_KEY_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
   TELEGRAM_BOT_TOKEN: "123456789:AAexamplebotToken000",
   TELEGRAM_WEBHOOK_SECRET: "webhook-secret-abc",
@@ -25,7 +25,7 @@ describe("parseServerEnv", () => {
     expect(parsed).toEqual({
       NODE_ENV: "development",
       SUPABASE_URL: "https://example.supabase.co",
-      SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+      SUPABASE_SECRET_KEY: "sb_secret_test-placeholder-value-1234567890",
       PROVIDER_KEY_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
       TELEGRAM_BOT_TOKEN: "123456789:AAexamplebotToken000",
       TELEGRAM_WEBHOOK_SECRET: "webhook-secret-abc",
@@ -46,8 +46,14 @@ describe("parseServerEnv", () => {
     expect(() => parseServerEnv({ ...validSource, SUPABASE_URL: "not-a-url" })).toThrow();
   });
 
-  it("rejects a missing service role key", () => {
-    expect(() => parseServerEnv(omit(validSource, "SUPABASE_SERVICE_ROLE_KEY"))).toThrow();
+  it("rejects a missing secret key", () => {
+    expect(() => parseServerEnv(omit(validSource, "SUPABASE_SECRET_KEY"))).toThrow();
+  });
+
+  it("rejects a secret key that does not start with sb_secret_", () => {
+    expect(() =>
+      parseServerEnv({ ...validSource, SUPABASE_SECRET_KEY: "not-an-sb-secret" }),
+    ).toThrow("SUPABASE_SECRET_KEY");
   });
 
   it("rejects a missing encryption key", () => {

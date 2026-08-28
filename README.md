@@ -19,7 +19,7 @@ Status: **Milestone 7 — Production Release and Handoff** (smoke E2E prod lulus
 
 ```bash
 npm ci
-cp .env.example .env.local  # isi SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY
+cp .env.example .env.local  # isi SUPABASE_URL dan SUPABASE_SECRET_KEY
 npm run dev
 ```
 

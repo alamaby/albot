@@ -1,6 +1,6 @@
 // Production seeding wrapper for Bynara providers.
 //
-// Reads all secrets (SUPABASE_URL_PROD, SUPABASE_SERVICE_ROLE_KEY_PROD,
+// Reads all secrets (SUPABASE_URL_PROD, SUPABASE_SECRET_KEY_PROD,
 // PROVIDER_KEY_ENCRYPTION_KEY, BYNARA_API_KEY, BYNARA_REASONING_API_KEY)
 // from .env via Node — never via shell echo or grep — and invokes
 // scripts/upsert-provider-key.mjs six times to provision 6 Bynara rows
@@ -81,10 +81,10 @@ function main() {
   }
 
   const srk =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY_PROD ??
-    fileEnv.SUPABASE_SERVICE_ROLE_KEY_PROD;
-  if (!srk) fail("SUPABASE_SERVICE_ROLE_KEY (or _PROD) missing");
+    process.env.SUPABASE_SECRET_KEY ??
+    process.env.SUPABASE_SECRET_KEY_PROD ??
+    fileEnv.SUPABASE_SECRET_KEY_PROD;
+  if (!srk) fail("SUPABASE_SECRET_KEY (or _PROD) missing");
 
   const encKey = fileEnv.PROVIDER_KEY_ENCRYPTION_KEY;
   if (!encKey) fail("PROVIDER_KEY_ENCRYPTION_KEY missing in .env");
@@ -100,7 +100,7 @@ function main() {
   const childEnv = {
     ...process.env,
     SUPABASE_URL: supabaseUrl,
-    SUPABASE_SERVICE_ROLE_KEY: srk,
+    SUPABASE_SECRET_KEY: srk,
     PROVIDER_KEY_ENCRYPTION_KEY: encKey,
     BYNARA_API_KEY: bynaraImageKey,
     BYNARA_REASONING_API_KEY: bynaraReasoningKey,

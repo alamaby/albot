@@ -20,7 +20,7 @@ Set the following environment variables in your Vercel Preview (or development) 
 - `TELEGRAM_WEBHOOK_SECRET` (a random string for webhook authentication)
 - `JOB_PROCESSOR_SECRET` (a random string for job processor authentication)
 - `SUPABASE_URL` (your Supabase development project URL)
-- `SUPABASE_SERVICE_ROLE_KEY` (your Supabase service role key)
+- `SUPABASE_SECRET_KEY` (your Supabase Secret Key; format `sb_secret_...`)
 - `PROVIDER_KEY_ENCRYPTION_KEY` (a random encryption key for provider config)
 
 ### 2. Deploy to Vercel Preview

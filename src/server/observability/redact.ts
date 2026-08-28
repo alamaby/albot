@@ -17,6 +17,11 @@ const SENSITIVE_PATTERNS: Array<{ label: string; regex: RegExp }> = [
     label: "service_role_key",
     regex: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/g,
   },
+  // Supabase Secret Keys (sb_secret_...) — 2026 replacement for service role.
+  {
+    label: "supabase_secret_key",
+    regex: /\bsb_secret_[A-Za-z0-9_-]{16,}\b/g,
+  },
   // Generic x-api-key / Authorization header values.
   {
     label: "authorization_header",
