@@ -21,3 +21,37 @@ Setiap migration baru (`supabase/migrations/<timestamp>_*.sql`) WAJIB:
 
 - Commit message tidak boleh mengandung trailer `Co-authored-by:` apa pun (termasuk bot/agent).
 - Commit message: subject ringkas (conventional commits) + body deskriptif bila perlu. Tidak ada signature/attribution tambahan.
+
+# Secret Handling (Anti-Exfiltration)
+
+Setiap shell command atau file read yang menampilkan isi `.env`, `.env.local`, `.env.production`, atau env files lainnya ke stdout/stderr akan bocorkan secret ke chat log. **Dilarang**:
+
+- `grep`, `cat`, `head`, `tail`, `awk`, `sed`, `less` terhadap file `.env*` (walaupun dengan `sed 's/=.*/=***/'` — pattern redaction rentan miss).
+- `env | grep ...` untuk env yang di-load dari file.
+- `node -e "console.log(process.env.SECRET_NAME)"` atau setara.
+- `bash -c "...$SECRET..."` interpolation.
+- `printenv SECRET_NAME` atau `echo $SECRET_NAME`.
+- Print key/id/secret dari response Supabase API (`get_publishable_keys` boleh untuk anoned/publishable, tapi JANGAN untuk service role key).
+
+**Cara aman baca env** (untuk verifikasi atau debugging):
+
+1. **Cek apakah var di-set** (boolean only, tanpa nilai):
+   ```sh
+   node -e "console.log('VAR_NAME:', process.env.VAR_NAME !== undefined ? 'set' : 'unset')"
+   ```
+2. **Cek nama var yang ada di file .env** (nama saja, tanpa nilai):
+   ```sh
+   node -e "const c=require('fs').readFileSync('.env','utf8');for(const l of c.split(/\r?\n/)){const m=l.match(/^\s*([A-Za-z0-9_]+)=/);if(m)console.log(m[1])}"
+   ```
+3. **Pakai script wrapper** yang baca .env di Node dan oper ke child process via `process.env` (lihat `scripts/seed-prod-bynara.mjs` sebagai pola). Output: hanya fingerprint / config id, bukan secret.
+
+**Kapan env HARUS di-set via inline `KEY=val command`** (mis. run `upsert-provider-key.mjs` ad-hoc):
+
+- Aman selama tidak di-echo atau di-log. `KEY1=val1 KEY2=val2 node script.mjs` — env var tidak muncul di stdout selama script tidak mencetaknya.
+- Untuk secret yang sensitif (`PROVIDER_KEY_ENCRYPTION_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `BYNARA_*_API_KEY`), **utamakan wrapper script** di atas pola inline. Pola inline hanya untuk debugging cepat di mana output di-truncate.
+
+**Setelah rotasi / kebocoran**:
+
+- Segera rotate secret di dashboard (Supabase / Vercel / Bynara / OpenRouter / dll).
+- Update `.env` lokal, Vercel env, dan GitHub Secrets sesuai.
+- Untuk `PROVIDER_KEY_ENCRYPTION_KEY`: kalau di-rotate, SEMUA `provider_keys` perlu di-re-encrypt dengan key baru (script re-encrypt belum ada — task terpisah).
