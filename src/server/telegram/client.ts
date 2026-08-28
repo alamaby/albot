@@ -107,6 +107,39 @@ export async function sendPhotoByUrl(
   return { messageId: result.result.message_id };
 }
 
+// Sends a photo by uploading bytes (multipart). Used when the provider
+// returns b64_json (e.g. Bynara) so Telegram does not need to fetch a URL.
+export async function sendPhotoByBytes(
+  token: string,
+  chatId: bigint,
+  imageBytes: Uint8Array,
+  options?: { caption?: string; replyMarkup?: InlineKeyboard; filename?: string },
+): Promise<SendMessageResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PHOTO_REQUEST_TIMEOUT_MS);
+  try {
+    const form = new FormData();
+    form.append("chat_id", chatId.toString());
+    const blob = new Blob([imageBytes as unknown as BlobPart], { type: "image/png" });
+    form.append("photo", blob, options?.filename ?? "image.png");
+    if (options?.caption) form.append("caption", options.caption);
+    if (options?.replyMarkup) form.append("reply_markup", JSON.stringify(options.replyMarkup));
+
+    const response = await fetch(`${TELEGRAM_API_BASE}/bot${token}/sendPhoto`, {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+    const result = (await response.json()) as TelegramApiResult<{ message_id: number }>;
+    if (!result.ok) {
+      throw new Error(`telegram sendPhoto failed: ${redactTelegramError(result)}`);
+    }
+    return { messageId: result.result.message_id };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Edits a previously sent message in place. Used for the generation status
 // message: sent once as "Sedang membuat gambar..." and edited to the final
 // outcome so the chat does not fill with one-off status bubbles.

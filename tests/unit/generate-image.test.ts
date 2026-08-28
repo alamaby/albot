@@ -173,7 +173,7 @@ type Harness = {
     createAttempt: { sessionId: string; revisionId: string }[];
     markProcessing: { attemptId: string }[];
     attachProviderToAttempt: { attemptId: string; parameters?: Record<string, unknown> }[];
-    sendPhoto: { imageUrl: string }[];
+    sendPhoto: { imageUrl?: string; imageBytes?: Uint8Array }[];
     editStatusMessage: { text: string }[];
     markAttemptSucceeded: { attemptId: string; messageId: number | null }[];
     markProviderRequestSucceeded: { requestId: string }[];
@@ -287,7 +287,7 @@ function buildUseCase(
       ? vi.fn(async () => {
           throw overrides.sendPhotoError;
         })
-      : vi.fn(async (input: { imageUrl: string }) => {
+      : vi.fn(async (input: { imageUrl?: string; imageBytes?: Uint8Array }) => {
           calls.sendPhoto.push(input);
           return overrides.sendPhotoResult ?? { messageId: 900 };
         });

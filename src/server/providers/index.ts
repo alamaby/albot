@@ -7,6 +7,7 @@ import { getProviderRegistry } from "./registry";
 import { OpenAICompatibleReasoningAdapter } from "./reasoning/openai-compatible.adapter";
 import { PixazoImageAdapter } from "./image/pixazo.adapter";
 import { PollinationsImageAdapter } from "./image/pollinations.adapter";
+import { BynaraImageAdapter } from "./image/bynara.adapter";
 
 const registry = getProviderRegistry();
 
@@ -87,7 +88,7 @@ registry.registerImage("pollinations_image", (config, apiKey) => {
 
 // Bynara image generation - OpenAI-compatible, model via config.model
 registry.registerImage("bynara_image", (config, apiKey) => {
-  return new PollinationsImageAdapter(
+  return new BynaraImageAdapter(
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "agnes-image-2.1-flash",
@@ -98,9 +99,9 @@ registry.registerImage("bynara_image", (config, apiKey) => {
 });
 
 // Bynara image picker models - one adapter_type per model so the Telegram
-// model picker can route by adapter_type. Reuses PollinationsImageAdapter.
+// model picker can route by adapter_type. Uses BynaraImageAdapter (b64_json).
 registry.registerImage("bynara_a20f", (config, apiKey) => {
-  return new PollinationsImageAdapter(
+  return new BynaraImageAdapter(
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "agnes-image-2.0-flash",
@@ -111,7 +112,7 @@ registry.registerImage("bynara_a20f", (config, apiKey) => {
 });
 
 registry.registerImage("bynara_a21f", (config, apiKey) => {
-  return new PollinationsImageAdapter(
+  return new BynaraImageAdapter(
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "agnes-image-2.1-flash",
@@ -122,7 +123,7 @@ registry.registerImage("bynara_a21f", (config, apiKey) => {
 });
 
 registry.registerImage("bynara_grok", (config, apiKey) => {
-  return new PollinationsImageAdapter(
+  return new BynaraImageAdapter(
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "grok-imagine",
@@ -133,7 +134,7 @@ registry.registerImage("bynara_grok", (config, apiKey) => {
 });
 
 registry.registerImage("bynara_nbn", (config, apiKey) => {
-  return new PollinationsImageAdapter(
+  return new BynaraImageAdapter(
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "nano-banana-pro",

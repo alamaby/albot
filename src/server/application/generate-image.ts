@@ -54,12 +54,13 @@ export type GenerateImageDeps = {
   // Photo delivery with the result action keyboard. The attempt is only marked
   // succeeded after this resolves; a delivery failure is terminal for the
   // attempt. Injected so tests can stub it; production default sends via
-  // Telegram sendPhoto-by-URL.
+  // Telegram sendPhoto-by-URL or sendPhoto-by-bytes (for Bynara b64_json).
   sendPhoto?: (input: {
     session: SessionSafe;
     revision: RevisionSafe;
     attempt: GenerationAttemptSafe;
-    imageUrl: string;
+    imageUrl?: string;
+    imageBytes?: Uint8Array;
   }) => Promise<{ messageId: number }>;
   // Edits the persisted "Sedang membuat gambar..." message to the final
   // outcome. Best-effort: a failure must not fail generation. Injected for
@@ -86,7 +87,8 @@ export class GenerateImageUseCase {
     session: SessionSafe;
     revision: RevisionSafe;
     attempt: GenerationAttemptSafe;
-    imageUrl: string;
+    imageUrl?: string;
+    imageBytes?: Uint8Array;
   }) => Promise<{ messageId: number }>;
   private readonly editStatusMessage: (input: {
     session: SessionSafe;
@@ -120,12 +122,11 @@ export class GenerateImageUseCase {
     session: SessionSafe;
     revision: RevisionSafe;
     attempt: GenerationAttemptSafe;
-    imageUrl: string;
+    imageUrl?: string;
+    imageBytes?: Uint8Array;
   }): Promise<{ messageId: number }> {
     const env = getServerEnv();
-    const { sendPhotoByUrl } = await import("@/server/telegram/client");
-    const { resultKeyboardWithModel, ADAPTER_TO_MODEL_CODE } =
-      await import("@/server/telegram/keyboards");
+    const { ADAPTER_TO_MODEL_CODE } = await import("@/server/telegram/keyboards");
     const { buildResultCaption } = await import("@/server/telegram/messages");
 
     // Resolve selected code for result keyboard (show Ganti Model with check)
@@ -141,13 +142,33 @@ export class GenerateImageUseCase {
       }
     }
 
-    return sendPhotoByUrl(env.TELEGRAM_BOT_TOKEN, input.session.telegramChatId, input.imageUrl, {
-      caption: buildResultCaption({
-        attemptNumber: input.attempt.attemptNumber,
-        revisionNumber: input.revision.revisionNumber,
-      }),
-      replyMarkup: resultKeyboardWithModel(input.session.id, selectedCode),
+    const caption = buildResultCaption({
+      attemptNumber: input.attempt.attemptNumber,
+      revisionNumber: input.revision.revisionNumber,
     });
+    const { resultKeyboardWithModel } = await import("@/server/telegram/keyboards");
+    const replyMarkup = resultKeyboardWithModel(input.session.id, selectedCode);
+
+    if (input.imageBytes) {
+      const { sendPhotoByBytes } = await import("@/server/telegram/client");
+      return sendPhotoByBytes(
+        env.TELEGRAM_BOT_TOKEN,
+        input.session.telegramChatId,
+        input.imageBytes,
+        {
+          caption,
+          replyMarkup,
+        },
+      );
+    }
+    if (input.imageUrl) {
+      const { sendPhotoByUrl } = await import("@/server/telegram/client");
+      return sendPhotoByUrl(env.TELEGRAM_BOT_TOKEN, input.session.telegramChatId, input.imageUrl, {
+        caption,
+        replyMarkup,
+      });
+    }
+    throw new Error("defaultSendPhoto: no imageUrl or imageBytes");
   }
 
   // Production default: edit the persisted status message to the outcome. A
@@ -293,11 +314,14 @@ export class GenerateImageUseCase {
       }
 
       const imageUrl = result.imageUrl;
-      if (!imageUrl || !isHttpsUrl(imageUrl)) {
+      const imageBytes = result.imageBytes;
+      const hasUrl = !!(imageUrl && isHttpsUrl(imageUrl));
+      const hasBytes = !!(imageBytes && imageBytes.length > 0);
+      if (!hasUrl && !hasBytes) {
         throw new ProviderError({
           code: "provider_response_invalid",
           retryable: false,
-          message: "image generation returned an invalid image url",
+          message: "image generation returned no usable image url or bytes",
         });
       }
 
@@ -322,7 +346,13 @@ export class GenerateImageUseCase {
             detail,
           });
         }
-        sent = await this.sendPhoto({ session, revision, attempt, imageUrl });
+        sent = await this.sendPhoto({
+          session,
+          revision,
+          attempt,
+          ...(hasUrl ? { imageUrl } : {}),
+          ...(hasBytes ? { imageBytes } : {}),
+        });
       } catch (error) {
         // Delivery failure is terminal for this attempt; the session moves to
         // generation_failed so the user can retry manually.
