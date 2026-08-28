@@ -34,27 +34,25 @@ function fail(message) {
 }
 
 function loadDotEnv() {
-  const file = join(process.cwd(), ".env.local");
-  if (!existsSync(file)) {
-    const alt = join(process.cwd(), ".env");
-    if (!existsSync(alt)) return;
-  }
-  const target = existsSync(join(process.cwd(), ".env.local"))
-    ? join(process.cwd(), ".env.local")
-    : join(process.cwd(), ".env");
-  const content = readFileSync(target, "utf8");
-  for (const line of content.split(/\r?\n/)) {
-    const match = line.match(/^\s*([A-Za-z0-9_]+)=(.*)$/);
-    if (!match) continue;
-    const key = match[1];
-    let value = match[2].trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
+  // Load .env.local first (developer overrides), then .env (defaults) without
+  // overwriting variables already set in the shell. Both files are optional.
+  for (const filename of [".env.local", ".env"]) {
+    const file = join(process.cwd(), filename);
+    if (!existsSync(file)) continue;
+    const content = readFileSync(file, "utf8");
+    for (const line of content.split(/\r?\n/)) {
+      const match = line.match(/^\s*([A-Za-z0-9_]+)=(.*)$/);
+      if (!match) continue;
+      const key = match[1];
+      let value = match[2].trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      if (process.env[key] === undefined) process.env[key] = value;
     }
-    if (process.env[key] === undefined) process.env[key] = value;
   }
 }
 
