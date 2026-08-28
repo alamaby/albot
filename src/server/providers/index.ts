@@ -92,7 +92,7 @@ registry.registerImage("bynara_image", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "agnes-image-2.1-flash",
-      timeoutMs: (config["timeout_ms"] as number) ?? 50000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
     },
     apiKey,
   );
@@ -105,7 +105,7 @@ registry.registerImage("bynara_a20f", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "agnes-image-2.0-flash",
-      timeoutMs: (config["timeout_ms"] as number) ?? 50000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
     },
     apiKey,
   );
@@ -116,7 +116,7 @@ registry.registerImage("bynara_a21f", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "agnes-image-2.1-flash",
-      timeoutMs: (config["timeout_ms"] as number) ?? 50000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
     },
     apiKey,
   );
@@ -127,7 +127,7 @@ registry.registerImage("bynara_grok", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "grok-imagine",
-      timeoutMs: (config["timeout_ms"] as number) ?? 50000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
     },
     apiKey,
   );
@@ -138,7 +138,7 @@ registry.registerImage("bynara_nbn", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "nano-banana-pro",
-      timeoutMs: (config["timeout_ms"] as number) ?? 50000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
     },
     apiKey,
   );
