@@ -58,7 +58,7 @@ export class BynaraImageAdapter implements ImageGenerationProvider {
         message: "bynara timeoutMs must be a finite number",
       });
     }
-    this.timeoutMs = config.timeoutMs ?? 120000;
+    this.timeoutMs = config.timeoutMs ?? 50000;
     if (!Number.isFinite(this.timeoutMs) || this.timeoutMs <= 0) {
       throw new ProviderError({
         code: "provider_configuration_invalid",
