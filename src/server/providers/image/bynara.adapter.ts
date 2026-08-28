@@ -58,7 +58,11 @@ export class BynaraImageAdapter implements ImageGenerationProvider {
         message: "bynara timeoutMs must be a finite number",
       });
     }
-    this.timeoutMs = config.timeoutMs ?? 40000;
+    // Grok and Nano are slower (often >40s from Vercel iad1); allow up to 55s
+    // to stay under Vercel maxDuration 60s.
+    const defaultTimeout =
+      config.model === "grok-imagine" || config.model === "nano-banana-pro" ? 55000 : 40000;
+    this.timeoutMs = config.timeoutMs ?? defaultTimeout;
     if (!Number.isFinite(this.timeoutMs) || this.timeoutMs <= 0) {
       throw new ProviderError({
         code: "provider_configuration_invalid",

@@ -127,7 +127,7 @@ registry.registerImage("bynara_grok", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "grok-imagine",
-      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 55000,
     },
     apiKey,
   );
@@ -138,7 +138,7 @@ registry.registerImage("bynara_nbn", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "nano-banana-pro",
-      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 55000,
     },
     apiKey,
   );
