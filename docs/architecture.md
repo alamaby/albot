@@ -6,17 +6,17 @@ platform dan tech stack yang terlibat. Berlaku untuk development (`@albot_dev`,
 
 ## 1. Platform & Tech Stack
 
-| Lapisan      | Teknologi                                             | Peran                                        |
-| ------------ | ----------------------------------------------------- | -------------------------------------------- |
-| **Client**   | Telegram (`@albot_dev` / `@albot_ai_bot`)             | User kirim prompt / klik tombol              |
-| **Edge API** | Next.js 16 App Router, Node.js runtime di **Vercel**  | Webhook + endpoint internal                  |
-| **Domain**   | TypeScript `src/server/application/`                  | Use case, state machine, guards              |
-| **DB**       | **Supabase Postgres** (hosted)                        | Durable job store + state                    |
-| **Auth DB**  | `SUPABASE_SECRET_KEY` (`sb_secret_...`)               | Service-role bypass RLS, satu client         |
-| **Reasoning**| Bynara `router.bynara.id/v1` (laguna-s-2.1, nemotron-3-ultra) | Enhance prompt                     |
-| **Image**    | Bynara `api-images.bynara.id/v1` (agnes-2.0/2.1, nano-banana-pro) + Pixazo | Generate gambar (b64_json) |
-| **Scheduler**| GitHub Actions cron `*/20`                            | Recovery sweep (dev & prod)                  |
-| **CI/CD**    | GitHub Actions `validate` → `migrate-development` → `deploy-development` | Auto on push main |
+| Lapisan       | Teknologi                                                                  | Peran                                |
+| ------------- | -------------------------------------------------------------------------- | ------------------------------------ |
+| **Client**    | Telegram (`@albot_dev` / `@albot_ai_bot`)                                  | User kirim prompt / klik tombol      |
+| **Edge API**  | Next.js 16 App Router, Node.js runtime di **Vercel**                       | Webhook + endpoint internal          |
+| **Domain**    | TypeScript `src/server/application/`                                       | Use case, state machine, guards      |
+| **DB**        | **Supabase Postgres** (hosted)                                             | Durable job store + state            |
+| **Auth DB**   | `SUPABASE_SECRET_KEY` (`sb_secret_...`)                                    | Service-role bypass RLS, satu client |
+| **Reasoning** | Bynara `router.bynara.id/v1` (laguna-s-2.1, nemotron-3-ultra)              | Enhance prompt                       |
+| **Image**     | Bynara `api-images.bynara.id/v1` (agnes-2.0/2.1, nano-banana-pro) + Pixazo | Generate gambar (b64_json)           |
+| **Scheduler** | GitHub Actions cron `*/20`                                                 | Recovery sweep (dev & prod)          |
+| **CI/CD**     | GitHub Actions `validate` → `migrate-development` → `deploy-development`   | Auto on push main                    |
 
 - **Satu Supabase project per environment**: dev `ceqcitzbosqzxpbtlpfn`, prod
   `pcexxtckvwmiquseznaz`. RLS FORCE, service_role only.
@@ -79,8 +79,8 @@ flowchart TD
    key eligible, lalu insert `generate_image` job + dispatch.
 6. **Teks biasa** → guard rate limit + one-active-session → RPC
    `create_initial_session` atomically membuat `prompt_sessions` + `prompt_revisions`
-   + `jobs` (`enhance_prompt`, `queued`).
-   - Migrasi `20260828120000` memastikan sesi stale yang `expires_at`-nya lewat
+   - `jobs` (`enhance_prompt`, `queued`).
+   * Migrasi `20260828120000` memastikan sesi stale yang `expires_at`-nya lewat
      di-expire di dalam RPC sebelum insert, agar partial unique
      `prompt_sessions_one_active_idx` tidak menolak prompt baru.
 7. **Dispatch** ke `/api/jobs/process` lalu balas ack. Webhook selesai `< 30s`
@@ -116,7 +116,7 @@ flowchart TD
 1. `validate.yml` — lint / typecheck / test / build.
 2. `migrate-development.yml` (auto `push`) — `supabase db push` ke dev + hosted tests.
 3. `deploy-development.yml` (auto, menunggu migrasi sukses) — deploy Vercel preview
-   + re-point alias `albot-dev.vercel.app`.
+   - re-point alias `albot-dev.vercel.app`.
 4. `migrate-production.yml` (manual, butuh approval) — apply ke prod.
 5. Workflow recovery `*/20` di dev & prod.
 
