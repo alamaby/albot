@@ -32,7 +32,7 @@ const ADAPTERS_BY_CAPABILITY = {
   ],
 };
 const CAPABILITIES = ["reasoning", "image_generation"];
-const STRATEGIES = ["priority_failover", "weighted"];
+const STRATEGIES = ["priority_failover", "weighted", "round_robin"];
 
 function fail(message) {
   console.error(`[error] ${message}`);

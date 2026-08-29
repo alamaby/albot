@@ -103,10 +103,12 @@ export class ProviderSelector {
     const order =
       strategy === "priority_failover"
         ? priorityOrdered
-        : (() => {
-            const drawn = this.selectWeighted(active, this.configSeed(active, seed));
-            return [drawn, ...priorityOrdered.filter((c) => c.id !== drawn.id)];
-          })();
+        : strategy === "round_robin"
+          ? this.roundRobinOrder(active, seed)
+          : (() => {
+              const drawn = this.selectWeighted(active, this.configSeed(active, seed));
+              return [drawn, ...priorityOrdered.filter((c) => c.id !== drawn.id)];
+            })();
 
     for (const candidate of order) {
       const candidateKeys = keysByConfig.get(candidate.id) ?? [];
@@ -161,6 +163,20 @@ export class ProviderSelector {
       if (point < cumulative) return config;
     }
     return configs[configs.length - 1];
+  }
+
+  // Deterministic per-seed round-robin: hash the seed to pick a starting index
+  // then walk the priority-ordered list cyclically. Same seed = same first
+  // config (stable per session/user). Different seeds = different starting
+  // positions = load spread across configs (no global counter needed).
+  private roundRobinOrder(configs: ProviderConfigSafe[], seed?: string): ProviderConfigSafe[] {
+    if (configs.length <= 1) return [...configs];
+    const order = [...configs].sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return a.id.localeCompare(b.id);
+    });
+    const start = seed ? Math.abs(this.hashString(seed)) % order.length : this.now() % order.length;
+    return [...order.slice(start), ...order.slice(0, start)];
   }
 
   // Stable seed for config selection: request seed when provided, otherwise a

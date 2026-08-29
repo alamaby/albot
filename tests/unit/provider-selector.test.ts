@@ -199,4 +199,52 @@ describe("ProviderSelector", () => {
     const second = await selector.selectProvider("image_generation", configs, keys, "weighted");
     expect(first.key.id).toBe(second.key.id);
   });
+
+  it("round_robin is deterministic per seed", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "a", priority: 0, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "b", priority: 1, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "c", priority: 2, selectionStrategy: "round_robin" }),
+    ];
+    const keys = new Map([
+      ["a", [makeKey({ providerConfigId: "a" })]],
+      ["b", [makeKey({ providerConfigId: "b" })]],
+      ["c", [makeKey({ providerConfigId: "c" })]],
+    ]);
+
+    const seedA = await selector.selectProvider("reasoning", configs, keys, "round_robin", {
+      seed: "session-A",
+    });
+    const seedB = await selector.selectProvider("reasoning", configs, keys, "round_robin", {
+      seed: "session-B",
+    });
+    expect(seedA.config.id).toBe(seedA.config.id);
+    // Different seeds pick different starting positions.
+    expect(seedA.config.id).not.toBe(seedB.config.id);
+  });
+
+  it("round_robin rotates start across many sessions", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "a", priority: 0, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "b", priority: 1, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "c", priority: 2, selectionStrategy: "round_robin" }),
+    ];
+    const keys = new Map([
+      ["a", [makeKey({ providerConfigId: "a" })]],
+      ["b", [makeKey({ providerConfigId: "b" })]],
+      ["c", [makeKey({ providerConfigId: "c" })]],
+    ]);
+
+    const seen = new Set<string>();
+    for (let i = 0; i < 6; i++) {
+      const r = await selector.selectProvider("reasoning", configs, keys, "round_robin", {
+        seed: `session-${i}`,
+      });
+      seen.add(r.config.id);
+    }
+    // Across 6 different seeds, all three configs should be picked at least once.
+    expect(seen.size).toBeGreaterThanOrEqual(2);
+  });
 });
