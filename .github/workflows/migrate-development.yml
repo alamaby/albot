@@ -1,12 +1,14 @@
 name: migrate-development
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       commit_sha:
         description: "Exact 40-character commit SHA to review and migrate (must be an ancestor of main)"
         type: string
-        required: true
+        required: false
 
 concurrency:
   group: migrate-development
@@ -22,17 +24,27 @@ jobs:
     environment: development
     timeout-minutes: 30
     steps:
+      - name: Resolve commit SHA
+        id: sha
+        run: |
+          # Push trigger uses the pushed commit; manual dispatch may pin one.
+          SHA="${{ inputs.commit_sha }}"
+          if [ -z "$SHA" ]; then
+            SHA="${{ github.sha }}"
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
       - name: Checkout exact commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.commit_sha }}
+          ref: ${{ steps.sha.outputs.sha }}
           fetch-depth: 0
 
       - name: Verify checked-out commit
         run: |
           HEAD="$(git rev-parse HEAD)"
           echo "HEAD=$HEAD"
-          if [ "$HEAD" != "${{ inputs.commit_sha }}" ]; then
+          if [ "$HEAD" != "${{ steps.sha.outputs.sha }}" ]; then
             echo "::error::checked out SHA does not match requested SHA"
             exit 1
           fi
@@ -115,7 +127,7 @@ jobs:
             echo "workflow=migrate-development"
             echo "run_id=${{ github.run_id }}"
             echo "run_number=${{ github.run_number }}"
-            echo "commit_sha=${{ inputs.commit_sha }}"
+            echo "commit_sha=${{ steps.sha.outputs.sha }}"
             echo "project_ref=$SUPABASE_PROJECT_REF"
             echo "generated_types=clean"
           } > "$RUNNER_TEMP/evidence/manifest.txt"

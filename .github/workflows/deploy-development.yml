@@ -1,0 +1,105 @@
+name: deploy-development
+
+# Auto-deploy main to Vercel (Preview target, which holds the dev env vars)
+# and re-point the stable alias albot-dev.vercel.app to the new deployment.
+# Runs after migrate-development so the DB schema is applied first; the bot
+# code is backward/forward compatible with additive migrations.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-development
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-development:
+    name: Deploy Vercel preview + alias albot-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Vercel CLI (pinned)
+        run: npm install --no-save vercel@47.0.2
+
+      - name: Wait for migrate-development (schema first)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ github.sha }}"
+          echo "waiting for migrate-development on $SHA"
+          for i in $(seq 1 40); do
+            RESP="$(curl -s -f -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs?event=push&head_sha=$SHA")" || {
+              echo "::warning::cannot query workflow runs (attempt $i)"; sleep 15; continue;
+            }
+            ROW="$(echo "$RESP" | jq -r '.workflow_runs[] | select(.name == "migrate-development") | "\(.id) \(.status) \(.conclusion)"' | head -1)"
+            if [ -n "$ROW" ]; then
+              RUN_ID="$(echo "$ROW" | cut -d' ' -f1)"
+              STATUS="$(echo "$ROW" | cut -d' ' -f2)"
+              CONCLUSION="$(echo "$ROW" | cut -d' ' -f3)"
+              echo "migrate-development run=$RUN_ID status=$STATUS conclusion=$CONCLUSION"
+              if [ "$STATUS" = "completed" ]; then
+                if [ "$CONCLUSION" = "success" ]; then
+                  echo "schema migration ok"; break;
+                else
+                  echo "::error::migrate-development failed ($CONCLUSION); skipping deploy"; exit 1;
+                fi
+              fi
+            else
+              echo "no migrate-development run yet for $SHA (attempt $i)"
+            fi
+            sleep 15
+          done
+
+      - name: Pull Vercel project settings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx vercel pull --yes --environment=preview --token "$VERCEL_TOKEN"
+
+      - name: Build (preview target)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel build --yes --token "$VERCEL_TOKEN"
+
+      - name: Deploy to Vercel (preview)
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          URL="$(npx vercel deploy --prebuilt --yes --token "$VERCEL_TOKEN")"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "deployed: $URL"
+
+      - name: Alias albot-dev.vercel.app to the new deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: npx vercel alias set "$DEPLOY_URL" albot-dev.vercel.app --token "$VERCEL_TOKEN"
+
+      - name: Health check
+        run: |
+          sleep 10
+          STATUS="$(curl -s https://albot-dev.vercel.app/api/health || true)"
+          echo "health: $STATUS"
+          if ! echo "$STATUS" | grep -q '"status":"ok"'; then
+            echo "::warning::health not ok yet (may need warm-up): $STATUS"
+          fi

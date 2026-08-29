@@ -59,6 +59,26 @@ curl -s "https://albot-be.alamaby.com/api/health?include=readiness" -H "Authoriz
 # test bot @albot_ai_bot
 ```
 
+## CI/CD Otomatis (push main)
+
+Setiap push ke `main` memicu 2 workflow otomatis:
+
+1. **`migrate-development`** (`.github/workflows/migrate-development.yml`) — apply
+   migration ke Supabase dev + hosted tests (dulu manual `workflow_dispatch`,
+   sekarang otomatis; dispatch tetap tersedia untuk pin commit tertentu).
+2. **`deploy-development`** (`.github/workflows/deploy-development.yml`) —
+   deploy Vercel Preview + re-point alias `albot-dev.vercel.app`, menunggu
+   `migrate-development` sukses dulu (schema sebelum code).
+
+**Secrets GitHub yang dibutuhkan** (Environment `development`):
+
+- `VERCEL_TOKEN` — personal token Vercel (Vercel → Settings → Tokens).
+- `VERCEL_ORG_ID` — team id Vercel (`.vercel/repo.json` → `orgId`).
+- `VERCEL_PROJECT_ID` — project id (`.vercel/repo.json` → `projects[0].id`).
+
+Tanpa ketiganya, `deploy-development` gagal di step `vercel pull`; migration
+tetap jalan. Bot production tidak terpengaruh (workflow ini hanya Preview).
+
 ## Routes
 
 - `GET /api/health` — health check dengan DB reachability yang sanitized. Tambahkan `?include=readiness` untuk snapshot operasional (job counts, dead jobs, session expiry, key cooldown) tanpa biaya provider.
