@@ -88,6 +88,7 @@ tetap jalan. Bot production tidak terpengaruh (workflow ini hanya Preview).
 
 ## Docs
 
+- `docs/architecture.md` — alur prompt → generate + tech stack (diagram mermaid).
 - `docs/environment-variables.md` — inventory dan syarat environment per milestone.
 - `docs/runbooks/production-handoff.md` — runbook operasional production (provider, key, allowlist, webhook, migration, insiden).
 - `docs/runbooks/milestone-6-incident-response.md` — diagnosa insiden via endpoint internal.
