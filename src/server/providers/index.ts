@@ -47,6 +47,64 @@ registry.registerReasoning("bynara", (config, apiKey) => {
   );
 });
 
+// OpenRouter free models. Each is a distinct adapter_type so the
+// provider_configs row carries the exact model id and the
+// round_robin strategy spreads load across them. Timeout is tight
+// (30s) because free tiers rate-limit aggressively and a slow
+// response only delays failover.
+const OPENROUTER_FREE_TIMEOUT_MS = 30_000;
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+registry.registerReasoning("openrouter_free", (config, apiKey) => {
+  return new OpenAICompatibleReasoningAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? OPENROUTER_BASE_URL,
+      model: (config["model"] as string) ?? "openrouter/free",
+      timeoutMs: (config["timeout_ms"] as number) ?? OPENROUTER_FREE_TIMEOUT_MS,
+    },
+    apiKey,
+  );
+});
+registry.registerReasoning("openrouter_ing", (config, apiKey) => {
+  return new OpenAICompatibleReasoningAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? OPENROUTER_BASE_URL,
+      model: (config["model"] as string) ?? "inclusionai/ling-3.0-flash-fin:free",
+      timeoutMs: (config["timeout_ms"] as number) ?? OPENROUTER_FREE_TIMEOUT_MS,
+    },
+    apiKey,
+  );
+});
+registry.registerReasoning("openrouter_laguna", (config, apiKey) => {
+  return new OpenAICompatibleReasoningAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? OPENROUTER_BASE_URL,
+      model: (config["model"] as string) ?? "poolside/laguna-s-2.1:free",
+      timeoutMs: (config["timeout_ms"] as number) ?? OPENROUTER_FREE_TIMEOUT_MS,
+    },
+    apiKey,
+  );
+});
+registry.registerReasoning("openrouter_glm", (config, apiKey) => {
+  return new OpenAICompatibleReasoningAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? OPENROUTER_BASE_URL,
+      model: (config["model"] as string) ?? "z-ai/glm-5.2:free",
+      timeoutMs: (config["timeout_ms"] as number) ?? OPENROUTER_FREE_TIMEOUT_MS,
+    },
+    apiKey,
+  );
+});
+registry.registerReasoning("openrouter_m3", (config, apiKey) => {
+  return new OpenAICompatibleReasoningAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? OPENROUTER_BASE_URL,
+      model: (config["model"] as string) ?? "minimax/minimax-m3:free",
+      timeoutMs: (config["timeout_ms"] as number) ?? OPENROUTER_FREE_TIMEOUT_MS,
+    },
+    apiKey,
+  );
+});
+
 // Register Pixazo image adapters.
 registry.registerImage("pixazo_flux_schnell", (config, apiKey) => {
   return new PixazoImageAdapter(

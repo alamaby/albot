@@ -19,7 +19,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ADAPTERS_BY_CAPABILITY = {
-  reasoning: ["openai_compatible", "pollinations", "bynara"],
+  reasoning: [
+    "openai_compatible",
+    "pollinations",
+    "bynara",
+    "openrouter_free",
+    "openrouter_ing",
+    "openrouter_laguna",
+    "openrouter_glm",
+    "openrouter_m3",
+  ],
   image_generation: [
     "pixazo_flux_schnell",
     "pixazo_sdxl",
