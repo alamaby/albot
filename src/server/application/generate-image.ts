@@ -31,6 +31,7 @@ import {
 } from "@/server/repositories/enhancement.repository";
 import { SessionRepository, type SessionSafe } from "@/server/repositories/session.repository";
 import type { JobSafe } from "@/server/repositories/job.repository";
+import { PromptAuditRepository } from "@/server/repositories/prompt-audit.repository";
 import { isSessionExpired } from "./session-expiry-check";
 import { buildGenerationStatusMessage } from "@/server/telegram/messages";
 
@@ -46,6 +47,7 @@ export type GenerateImageDeps = {
   enhancementRepository?: EnhancementRepository;
   sessionRepository?: SessionRepository;
   selector?: ProviderSelector;
+  promptAuditRepository?: PromptAuditRepository;
   now?: () => Date;
   // Attaches the created attempt to the durable job row so a retried claim can
   // find and mark it failed. Injected for tests; production default persists
@@ -81,6 +83,7 @@ export class GenerateImageUseCase {
   private readonly enhancementRepository: EnhancementRepository;
   private readonly sessionRepository: SessionRepository;
   private readonly selector: ProviderSelector;
+  private readonly promptAuditRepository: PromptAuditRepository;
   private readonly now: () => Date;
   private readonly attachGenerationAttempt: (jobId: string, attemptId: string) => Promise<void>;
   private readonly sendPhoto: (input: {
@@ -106,6 +109,7 @@ export class GenerateImageUseCase {
     this.enhancementRepository = deps.enhancementRepository ?? new EnhancementRepository();
     this.sessionRepository = deps.sessionRepository ?? new SessionRepository();
     this.selector = deps.selector ?? new ProviderSelector();
+    this.promptAuditRepository = deps.promptAuditRepository ?? new PromptAuditRepository();
     this.now = deps.now ?? (() => new Date());
     this.attachGenerationAttempt =
       deps.attachGenerationAttempt ??
@@ -288,6 +292,21 @@ export class GenerateImageUseCase {
         capability: "image_generation",
       });
 
+      // Audit: capture the enhanced prompt sent to the image provider.
+      await this.promptAuditRepository.insert({
+        sessionId: session.id,
+        revisionId: revision.id,
+        attemptId: attemptId,
+        telegramUserId: session.telegramUserId,
+        telegramChatId: session.telegramChatId,
+        stage: "generate_input",
+        imagePrompt: revision.enhancedPrompt ?? undefined,
+        providerConfigId: selected.config.id,
+        providerRequestId: requestId,
+        model: selected.config.model,
+        status: "ok",
+      });
+
       const adapter = getProviderRegistry().createImageProvider(
         selected.config.adapterType,
         {
@@ -398,6 +417,24 @@ export class GenerateImageUseCase {
       return { status: "completed", session: finalSession, attempt: finalAttempt };
     } catch (error) {
       const providerError = normalizeGenerationError(error);
+
+      // Audit the image-generation failure (best-effort).
+      if (selected) {
+        await this.promptAuditRepository.insert({
+          sessionId: session.id,
+          revisionId: revision.id,
+          attemptId: attemptId,
+          telegramUserId: session.telegramUserId,
+          telegramChatId: session.telegramChatId,
+          stage: "generate_input",
+          imagePrompt: revision.enhancedPrompt ?? undefined,
+          providerConfigId: selected.config.id,
+          providerRequestId: requestId ?? undefined,
+          model: selected.config.model,
+          status: "failed",
+          errorCode: providerError.code,
+        });
+      }
 
       // The attempt must never be left in processing: mark it failed (guarded
       // RPC — a stale/raced completion simply makes this a no-op error we

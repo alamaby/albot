@@ -30,6 +30,7 @@ import {
 } from "@/server/repositories/enhancement.repository";
 import { SessionRepository, type SessionSafe } from "@/server/repositories/session.repository";
 import type { JobSafe } from "@/server/repositories/job.repository";
+import { PromptAuditRepository } from "@/server/repositories/prompt-audit.repository";
 import { isSessionExpired } from "./session-expiry-check";
 
 // The enhancement system prompt instructs the model to answer with a JSON
@@ -65,6 +66,7 @@ export type EnhancePromptDeps = {
   enhancementRepository?: EnhancementRepository;
   sessionRepository?: SessionRepository;
   selector?: ProviderSelector;
+  promptAuditRepository?: PromptAuditRepository;
   now?: () => Date;
   // Best-effort confirmation message with inline keyboard. Injected so tests
   // can stub it; the production default sends via Telegram.
@@ -88,6 +90,7 @@ export class EnhancePromptUseCase {
   private readonly enhancementRepository: EnhancementRepository;
   private readonly sessionRepository: SessionRepository;
   private readonly selector: ProviderSelector;
+  private readonly promptAuditRepository: PromptAuditRepository;
   private readonly now: () => Date;
   private readonly sendConfirmation: (input: {
     session: SessionSafe;
@@ -105,6 +108,7 @@ export class EnhancePromptUseCase {
     this.enhancementRepository = deps.enhancementRepository ?? new EnhancementRepository();
     this.sessionRepository = deps.sessionRepository ?? new SessionRepository();
     this.selector = deps.selector ?? new ProviderSelector();
+    this.promptAuditRepository = deps.promptAuditRepository ?? new PromptAuditRepository();
     this.now = deps.now ?? (() => new Date());
     this.sendConfirmation = deps.sendConfirmation ?? this.defaultSendConfirmation;
   }
@@ -290,6 +294,23 @@ export class EnhancePromptUseCase {
       capability: "reasoning",
     });
 
+    // Audit: capture the input that will be sent to the reasoning provider
+    // (best-effort; never blocks the job on insert failure).
+    await this.promptAuditRepository.insert({
+      sessionId: session.id,
+      revisionId: revision.id,
+      telegramUserId: session.telegramUserId,
+      telegramChatId: session.telegramChatId,
+      stage: "enhance_input",
+      sourcePrompt: revision.sourcePrompt,
+      previousPrompt: revision.previousPrompt,
+      revisionInstruction: revision.revisionInstruction,
+      providerConfigId: selected.config.id,
+      providerRequestId: requestId,
+      model: selected.config.model,
+      status: "ok",
+    });
+
     try {
       const adapter = await this.createAdapter(selected);
 
@@ -313,6 +334,20 @@ export class EnhancePromptUseCase {
         negativePrompt: structured.negative_prompt,
         aspectRatio: structured.aspect_ratio,
         reasoningProviderConfigId: selected.config.id,
+      });
+
+      // Audit: capture the structured enhanced prompt returned by the provider.
+      await this.promptAuditRepository.insert({
+        sessionId: session.id,
+        revisionId: revision.id,
+        telegramUserId: session.telegramUserId,
+        telegramChatId: session.telegramChatId,
+        stage: "enhance_output",
+        enhancedPrompt: structured.prompt,
+        providerConfigId: selected.config.id,
+        providerRequestId: requestId,
+        model: selected.config.model,
+        status: "ok",
       });
 
       const latencyMs = Date.now() - startedAt;
@@ -347,6 +382,22 @@ export class EnhancePromptUseCase {
         requestId,
         errorCode: providerError.code,
         httpStatus: providerError.httpStatus,
+      });
+
+      // Audit the failure so post-purge RCA can still see which prompt
+      // hit which error.
+      await this.promptAuditRepository.insert({
+        sessionId: session.id,
+        revisionId: revision.id,
+        telegramUserId: session.telegramUserId,
+        telegramChatId: session.telegramChatId,
+        stage: "enhance_output",
+        sourcePrompt: revision.sourcePrompt,
+        providerConfigId: selected.config.id,
+        providerRequestId: requestId,
+        model: selected.config.model,
+        status: "failed",
+        errorCode: providerError.code,
       });
 
       if (

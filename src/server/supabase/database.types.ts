@@ -320,6 +320,72 @@ export type Database = {
           },
         ]
       }
+      prompt_audit: {
+        Row: {
+          attempt_id: string | null
+          created_at: string
+          enhanced_prompt: string | null
+          error_code: string | null
+          id: string
+          image_prompt: string | null
+          model: string | null
+          previous_prompt: string | null
+          provider_config_id: string | null
+          provider_request_id: string | null
+          revision_id: string | null
+          revision_instruction: string | null
+          session_id: string | null
+          source_prompt: string | null
+          stage: string
+          status: string
+          telegram_chat_id: number
+          telegram_message_id: number | null
+          telegram_user_id: number
+        }
+        Insert: {
+          attempt_id?: string | null
+          created_at?: string
+          enhanced_prompt?: string | null
+          error_code?: string | null
+          id?: string
+          image_prompt?: string | null
+          model?: string | null
+          previous_prompt?: string | null
+          provider_config_id?: string | null
+          provider_request_id?: string | null
+          revision_id?: string | null
+          revision_instruction?: string | null
+          session_id?: string | null
+          source_prompt?: string | null
+          stage: string
+          status: string
+          telegram_chat_id: number
+          telegram_message_id?: number | null
+          telegram_user_id: number
+        }
+        Update: {
+          attempt_id?: string | null
+          created_at?: string
+          enhanced_prompt?: string | null
+          error_code?: string | null
+          id?: string
+          image_prompt?: string | null
+          model?: string | null
+          previous_prompt?: string | null
+          provider_config_id?: string | null
+          provider_request_id?: string | null
+          revision_id?: string | null
+          revision_instruction?: string | null
+          session_id?: string | null
+          source_prompt?: string | null
+          stage?: string
+          status?: string
+          telegram_chat_id?: number
+          telegram_message_id?: number | null
+          telegram_user_id?: number
+        }
+        Relationships: []
+      }
       prompt_revisions: {
         Row: {
           aspect_ratio: string | null
@@ -926,6 +992,10 @@ export type Database = {
         Returns: {
           purged_rows: number
         }[]
+      }
+      purge_prompt_audit: {
+        Args: { p_max_rows?: number; p_retention_days?: number }
+        Returns: number
       }
       recover_stale_sessions: {
         Args: { p_max_sessions?: number }

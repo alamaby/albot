@@ -58,4 +58,22 @@ export class RecoveryRepository {
     );
     return { purgedRows };
   }
+
+  // Deletes prompt_audit rows older than the (longer) cross-purge retention
+  // window. Independent of purgeExpiredMetadata (which only handles the 30-day
+  // transactional tables).
+  async purgePromptAudit(retentionDays = 180, maxRows = 5000): Promise<PurgeResult> {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .rpc("purge_prompt_audit", {
+        p_retention_days: retentionDays,
+        p_max_rows: maxRows,
+      })
+      .single();
+    if (error) throw new Error(`purge prompt audit failed: ${error.message}`);
+    const purgedRows = Number(
+      (data as unknown as { purged_rows: number } | null)?.purged_rows ?? 0,
+    );
+    return { purgedRows };
+  }
 }

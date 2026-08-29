@@ -86,6 +86,10 @@ describe("runRecovery", () => {
           return {
             single: vi.fn(() => Promise.resolve({ data: { purged_rows: 7 }, error: null })),
           };
+        case "purge_prompt_audit":
+          return {
+            single: vi.fn(() => Promise.resolve({ data: { purged_rows: 3 }, error: null })),
+          };
         default:
           throw new Error(`unexpected rpc: ${fn}`);
       }
@@ -107,6 +111,7 @@ describe("runRecovery", () => {
       deadJobsMarked: 1,
       staleSessionsExpired: 1,
       purgedRows: 7,
+      promptAuditPurgedRows: 3,
       claimedJobs: 0,
     });
 
@@ -142,6 +147,10 @@ describe("runRecovery", () => {
         case "recover_stale_sessions":
           return { select: vi.fn(() => Promise.resolve({ data: [sessionRow()], error: null })) };
         case "purge_expired_metadata":
+          return {
+            single: vi.fn(() => Promise.resolve({ data: { purged_rows: 0 }, error: null })),
+          };
+        case "purge_prompt_audit":
           return {
             single: vi.fn(() => Promise.resolve({ data: { purged_rows: 0 }, error: null })),
           };

@@ -4,7 +4,8 @@
 //   1. Recover expired job leases (worker crash / timeout) -> lease_expired events.
 //   2. Mark dead jobs terminal (max attempts exhausted) -> failed events.
 //   3. Expire stale sessions and notify the user best-effort.
-//   4. Purge metadata older than the retention window.
+//   4. Purge transactional metadata older than the 30-day retention window.
+//   5. Purge prompt_audit rows older than the 180-day cross-purge window.
 // Logs one structured summary line per run. Never spends provider credit.
 
 import { RecoveryRepository } from "@/server/repositories/recovery.repository";
@@ -20,10 +21,12 @@ export type RecoveryRunResult = {
   deadJobsMarked: number;
   staleSessionsExpired: number;
   purgedRows: number;
+  promptAuditPurgedRows: number;
   claimedJobs: number;
 };
 
 export const RETENTION_DAYS = 30;
+export const PROMPT_AUDIT_RETENTION_DAYS = 180;
 export const RECOVERY_BATCH_LEASES = 5;
 export const RECOVERY_BATCH_DEAD = 25;
 export const RECOVERY_BATCH_SESSIONS = 100;
@@ -105,14 +108,21 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     }
   }
 
-  // 4. Retention purge.
+  // 4. Retention purge (transactional tables: 30 days).
   const purge = await recoveryRepository.purgeExpiredMetadata(RETENTION_DAYS, 1000);
+
+  // 5. Cross-purge audit retention (180 days, independent of transactional purge).
+  const promptAuditPurge = await recoveryRepository.purgePromptAudit(
+    PROMPT_AUDIT_RETENTION_DAYS,
+    5000,
+  );
 
   const result: RecoveryRunResult = {
     recoveredLeases: recoveredLeases.length,
     deadJobsMarked: deadJobs.length,
     staleSessionsExpired: staleSessions.length,
     purgedRows: purge.purgedRows,
+    promptAuditPurgedRows: promptAuditPurge.purgedRows,
     claimedJobs,
   };
 
@@ -121,6 +131,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     deadJobsMarked: result.deadJobsMarked,
     staleSessionsExpired: result.staleSessionsExpired,
     purgedRows: result.purgedRows,
+    promptAuditPurgedRows: result.promptAuditPurgedRows,
     claimedJobs: result.claimedJobs,
   });
 
