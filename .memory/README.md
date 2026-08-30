@@ -1,86 +1,72 @@
 # Project Memory
 
-Last updated: 2026-08-26 (Command Expansion CLOSED)
+Last updated: 2026-08-30 (repo analysis + CI fix + doc backfill)
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
-- Active milestone: **Command Expansion CLOSED 2026-08-26 — `/help`, `/generate-image` direct (RPC overload 6-arg `p_enhanced_prompt`, `enhance_only` job), `/enhance-prompt` enhance-only, parsing hyphen/underscore/@bot, `setMyCommands` dev+prod, 274 unit, hosted 126/126, prod 26/26. Smoke di `@albot_ai_bot` lulus: welcome+help, direct generate (foto tanpa enhancement), enhance-prompt (teks saja), active-session guard. Pre-M7 container: Milestone 7 Production Release CLOSED 2026-08-25.
-- Semua milestone M0-M7 CLOSED. Master plan `plans/2026-08-07-telegram-image-bot-implementation-plan.md` tasks selesai sampai M7; production release checklist terpenuhi.
-- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (26 migrations), prod `pcexxtckvwmiquseznaz` (26 migrations — M7 25, command expansion 26)
-- Production topology: Vercel `albot-be.alamaby.com` (alias `albot-ten.vercel.app`, maxDuration 60), webhook `@albot_ai_bot`, allowlist `83540732`, provider Cloudflare gpt-oss-120b (0) → Pollinations (150), Pixazo flux (0)/sdxl (5) → Pollinations flux (151)
-- Milestone 6 CLOSED 2026-08-20 (reliability/observability); M5 CLOSED 2026-08-19; M4 CLOSED 2026-08-18; M3 CLOSED 2026-08-13; M2 CLOSED 2026-08-10; M1+M0 closed
-- Health endpoint acts as readiness probe: HTTP 200 `status:ok` when DB reachable, HTTP 503 `status:degraded` otherwise, `Cache-Control: no-store`
+- Status: semua milestone M0–M7 CLOSED; pasca-M7 berjalan iterasi fitur/fix: command expansion (26 Ags), content-policy refusal fix + regenerate-after-failure (27 Ags), Bynara providers + timeout clamp + `SUPABASE_SECRET_KEY` rename (28 Ags), OpenRouter free models + `round_robin` + `prompt_audit` audit 180d + CI auto-pipeline (29–30 Ags). Backfill memory untuk 27–30 Ags dilakukan 30 Ags.
+- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (39 migrations di repo, dev ikut migrate-development otomatis), prod `pcexxtckvwmiquseznaz` (**tercatat 26 migrations per 26 Ags — migration 27–39 BELUM terkonfirmasi apply; lihat Open Blockers**)
+- Production topology: Vercel `albot-be.alamaby.com`, webhook `@albot_ai_bot`, allowlist `83540732`, provider: Cloudflare gpt-oss-120b (0) → Pollinations gpt-oss (150) → OpenRouter free ×5 (200–230, round_robin); image: Bynara a20f/a21f/nbn (picker; grok & sdxl dihapus dari picker 28 Ags), Pollinations flux (151). Kunci provider terenkripsi AES-256-GCM via `upsert-provider-key.mjs`.
+- **Prod auto-deploy dari main via Vercel Git integration** (terbukti dari E2E prod 27 Ags tanpa deploy manual) — push main = kode prod baru; DB prod harus selalu mendahului.
+- Health endpoint: readiness probe — HTTP 200 `status:ok` saat DB reachable, 503 `status:degraded` sebaliknya, `Cache-Control: no-store`
+- CI: `validate` (PR+push), `migrate-development` + `deploy-development` (auto on push main — pipeline baru 29 Ags), `migrate-production` (manual attestation-gated), `recovery-*` cron */20 (dev hijau; **prod 500 — lihat Open Blockers**)
 
 ## Active Decisions
 
-- Environment variables: `APP_ENV` overrides, else derived from `VERCEL_ENV` (`production` → production, otherwise development)
-- Health endpoint: HTTP 503 on DB failure (readiness semantics)
-- Supabase URL normalization: trailing slash stripped
-- Secret management: Vercel Encrypted variables (Sensitive); Supabase CLI secrets via GitHub Environments
-- Probe classification: 200 → reachable; 404 with `42P01`/`PGRST205` → reachable; 401/403 → unauthorized; other → unreachable
-- CI: GitHub Actions validate (lint, typecheck, format, unit, build, gitleaks, db:lint, db:check-migrations)
-- Migration: Database as Code via `supabase/migrations`; M1 hanya mengeksekusi ke development
-- Atomic functions: `claim_job(text, integer)` (SKIP LOCKED, lease recovery) dan `transition_prompt_session` (compare-and-set, terminal guard) — service_role only, security definer fixed search_path
-- `database.types.ts` di `.prettierignore`; vitest `fileParallelism: false`
-- M2 decision: OpenAI-compatible reasoning + Pixazo image generation
-- M2 Pixazo models: Flux Schnell + SDXL; authentication via `Ocp-Apim-Subscription-Key`
-- M2 encryption: `PROVIDER_KEY_ENCRYPTION_KEY` base64, 32-byte AES-256-GCM
-- M2 admin surface: server-only repository contract (no admin UI/API in M2)
-- M2 review remediation (2026-08-09): C1 via `makeErrorFromHttpStatus` (retryable dari status); C2 via `responseKind` discriminator; C3 strict base64; C4 forward-fix migration `increment_provider_key_failure` (atomic + cooldown exponential, **tidak reset failure_count saat threshold**); C5 weighted cumulative-prefix + seed; C6 env validation wajib; C7 registry capability mismatch → `ProviderError`; C8 real hosted repository tests; H1-H11 sesuai plan
-- M2 remediation satu-satunya schema change: forward-fix migration C4 (additive, development-only) — dev 7 migrations, prod 0
-- M3 schema change: migration `20260810150719` (create_initial_session RPC) + `20260813100000` (seed allowlist admin) — dev 9 migrations, prod 0
-- M4 schema change: migration `20260813074037` (mark_revision_failed + create_revision RPCs, partial unique index `prompt_sessions_one_active_idx`, `prompt_sessions_status_idx`) + forward-fix `20260813091942` (`#variable_conflict use_column` untuk ambiguous `revision_number`) — dev 11 migrations, prod 0
-- M4 callbacks: inline di webhook (generate/revise/cancel), `callback_events` dedupe + owner check + CAS transition
-- M4 retry: bounded (`classifyEnhancementError`, backoff 60s*2^n cap 8m), `mark_revision_failed` guard-patched, worker-ownership updates
-- Pixazo PixelForge v2 (plan 2026-08-21): endpoint `pixelforge-image-v2/v1/text-to-image` auth `Ocp-Apim-Subscription-Key`, body `text`/`type`/`seed`/`size` → `results[].url` https + `caption`; `type` Opsi 2 via `settings.type` default `tags,caption` allowlist `tags`/`caption`/`tags,caption`; `size` default `1`; drop `negativePrompt`/`aspectRatio` untuk PF; hybrid selection per-session FK + per-user `user_image_preferences` tabel terpisah; 3 model tetap aktif; shortCode `flux|sdxl|pf2` `mp:<code>:<uuid>` ≤64
-  - Dispatcher observability (2026-08-22): `dispatchToProcessorUrl` return `DispatchResult` (`{ok:true,status}` | `{ok:false,status?,error}`); `handlePrivateTextMessage` kirim "Gagal memulai pemrosesan. Silakan coba lagi sebentar." saat `ok:false` — tidak ada lagi silent failure
-  - Command expansion (2026-08-26): 4 command `/start` welcome+command list, `/help` static, `/generate-image` direct (RPC 6-arg overload), `/enhance-prompt` enhance-only `enhance_only` job tanpa sesi; parser `parseSlashCommand` (hyphen/underscore/@bot), `setMyCommands` menu
-- Process-jobs cron (2026-08-22): ditambahkan lalu dihapus per opsi 1 — andalkan feedback dispatcher + retry manual user, bukan cron auto-claim
-- Pollinations provider (review-fix 2026-08-22): **REVIEW-FIX — hardening** prompt/apiKey/b64/log + errors 402 order + openai-compatible parity + 10 pollinations edge tests (89 contract)
-- Pollinations provider (implemented 2026-08-22): **IMPLEMENTED — fallback** reasoning `gpt-oss` priority 150 + image `flux` priority 151 via `https://gen.pollinations.ai/v1`, `PollinationsImageAdapter` POST `/v1/images/generations` size mapping, inject `negativePrompt` via `Avoid:`, 2 adapter types (`pollinations`/`pollinations_image`), 402 -> provider_rate_limited, `.env.example` POLLINATIONS_API_KEY, migration 20260823100000
+- Environment variables: `APP_ENV` overrides, else derived from `VERCEL_ENV`; env Supabase kini `SUPABASE_SECRET_KEY` (`sb_secret_`, rename 28 Ags `e54550f`)
+- Timeout adapter image harus < 55s di bawah Vercel `maxDuration 60s` (Bynara 40s/55s; Pixazo PixelForge masih 120s — temuan F4, remediation 2026-08-30)
+- Audit: metadata transaksional purge 30d (`purge_expired_metadata`), `prompt_audit` purge 180d (`purge_prompt_audit`); audit insert best-effort
+- `prompt_revisions.instruction_kind`: 'source' | 'revision'; `create_revision` 5-arg (overload 4-arg di-drop `20260830100000`, PGRST203)
+- Selection strategy: `priority_failover | weighted | round_robin` (kolom config); **F1: call sites hardcode `priority_failover` sehingga `round_robin` config-level belum efektif** — remediation berjalan (plan `plans/2026-08-30-repo-analysis-remediation-plan.md`)
+- Retry bounded: classify error, backoff full-jitter (base 60s, cap 8m, max 4 attempts); `increment_provider_key_failure` cooldown eksponensial cap 60m
+- RLS: enable+force semua tabel, nol policy, hanya `service_role`; semua RPC security definer + fixed search_path + EXECUTE service_role only
+- CI deploy-development: link Vercel via penulisan `.vercel/project.json` langsung dari secrets (CLI 47 drop `--project-id`) — fix `361d10e`
+- Migration: Database as Code, forward-fix only, `EXPECTED_MIGRATIONS` wajib sinkron (39 entri), immutability gate di CI
 
 ## Open Blockers
 
-- (none — M7 closed; recovery cron prod live & hijau sejak 2026-08-26)
-- Known limitation prod: `maxDuration 60s` (Vercel Hobby) < Pixazo adapter timeout 120s.
-- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual.
+- **PROD: `recovery-production` 500 sejak 29 Ags 18:00 UTC** — hipotesis: kode prod (auto-deploy) memanggil `purge_prompt_audit` yang belum ada di DB prod. **Butuh keputusan user: jalankan `migrate-production` (manual, attestation-gated) untuk migration 27–39.** Sampai itu: recovery sweep prod mati (lease/session/purge tertunda).
+- `deploy-development`: fix `361d10e` di-push, menunggu bukti hijau (belum pernah sukses sejak dibuat 29 Ags; RCA: secrets kosong → tanpa project.json → flag `--project-id` invalid)
+- `maxDuration 60s` (Vercel Hobby) < Pixazo PixelForge adapter timeout 120s — F4 dalam remediation
+- User action tooling: restart opencode + verifikasi MCP Supabase prod; restart opencode + smoke test Naraya GLM 5.3 Flash (plan 27 Ags)
+- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual; deploy job tanpa `environment:` tidak menerima secrets
 
 ## Recent Entries
 
+- `2026-08-30/203300-ci-deploy-pipeline-and-prod-recovery-incident.md` — RCA 21× deploy-development failure + fix `361d10e`; insiden recovery-production 500 (drift schema prod, butuh migrate-production)
+- `2026-08-30/203200-*` — (plan) `plans/2026-08-30-repo-analysis-remediation-plan.md` — remediasi F1–F8 hasil analisa repo
+- `2026-08-29/233000-prompt-audit-feature.md` — prompt_audit 180d + provider_requests audit columns + instruction_kind + /api/admin/prompts
+- `2026-08-29/230000-openrouter-free-models-and-round-robin.md` — 5 model free OpenRouter + round_robin (temuan F1: belum efektif di config level)
+- `2026-08-28/220000-bynara-providers-timeouts-env-migration.md` — Bynara providers/picker, clamp timeout, SUPABASE_SECRET_KEY, upsert-provider-key
+- `2026-08-27/220000-regenerate-after-failure-fix.md` — Regenerate/Selesai dari generation_failed + cleanup stuck attempt
+- `2026-08-27/210000-content-policy-refusal-fix.md` — refusal vs malformed + tombol Prompt Baru (semua jalur)
 - `2026-08-26/155000-command-expansion.md` — Command expansion CLOSED: `/help`, `/generate-image` direct, `/enhance-prompt` enhance-only, 274 unit, hosted 126/126, prod 26/26, E2E OK.
-- `2026-08-25/190644-milestone-7-production-release.md` — M7 CLOSED (accepted @alamaby): prod migrate 0→25 attestation-gated (32807707561), deploy albot-be.alamaby.com + @albot_ai_bot, smoke happy path lulus (linkage 1/2/3), 2 bug fixed a3b2a1a (/start welcome, claim-fast after()), runbook handoff.
+- `2026-08-25/190644-milestone-7-production-release.md` — M7 CLOSED (accepted @alamaby): prod migrate 0→25 attestation-gated (32807707561), deploy albot-be.alamaby.com + @albot_ai_bot, smoke happy path lulus, runbook handoff.
 - `2026-08-22/214000-pollinations-review-fix.md` — Review-fix: prompt/apiKey/b64 validation, log providerRequestId, errors 402 order, openai parity, 6 edge tests → 89 contract.
-- `2026-08-22/213000-pollinations-provider-implemented.md` — Pollinations fallback IMPLEMENTED: PollinationsImageAdapter (flux, inject Avoid:, size map, b64_json fallback), pollinations/pollinations_image registry, 402 handling, migration 20260823100000 WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, 8 contract tests, verifikasi hijau.
-- `2026-08-22/210000-pollinations-provider-final-plan.md` — Pollinations fallback final plan konsolidasi: flux/gpt-oss priority 150/151 fallback, 2 type bukan 20, inject negativePrompt, fix private->protected + 402 + WHERE NOT EXISTS, .env.example POLLINATIONS_API_KEY, plan `plans/2026-08-22-pollinations-provider-final-plan.md`.
-- `2026-08-22/150920-bot-no-response-dispatcher-swallow.md` — Fix: bot diam setelah user kirim teks (job `033b6f11` stuck `queued` 2.5 jam). Dispatcher swallow → `DispatchResult` + user feedback "Gagal memulai..."; cron ditambahkan lalu dihapus opsi 1. Verifikasi hijau (243 tests, build ok, deployed).
-- `2026-08-22/000000-pixazo-pixelforge-dev-migrate.md` — Dev migrate 23/23 aman (`87e23ee` types regen, `prompt_sessions_preferred_image_provider_config_id_fkey` + `isOneToOne:true`), user konfirm migrate aman — siap seed PF2 + E2E.
-- `2026-08-21/083000-pixazo-pixelforge-plan.md` — Pixazo PixelForge v2 plan (sample `text`/`type`/`seed`/`size`→`results[].url`, Opsi 2 `settings.type` default `tags,caption`, drop `negativePrompt`/`aspectRatio`, hybrid per-session + `user_image_preferences` tabel terpisah, 3 model aktif, picker confirmation+result).
-- `2026-08-20/163000-migration-cleanup-and-status-message.md` — M5/M6 follow-up: migration dev-only `20260820110000` hapus sisa config `mock_image_generation_contract` (dev 18/18, prod 0); feat status message persisted (`telegram_status_message_id`, edit ke outcome); guardrail `check-migrations` mencegah `EXPECTED_MIGRATIONS` stale (regresi berulang M3/M6/2026-08-20); instruction di AGENTS.md.
-- `2026-08-13/140000-milestone-4-implementation.md` — M4: implementation + E2E VERIFIED + CLOSED 2026-08-18. Bugs fixed: registry import, base_url merge (akar semua 401), session shape, callback wiring (stub "not wired"), prompt_session_id link, revision processing, test isolation. Provider dev: Cloudflare gpt-oss-120b. E2E: prompt → konfirmasi → revise → generate (job queued M5) → batal. Closure plan `plans/2026-08-18-milestone-4-closure-plan.md`, CI #25-#32 success.
-- `2026-08-11/100000-milestone-3-pr1-code-cleanup.md` — PR #1: plan synchronization, code cleanup (bigint helper, parser simplification, messages, dispatcher body), test coverage enhancements for idle/claim-error paths, update_id validation, unknown callback ack, dispatcher body, runbook creation for manual admin bootstrap and platform wiring.
-- `2026-08-10/161500-milestone-3-implementation.md` — M3 webhook intake + durable jobs: RPC create_initial_session, telegram auth/parser/client/messages, 5 repositories, webhook + processor routes, inline dispatcher, 218 tests pass, 8 migrations applied dev
-- `2026-08-10/141000-milestone-2-review-followup.md` — post-closure review follow-up: http.ts helper, Pixazo https-only + request_id fallback + metadata, vault injectable, markSuccess fail-fast, 150 unit + hosted 74/0
-- `2026-08-10/111200-milestone-2-closure.md` — M2 closure: M/L transcribed, M1/M4/M5/M6 + C-Low A fixed, acceptance criteria checked, 143 unit + hosted 67/0
-- `2026-08-09/180000-milestone-2-review-remediation-evidence.md` — M2 remediation evidence (run 31311782574 success, 7 migrations, hosted 67/0)
-- `2026-08-09/175000-milestone-2-review-remediation-implementation.md` — M2 remediation implementation (C1-C8 + H1-H11 done, migration C4 applied, 142 tests)
-- `2026-08-09/171800-milestone-2-review-remediation.md` — M2 review remediation start (plan, C1-C8/H1-H11, forward-fix migration C4)
-- `2026-08-08/175000-milestone-2-start.md` — M2 start, provider decisions, Pixazo contract confirmed, plan created
-- `2026-08-08/154404-milestone-1-review-remediation-plan.md` — M1 review findings + remediation plan (composite FK, auth tests, gates)
-- `2026-08-08/151834-milestone-1-database-foundation-implementation.md` — M1 implementation (schema, RLS, atomic functions, types, tests, workflows)
-- `2026-08-08/143241-resolve-milestone-1-platform-blocker.md` — M1 platform blocker resolved (Supabase projects verified, baseline clean, docs updated)
-- `2026-08-08/130128-milestone-1-database-foundation-plan.md` — Detailed M1 schema, RLS, atomic functions, hosted workflow plan
-- `2026-08-08/150000-milestone-0-review-remediation-plan.md` — Milestone 0 review, health 503 remediation, test coverage
-- `2026-08-07/123000-telegram-image-bot-implementation-plan.md` — Original implementation plan
+- `2026-08-22/213000-pollinations-provider-implemented.md` — Pollinations fallback IMPLEMENTED: gpt-oss priority 150 + flux 151, 402 handling, migration 20260823100000.
+- `2026-08-22/150920-bot-no-response-dispatcher-swallow.md` — Fix: dispatcher swallow → `DispatchResult` + user feedback; cron ditambahkan lalu dihapus opsi 1.
+- `2026-08-22/000000-pixazo-pixelforge-dev-migrate.md` — Dev migrate 23/23 aman, PF2 config + picker siap.
+- `2026-08-21/083000-pixazo-pixelforge-plan.md` — Pixazo PixelForge v2 plan (type/size/seed, hybrid selection, user_image_preferences).
+- `2026-08-20/163000-migration-cleanup-and-status-message.md` — M5/M6 follow-up: cleanup mock configs, status message persisted, guardrail check-migrations.
+- `2026-08-13/140000-milestone-4-implementation.md` — M4 CLOSED: enhancement/confirmation/revision E2E verified.
+- `2026-08-11/100000-milestone-3-pr1-code-cleanup.md` — M3 PR#1 cleanup + runbook bootstrap.
+- `2026-08-10/161500-milestone-3-implementation.md` — M3 webhook intake + durable jobs (218 tests).
+- `2026-08-10/141000-milestone-2-review-followup.md` — M2 review follow-up (http.ts, https-only, fail-fast).
+- `2026-08-10/111200-milestone-2-closure.md` — M2 closure.
 
 ## Related Plans
 
-- `plans/2026-08-23-milestone-7-production-release-and-handoff.md` — M7 plan + T-19 evidence (closure pending)
-- `plans/2026-08-23-milestone-7-execution-checklist.md` — M7 execution checklist (T-1..T-19 done)
-- `plans/2026-08-22-pollinations-provider-final-plan.md` — Pollinations fallback final (gpt-oss + flux)
-- `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.md` — Pixazo PixelForge v2 + hybrid model selection (plan)
-- `plans/2026-08-07-telegram-image-bot-implementation-plan.md` — Active plan
-- `plans/2026-08-08-milestone-0-review-remediation-plan.md` — Active plan (remediation)
-- `plans/2026-08-08-milestone-2-provider-abstraction-configuration-plan.md` — Detailed M2 execution plan (closed)
-- `plans/2026-08-09-milestone-2-review-remediation-plan.md` — M2 review remediation plan (closed)
-- `plans/2026-08-10-milestone-2-closure-plan.md` — M2 closure plan (closed)
+- `plans/2026-08-30-repo-analysis-remediation-plan.md` — **ACTIVE**: CI thread closure + backfill + remediasi F1–F8
+- `plans/2026-08-27-content-policy-refusal-fix.md` + `-review-followup.md` — closed
+- `plans/2026-08-27-regenerate-after-failure-toast-fix.md` — closed
+- `plans/2026-08-27-add-naraya-glm-5-3-flash-models.md` — tooling opencode (user action tersisa)
+- `plans/2026-08-27-supabase-albot-be-production-mcp.md` — tooling opencode (user action tersisa)
+- `plans/2026-08-23-milestone-7-production-release-and-handoff.md` — M7 plan + checklist (closed)
+- `plans/2026-08-22-pollinations-provider-final-plan.md` — closed
+- `plans/2026-08-21-pixazo-pixelforge-model-and-telegram-provider-selection.md` — closed
+- `plans/2026-08-07-telegram-image-bot-implementation-plan.md` — Master plan (M0–M7 closed)
+
+## Legacy
+
+Entri sebelum 2026-08-26 (M0–M2, Pollinations, Pixazo detail) ada di folder `.memory/2026-08-*` masing-masing; ringkasan arsitektur ada di `docs/architecture.md`.

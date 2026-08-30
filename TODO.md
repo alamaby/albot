@@ -4,15 +4,53 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Command Expansion: `/help`, `/generate-image`, `/enhance-prompt` (**CLOSED 2026-08-26** — 274 unit, hosted 126/126, prod 26/26, E2E OK)
+Post-M7 iterasi: Command Expansion (**CLOSED 2026-08-26**), content-policy refusal fix + regenerate-after-failure (**CLOSED 2026-08-27**), Bynara providers + timeout clamp + `SUPABASE_SECRET_KEY` (**CLOSED 2026-08-28**), OpenRouter free + `round_robin` + `prompt_audit` audit + CI auto-pipeline (**CLOSED 2026-08-29/30**).
 
 ## In Progress
 
-- (none) — M7 + Command Expansion CLOSED 2026-08-26. Next milestone belum dijadwalkan.
+Repo analysis remediation 2026-08-30 — plan: `plans/2026-08-30-repo-analysis-remediation-plan.md`
+
+- [x] RCA thread CI `deploy-development` (21× gagal): tanpa `.vercel/project.json` + flag `--project-id` invalid di CLI 47 → fix tulis project.json langsung (`361d10e`)
+- [x] Backfill `.memory/` + TODO untuk kerja 27–30 Ags (6 entri)
+- [ ] Remediasi F1–F8 (round_robin selector, type drift, rate limit `/enhance-prompt`, clamp Pixazo, env referer, type cast, docs, hygiene)
+- [ ] **Keputusan user: `migrate-production` untuk migration 27–39** — `recovery-production` 500 sejak 29 Ags (kode prod auto-deploy memanggil `purge_prompt_audit` yang belum ada di DB prod)
 
 ## Pending
 
 - [ ] Rencanakan milestone berikutnya (Enhancement Backlog: image-reference poster composition, dll)
+
+### CI deploy pipeline + prod recovery incident (2026-08-30)
+
+Plan: `plans/2026-08-30-repo-analysis-remediation-plan.md`; memory: `.memory/2026-08-30/203300-ci-deploy-pipeline-and-prod-recovery-incident.md`
+
+- [x] RCA 3 lapis: secrets kosong (fixed `1827187`) → tanpa `.vercel/project.json` → flag `--project-id` invalid CLI 47
+- [x] Fix workflow: tulis `.vercel/project.json` dari secrets (`361d10e`)
+- [x] Deteksi insiden `recovery-production` 500 (6× sejak 29 Ags 18:00 UTC) + korelasi push `eff14bf` prompt_audit
+- [ ] Bukti hijau `deploy-development`; keputusan migrate-production (user)
+
+### OpenRouter free models + round_robin + prompt_audit (2026-08-29/30)
+
+- [x] Migration `20260829100000`–`20260829120000` (round_robin + 5 config OpenRouter free, pri 200–230) — `5b44682`, `a810c62`
+- [x] Migration `20260829130000`–`20260830100000` (prompt_audit + purge + audit columns + instruction_kind + drop overload) — `eff14bf`, `3cc6f0b`, `d17234d`, `63b77ad`, `9a9d88b`, `efaceb5`, `0e3a999`
+- [x] `/api/admin/prompts` endpoint (63b77ad); sweep purge audit 180d
+- [x] CI auto migrate+deploy on push main (`00c7a6c`) — deploy-development gagal 21×, fix 30 Ags
+- [ ] F1: round_robin config-level belum efektif (call sites hardcode priority_failover) — remediation
+
+### Bynara providers + timeout clamp + env rename (2026-08-28)
+
+- [x] Bynara reasoning + image (a20f/a21f/grok/nbn) + b64_json adapter (`32e4db9`, `f36da26`) + picker (`b6fdb82`); grok/sdxl keluar picker (`6e5521f`)
+- [x] Timeout clamp Vercel 60s: Bynara 40s, grok/nano 55s; size grok/nano 1024x1024 (`8dfc2ee`, `7ec10ea`, `555af04`)
+- [x] `SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SECRET_KEY` (`e54550f`)
+- [x] `scripts/upsert-provider-key.mjs` + `seed-prod-bynara.mjs` + anti-exfiltration rules di AGENTS.md
+- [x] Migration `20260827100000`, `20260828100000` (seed Bynara), `20260828120000` (auto-expire stale sessions)
+
+### Content-policy refusal fix + regenerate-after-failure (2026-08-27)
+
+Plan: `plans/2026-08-27-content-policy-refusal-fix.md` (+review-followup), `plans/2026-08-27-regenerate-after-failure-toast-fix.md`
+
+- [x] Refusal vs malformed classification + `provider_content_rejected` + pesan `content_policy_declined` + tombol "Prompt Baru" (`1ce8f3f` + follow-up)
+- [x] Regenerate/Selesai dari `generation_failed` + `cleanupStuckProcessingAttempt` (`6b368c6`, `0b6578e`)
+- [x] E2E prod confirmed kedua fix; 281 unit pass
 
 ### Bot no-response recovery (2026-08-22)
 
