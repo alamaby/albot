@@ -2,9 +2,9 @@
 
 Telegram image bot. Spesifikasi lengkap ada di `plans/2026-08-07-telegram-image-bot-implementation-plan.md`. Tracking progress ada di `TODO.md`.
 
-Status: **Milestone 7 — Production Release and Handoff** (smoke E2E prod lulus; closure pending approval).
+Status: **Post-M7 iterasi** (M0–M7 closed; tracking fitur lanjutan di `TODO.md`).
 
-- Production: `https://albot-be.alamaby.com` (bot `@albot_ai_bot`, Supabase prod `pcexxtckvwmiquseznaz`, 25 migrations)
+- Production: `https://albot-be.alamaby.com` (bot `@albot_ai_bot`, Supabase prod `pcexxtckvwmiquseznaz`; jumlah migration live lihat `supabase migration list` — file migration repo di `supabase/migrations/`)
 - Development: `https://albot-dev.vercel.app` (Supabase dev `ceqcitzbosqzxpbtlpfn`)
 - Runbook produksi: `docs/runbooks/production-handoff.md`
 
