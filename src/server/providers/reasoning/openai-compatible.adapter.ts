@@ -110,6 +110,11 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     const messages: Record<string, string>[] = [{ role: "system", content: input.systemPrompt }];
 
     if (input.previousPrompt) {
+      messages.push({
+        role: "system",
+        content:
+          "This is a revision of a previous prompt. Apply the user's instruction while preserving the original structure and style unless explicitly asked to change them.",
+      });
       messages.push({ role: "user", content: `Previous prompt: ${input.previousPrompt}` });
     }
     if (input.revisionInstruction) {

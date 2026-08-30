@@ -97,6 +97,7 @@ export class RevisionInputUseCase {
           p_source_prompt: text,
           p_previous_prompt: previous?.enhancedPrompt ?? null,
           p_revision_instruction: null,
+          p_instruction_kind: "revision",
         } as never,
       )
       .single();

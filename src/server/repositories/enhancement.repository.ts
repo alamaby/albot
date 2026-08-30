@@ -9,7 +9,7 @@ import type { Database } from "@/server/supabase/database.types";
 type RevisionRow = Database["public"]["Tables"]["prompt_revisions"]["Row"];
 
 const REVISION_COLUMNS =
-  "id, session_id, revision_number, source_prompt, previous_prompt, revision_instruction, enhanced_prompt, negative_prompt, aspect_ratio, reasoning_provider_config_id, status, created_at, completed_at";
+  "id, session_id, revision_number, source_prompt, previous_prompt, revision_instruction, enhanced_prompt, negative_prompt, aspect_ratio, reasoning_provider_config_id, status, instruction_kind, created_at, completed_at";
 
 export type RevisionSafe = {
   id: string;
@@ -23,6 +23,7 @@ export type RevisionSafe = {
   aspectRatio: string | null;
   reasoningProviderConfigId: string | null;
   status: string;
+  instructionKind: "source" | "revision";
   createdAt: string;
   completedAt: string | null;
 };
@@ -61,6 +62,7 @@ function mapRevision(row: RevisionRow): RevisionSafe {
     aspectRatio: row.aspect_ratio,
     reasoningProviderConfigId: row.reasoning_provider_config_id,
     status: row.status,
+    instructionKind: row.instruction_kind === "revision" ? "revision" : "source",
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };

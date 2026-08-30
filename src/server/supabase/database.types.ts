@@ -393,6 +393,7 @@ export type Database = {
           created_at: string
           enhanced_prompt: string | null
           id: string
+          instruction_kind: string
           negative_prompt: string | null
           previous_prompt: string | null
           reasoning_provider_config_id: string | null
@@ -408,6 +409,7 @@ export type Database = {
           created_at?: string
           enhanced_prompt?: string | null
           id?: string
+          instruction_kind?: string
           negative_prompt?: string | null
           previous_prompt?: string | null
           reasoning_provider_config_id?: string | null
@@ -423,6 +425,7 @@ export type Database = {
           created_at?: string
           enhanced_prompt?: string | null
           id?: string
+          instruction_kind?: string
           negative_prompt?: string | null
           previous_prompt?: string | null
           reasoning_provider_config_id?: string | null
@@ -879,18 +882,32 @@ export type Database = {
               session_id: string
             }[]
           }
-      create_revision: {
-        Args: {
-          p_previous_prompt: string
-          p_revision_instruction: string
-          p_session_id: string
-          p_source_prompt: string
-        }
-        Returns: {
-          revision_id: string
-          revision_number: number
-        }[]
-      }
+      create_revision:
+        | {
+            Args: {
+              p_previous_prompt: string
+              p_revision_instruction: string
+              p_session_id: string
+              p_source_prompt: string
+            }
+            Returns: {
+              revision_id: string
+              revision_number: number
+            }[]
+          }
+        | {
+            Args: {
+              p_instruction_kind?: string
+              p_previous_prompt: string
+              p_revision_instruction: string
+              p_session_id: string
+              p_source_prompt: string
+            }
+            Returns: {
+              revision_id: string
+              revision_number: number
+            }[]
+          }
       expire_job_leases: {
         Args: { p_max_jobs?: number }
         Returns: {
