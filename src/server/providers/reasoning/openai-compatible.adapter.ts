@@ -131,6 +131,21 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     };
   }
 
+  // Exposed for audit capture: the messages array as it was sent to the
+  // provider (caller is responsible for redacting secrets before persisting).
+  buildMessagesForAudit(input: EnhancePromptInput): Array<{ role: string; content: string }> {
+    const body = this.buildRequestBody(input);
+    const messages = body["messages"];
+    if (!Array.isArray(messages)) return [];
+    return messages.map((m) => {
+      const record = m as Record<string, unknown>;
+      return {
+        role: typeof record["role"] === "string" ? (record["role"] as string) : "user",
+        content: typeof record["content"] === "string" ? (record["content"] as string) : "",
+      };
+    });
+  }
+
   protected buildHeaders(): Record<string, string> {
     return {
       "Content-Type": "application/json",

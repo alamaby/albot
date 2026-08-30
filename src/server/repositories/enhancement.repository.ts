@@ -32,6 +32,12 @@ export type RecordProviderRequestInput = {
   providerConfigId: string;
   providerKeyId: string;
   capability: "reasoning" | "image_generation";
+  // Audit fields. All optional; existing call sites stay backward-compatible.
+  requestMessages?: unknown;
+  responseContent?: string | null;
+  reasoningModel?: string | null;
+  telegramUserId?: bigint | null;
+  telegramChatId?: bigint | null;
 };
 
 export type SaveEnhancedPromptInput = {
@@ -74,7 +80,9 @@ export class EnhancementRepository {
   }
 
   // Persists the provider request audit row before the outbound call so every
-  // enhancement is traceable even when the request never completes.
+  // enhancement is traceable even when the request never completes. Accepts
+  // optional audit fields (request_messages, response_content, reasoning_model,
+  // telegram_user_id, telegram_chat_id) for post-purge RCA.
   async recordProviderRequest(input: RecordProviderRequestInput): Promise<string> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
@@ -85,6 +93,16 @@ export class EnhancementRepository {
         provider_key_id: input.providerKeyId,
         capability: input.capability,
         status: "requested",
+        ...(input.requestMessages !== undefined
+          ? { request_messages: input.requestMessages as never }
+          : {}),
+        ...(input.reasoningModel !== undefined ? { reasoning_model: input.reasoningModel } : {}),
+        ...(input.telegramUserId !== undefined
+          ? { telegram_user_id: input.telegramUserId as unknown as number }
+          : {}),
+        ...(input.telegramChatId !== undefined
+          ? { telegram_chat_id: input.telegramChatId as unknown as number }
+          : {}),
       } as Database["public"]["Tables"]["provider_requests"]["Insert"])
       .select("id")
       .single();
@@ -98,6 +116,7 @@ export class EnhancementRepository {
     providerRequestId?: string;
     httpStatus?: number;
     latencyMs?: number;
+    responseContent?: string | null;
   }): Promise<void> {
     const supabase = getSupabaseAdmin();
     const { error } = await supabase
@@ -107,6 +126,7 @@ export class EnhancementRepository {
         provider_request_id: input.providerRequestId ?? null,
         http_status: input.httpStatus ?? null,
         latency_ms: input.latencyMs ?? null,
+        ...(input.responseContent !== undefined ? { response_content: input.responseContent } : {}),
         completed_at: new Date().toISOString(),
       })
       .eq("id", input.requestId);
@@ -118,6 +138,7 @@ export class EnhancementRepository {
     requestId: string;
     errorCode: string;
     httpStatus?: number;
+    responseContent?: string | null;
   }): Promise<void> {
     const supabase = getSupabaseAdmin();
     const { error } = await supabase
@@ -126,6 +147,7 @@ export class EnhancementRepository {
         status: "failed",
         error_code: input.errorCode,
         http_status: input.httpStatus ?? null,
+        ...(input.responseContent !== undefined ? { response_content: input.responseContent } : {}),
         completed_at: new Date().toISOString(),
       })
       .eq("id", input.requestId);

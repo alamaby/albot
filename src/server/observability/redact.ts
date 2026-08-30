@@ -8,8 +8,10 @@
 const SENSITIVE_PATTERNS: Array<{ label: string; regex: RegExp }> = [
   // Telegram bot token: <botId>:<base64url> (long tail).
   { label: "telegram_bot_token", regex: /\b\d{6,12}:[A-Za-z0-9_-]{30,}\b/g },
-  // Bearer tokens in header-style strings.
-  { label: "bearer_token", regex: /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}/gi },
+  // Bearer tokens in header-style strings. Replaces the token portion (after
+  // "Bearer ") and keeps the prefix so the redacted output remains readable
+  // as "Bearer [REDACTED]".
+  { label: "bearer_token", regex: /(Bearer\s+)([A-Za-z0-9._~+/=-]{16,})/g },
   // OpenAI-style secret keys.
   { label: "api_key", regex: /\bsk-[A-Za-z0-9_-]{16,}\b/g },
   // Supabase service role / JWT-style tokens (long dotted payloads).
@@ -37,7 +39,13 @@ const SENSITIVE_PATTERNS: Array<{ label: string; regex: RegExp }> = [
 export function redactSensitive(value: string): string {
   let redacted = value;
   for (const { regex } of SENSITIVE_PATTERNS) {
-    redacted = redacted.replace(regex, "[REDACTED]");
+    // bearer_token captures "Bearer " as a prefix group; preserve it.
+    redacted = redacted.replace(regex, (match, ...groups) => {
+      if (groups.length >= 2 && typeof groups[0] === "string") {
+        return `${groups[0]}[REDACTED]`;
+      }
+      return "[REDACTED]";
+    });
   }
   return redacted;
 }
@@ -55,4 +63,21 @@ export function redactError(error: unknown): { message: string } {
     }
   }
   return { message: "unknown error" };
+}
+
+// Walks a JSON-serializable value and applies redactSensitive to every string
+// leaf. Returns a new value (does not mutate the input). Safe for nested
+// arrays/objects; non-string primitives pass through.
+export function redactJson(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "string") return redactSensitive(value);
+  if (Array.isArray(value)) return value.map(redactJson);
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = redactJson(v);
+    }
+    return out;
+  }
+  return value;
 }

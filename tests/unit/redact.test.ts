@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactSensitive, redactError } from "@/server/observability/redact";
+import { redactSensitive, redactError, redactJson } from "@/server/observability/redact";
 import { ProviderError } from "@/server/providers/errors";
 
 describe("redactSensitive", () => {
@@ -66,5 +66,31 @@ describe("redactError", () => {
   it("returns a generic message for non-error values", () => {
     expect(redactError(null)).toEqual({ message: "unknown error" });
     expect(redactError("just a string")).toEqual({ message: "unknown error" });
+  });
+});
+
+describe("redactJson", () => {
+  it("redacts strings inside nested objects/arrays", () => {
+    const input = {
+      messages: [
+        { role: "system", content: "You are a bot. token: sk-abcdef1234567890" },
+        { role: "user", content: "hello" },
+      ],
+      meta: "Bearer xyz1234567890abcdef",
+      count: 3,
+    };
+    const out = redactJson(input) as typeof input;
+    expect(out.messages[0].content).toContain("[REDACTED]");
+    expect(out.messages[0].content).not.toContain("sk-abcdef1234567890");
+    expect(out.messages[1].content).toBe("hello");
+    expect(out.meta).toBe("Bearer [REDACTED]");
+    expect(out.count).toBe(3);
+  });
+
+  it("does not mutate the input", () => {
+    const input = [{ role: "user", content: "sk-abcdef1234567890" }];
+    const before = JSON.stringify(input);
+    redactJson(input);
+    expect(JSON.stringify(input)).toBe(before);
   });
 });

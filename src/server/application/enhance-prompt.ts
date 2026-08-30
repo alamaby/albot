@@ -31,6 +31,8 @@ import {
 import { SessionRepository, type SessionSafe } from "@/server/repositories/session.repository";
 import type { JobSafe } from "@/server/repositories/job.repository";
 import { PromptAuditRepository } from "@/server/repositories/prompt-audit.repository";
+import { redactJson, redactSensitive } from "@/server/observability/redact";
+import { OpenAICompatibleReasoningAdapter } from "@/server/providers/reasoning/openai-compatible.adapter";
 import { isSessionExpired } from "./session-expiry-check";
 
 // The enhancement system prompt instructs the model to answer with a JSON
@@ -287,11 +289,29 @@ export class EnhancePromptUseCase {
 
     const { selected, startedAt } = await this.selectProvider(session.id);
 
+    // Build the audit capture (request messages + model snapshot) before the
+    // outbound call so even a network failure leaves a record. redactJson
+    // is defense-in-depth against accidental key leakage in user content.
+    const adapter = await this.createAdapter(selected);
+    const requestMessages = redactJson(
+      (adapter as OpenAICompatibleReasoningAdapter).buildMessagesForAudit({
+        sourcePrompt: revision.sourcePrompt,
+        previousPrompt: revision.previousPrompt ?? undefined,
+        revisionInstruction: revision.revisionInstruction ?? undefined,
+        systemPrompt: ENHANCEMENT_SYSTEM_PROMPT,
+        options: {},
+      }),
+    );
+
     const requestId = await this.enhancementRepository.recordProviderRequest({
       jobId: job.id,
       providerConfigId: selected.config.id,
       providerKeyId: selected.key.id,
       capability: "reasoning",
+      requestMessages,
+      reasoningModel: selected.config.model,
+      telegramUserId: session.telegramUserId,
+      telegramChatId: session.telegramChatId,
     });
 
     // Audit: capture the input that will be sent to the reasoning provider
@@ -312,8 +332,6 @@ export class EnhancePromptUseCase {
     });
 
     try {
-      const adapter = await this.createAdapter(selected);
-
       const result = await adapter.enhancePrompt({
         sourcePrompt: revision.sourcePrompt,
         previousPrompt: revision.previousPrompt ?? undefined,
@@ -356,6 +374,7 @@ export class EnhancePromptUseCase {
         providerRequestId: result.metadata["providerRequestId"] as string | undefined,
         httpStatus: 200,
         latencyMs,
+        responseContent: redactSensitive(result.prompt),
       });
 
       await this.providerKeyRepository.markSuccess({
@@ -382,6 +401,7 @@ export class EnhancePromptUseCase {
         requestId,
         errorCode: providerError.code,
         httpStatus: providerError.httpStatus,
+        responseContent: redactSensitive(providerError.safeMessage ?? ""),
       });
 
       // Audit the failure so post-purge RCA can still see which prompt

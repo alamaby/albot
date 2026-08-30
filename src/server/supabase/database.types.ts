@@ -657,7 +657,12 @@ export type Database = {
           provider_config_id: string
           provider_key_id: string | null
           provider_request_id: string | null
+          reasoning_model: string | null
+          request_messages: Json | null
+          response_content: string | null
           status: string
+          telegram_chat_id: number | null
+          telegram_user_id: number | null
         }
         Insert: {
           capability: string
@@ -672,7 +677,12 @@ export type Database = {
           provider_config_id: string
           provider_key_id?: string | null
           provider_request_id?: string | null
+          reasoning_model?: string | null
+          request_messages?: Json | null
+          response_content?: string | null
           status: string
+          telegram_chat_id?: number | null
+          telegram_user_id?: number | null
         }
         Update: {
           capability?: string
@@ -687,7 +697,12 @@ export type Database = {
           provider_config_id?: string
           provider_key_id?: string | null
           provider_request_id?: string | null
+          reasoning_model?: string | null
+          request_messages?: Json | null
+          response_content?: string | null
           status?: string
+          telegram_chat_id?: number | null
+          telegram_user_id?: number | null
         }
         Relationships: [
           {
