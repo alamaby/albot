@@ -38,6 +38,10 @@ const serverEnvSchema = z.object({
     )
     .min(8, "TELEGRAM_WEBHOOK_SECRET must be at least 8 characters"),
   JOB_PROCESSOR_SECRET: z.string().min(32, "JOB_PROCESSOR_SECRET must be at least 32 characters"),
+  // Optional provider attribution (HTTP-Referer / X-Title sent to
+  // OpenRouter-compatible gateways). Defaults keep the legacy Vercel URL.
+  PROVIDER_APP_URL: z.string().url().optional(),
+  PROVIDER_APP_NAME: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -67,6 +71,8 @@ export function parseServerEnv(source: Record<string, string | undefined>): Serv
     TELEGRAM_BOT_TOKEN: source.TELEGRAM_BOT_TOKEN,
     TELEGRAM_WEBHOOK_SECRET: source.TELEGRAM_WEBHOOK_SECRET,
     JOB_PROCESSOR_SECRET: source.JOB_PROCESSOR_SECRET,
+    PROVIDER_APP_URL: source.PROVIDER_APP_URL,
+    PROVIDER_APP_NAME: source.PROVIDER_APP_NAME,
   });
 }
 

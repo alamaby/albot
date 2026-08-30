@@ -12,6 +12,7 @@ import type {
 } from "@/server/domain/provider";
 import { ProviderError, makeErrorFromHttpStatus, makeRetryable, makeNonRetryable } from "../errors";
 import { isHttpsUrl, readProviderRequestId } from "../http";
+import { getAppIdentity } from "../app-identity";
 import { logStructured } from "@/server/observability/logger";
 
 export type PollinationsImageConfig = {
@@ -168,11 +169,12 @@ export class PollinationsImageAdapter implements ImageGenerationProvider {
   }
 
   private buildHeaders(): Record<string, string> {
+    const { appUrl, appName } = getAppIdentity();
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.apiKey}`,
-      "HTTP-Referer": "https://albot-ten.vercel.app",
-      "X-Title": "albot",
+      "HTTP-Referer": appUrl,
+      "X-Title": appName,
     };
   }
 

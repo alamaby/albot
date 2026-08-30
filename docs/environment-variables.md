@@ -27,25 +27,29 @@ Kedua ref berbeda dari project lain di org (mis. BagiStruk `cxgllbkbcwnqlyjoshsb
 
 ## Variables
 
-| Variable                      | Scope                   | Status                                              | Dipakai mulai |
-| ----------------------------- | ----------------------- | --------------------------------------------------- | ------------- |
-| `NODE_ENV`                    | Semua                   | `development` / `test` / `production`               | Milestone 0   |
-| `APP_ENV`                     | Opsional                | `development` / `production`; override manual       | Milestone 0   |
-| `VERCEL_ENV`                  | Otomatis oleh Vercel    | `production` / `preview` / `development`            | Milestone 0   |
-| `SUPABASE_URL`                | Development, Production | `empty` (nilai `https://<ref>.supabase.co` di env)  | Milestone 0   |
-| `SUPABASE_SECRET_KEY`         | Development, Production | `empty` (secret; format `sb_secret_...`)            | Milestone 0   |
-| `SUPABASE_PROJECT_REF`        | GitHub Environment      | `recorded` di dokumen ini; secret tersimpan per env | Milestone 1   |
-| `SUPABASE_ACCESS_TOKEN`       | GitHub Environment      | `empty` (secret personal access token CLI)          | Milestone 1   |
-| `SUPABASE_DB_PASSWORD`        | GitHub Environment      | `empty` (secret)                                    | Milestone 1   |
-| `SUPABASE_PUBLISHABLE_KEY`    | Development, Production | `empty` (publishable/anon key untuk RLS test)       | Milestone 1   |
-| `PROVIDER_KEY_ENCRYPTION_KEY` | Development, Production | `required` (base64, decode 32 bytes)                | Milestone 2   |
-| `TELEGRAM_BOT_TOKEN`          | Development, Production | `required` (dev bot)                                | Milestone 3   |
-| `TELEGRAM_WEBHOOK_SECRET`     | Development, Production | `required` (min 8 char URL-safe base64)             | Milestone 3   |
-| `JOB_PROCESSOR_SECRET`        | Development, Production | `required` (min 32 char)                            | Milestone 3   |
+| Variable                      | Scope                   | Status                                                   | Dipakai mulai        |
+| ----------------------------- | ----------------------- | -------------------------------------------------------- | -------------------- |
+| `NODE_ENV`                    | Semua                   | `development` / `test` / `production`                    | Milestone 0          |
+| `APP_ENV`                     | Opsional                | `development` / `production`; override manual            | Milestone 0          |
+| `VERCEL_ENV`                  | Otomatis oleh Vercel    | `production` / `preview` / `development`                 | Milestone 0          |
+| `SUPABASE_URL`                | Development, Production | `empty` (nilai `https://<ref>.supabase.co` di env)       | Milestone 0          |
+| `SUPABASE_SECRET_KEY`         | Development, Production | `empty` (secret; format `sb_secret_...`)                 | Milestone 0          |
+| `SUPABASE_PROJECT_REF`        | GitHub Environment      | `recorded` di dokumen ini; secret tersimpan per env      | Milestone 1          |
+| `SUPABASE_ACCESS_TOKEN`       | GitHub Environment      | `empty` (secret personal access token CLI)               | Milestone 1          |
+| `SUPABASE_DB_PASSWORD`        | GitHub Environment      | `empty` (secret)                                         | Milestone 1          |
+| `SUPABASE_PUBLISHABLE_KEY`    | Development, Production | `empty` (publishable/anon key untuk RLS test)            | Milestone 1          |
+| `PROVIDER_KEY_ENCRYPTION_KEY` | Development, Production | `required` (base64, decode 32 bytes)                     | Milestone 2          |
+| `TELEGRAM_BOT_TOKEN`          | Development, Production | `required` (dev bot)                                     | Milestone 3          |
+| `TELEGRAM_WEBHOOK_SECRET`     | Development, Production | `required` (min 8 char URL-safe base64)                  | Milestone 3          |
+| `JOB_PROCESSOR_SECRET`        | Development, Production | `required` (min 32 char)                                 | Milestone 3          |
+| `PROVIDER_APP_URL`            | Development, Production | `optional` (URL; default `https://albot-ten.vercel.app`) | Post-M7 (2026-08-30) |
+| `PROVIDER_APP_NAME`           | Development, Production | `optional` (min 1 char; default `albot`)                 | Post-M7 (2026-08-30) |
 
 > Milestone 4: provider reasoning dipilih dari tabel `provider_configs` di Supabase (bukan env). Key dienkripsi di `provider_keys` memakai `PROVIDER_KEY_ENCRYPTION_KEY`. Provisioning dilakukan via `scripts/seed-provider-config.mjs` (lihat `docs/runbooks/milestone-4-e2e.md`). Tidak ada env baru yang dibutuhkan di M4.
 
 > Milestone 6: recovery sweep (`/api/recovery/run`, cron */20 via workflow `recovery-development.yml` untuk dev dan `recovery-production.yml` untuk prod) dan diagnostics (`/api/admin/diagnostics`) memakai `JOB_PROCESSOR_SECRET` yang sama dengan job processor. Retention metadata 30 hari dikonfigurasi sebagai konstanta (`src/server/jobs/recovery.ts`); tidak ada env baru yang wajib. `npm audit --omit=dev --audit-level=high` ditambahkan ke `validate.yml`.
+
+> Post-M7 (2026-08-30): `PROVIDER_APP_URL` / `PROVIDER_APP_NAME` mengatur header `HTTP-Referer` / `X-Title` yang dikirim ke gateway OpenAI-compatible (OpenRouter, Pollinations, Bynara) untuk atribusi app. Keduanya opsional — tanpa env, dipakai nilai legacy `https://albot-ten.vercel.app` / `albot`. Direkomendasikan set `PROVIDER_APP_URL=https://albot-be.alamaby.com` di Vercel agar atribusi mengikuti domain produksi.
 
 ## GitHub Environment Secrets
 

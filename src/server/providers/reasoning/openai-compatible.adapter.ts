@@ -8,6 +8,7 @@ import type {
 } from "@/server/domain/provider";
 import { ProviderError, makeErrorFromHttpStatus, makeRetryable, makeNonRetryable } from "../errors";
 import { readProviderRequestId } from "../http";
+import { getAppIdentity } from "../app-identity";
 import { logStructured } from "@/server/observability/logger";
 
 export type OpenAICompatibleConfig = {
@@ -152,13 +153,14 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
   }
 
   protected buildHeaders(): Record<string, string> {
+    const { appUrl, appName } = getAppIdentity();
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.apiKey}`,
       // OpenRouter (and several OpenAI-compatible gateways) use these to
       // identify the app; some free-tier routes require them to be present.
-      "HTTP-Referer": "https://albot-ten.vercel.app",
-      "X-Title": "albot",
+      "HTTP-Referer": appUrl,
+      "X-Title": appName,
     };
   }
 
