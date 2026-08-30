@@ -78,10 +78,14 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          # Remove stale .vercel (project.json is gitignored, must be regenerated)
+          # Fresh runners have no .vercel/project.json (gitignored), and
+          # `vercel link` in CLI 47 only accepts --project <NAME>, not
+          # --project-id. Write the link file directly from the org/project
+          # IDs so linking is version-independent.
           rm -rf .vercel
-          npx vercel link --yes --token "$VERCEL_TOKEN" \
-            --project-id "$VERCEL_PROJECT_ID" --org-id "$VERCEL_ORG_ID" --confirm
+          mkdir -p .vercel
+          printf '{"projectId":"%s","orgId":"%s"}\n' \
+            "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" > .vercel/project.json
           npx vercel pull --yes --environment=preview --token "$VERCEL_TOKEN"
 
       - name: Build (preview target)
