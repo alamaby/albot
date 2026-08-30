@@ -20,7 +20,7 @@ export type ProviderConfigInput = {
   baseUrl: string;
   model?: string;
   settings: Record<string, unknown>;
-  selectionStrategy: "priority_failover" | "weighted";
+  selectionStrategy: ProviderSelectionStrategy;
   priority: number;
   weight: number;
   isActive: boolean;
