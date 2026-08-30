@@ -12,12 +12,17 @@ import { BynaraImageAdapter } from "./image/bynara.adapter";
 const registry = getProviderRegistry();
 
 // Register OpenAI-compatible reasoning adapter.
+// Defaults stay under the Vercel 55s budget (maxDuration 60s) so a slow
+// provider aborts inside the function (retryable provider_timeout) instead of
+// the platform killing it mid-flight (stuck processing until lease recovery).
+const REASONING_TIMEOUT_MS = 55_000;
+
 registry.registerReasoning("openai_compatible", (config, apiKey) => {
   return new OpenAICompatibleReasoningAdapter(
     {
       baseUrl: (config["base_url"] as string) ?? "https://api.openai.com/v1",
       model: (config["model"] as string) ?? "gpt-4",
-      timeoutMs: (config["timeout_ms"] as number) ?? 60000,
+      timeoutMs: (config["timeout_ms"] as number) ?? REASONING_TIMEOUT_MS,
     },
     apiKey,
   );
@@ -29,7 +34,7 @@ registry.registerReasoning("pollinations", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://gen.pollinations.ai/v1",
       model: (config["model"] as string) ?? "gpt-oss",
-      timeoutMs: (config["timeout_ms"] as number) ?? 60000,
+      timeoutMs: (config["timeout_ms"] as number) ?? REASONING_TIMEOUT_MS,
     },
     apiKey,
   );
@@ -41,7 +46,7 @@ registry.registerReasoning("bynara", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://router.bynara.id/v1",
       model: (config["model"] as string) ?? "laguna-s-2.1",
-      timeoutMs: (config["timeout_ms"] as number) ?? 60000,
+      timeoutMs: (config["timeout_ms"] as number) ?? REASONING_TIMEOUT_MS,
     },
     apiKey,
   );
@@ -113,7 +118,7 @@ registry.registerImage("pixazo_flux_schnell", (config, apiKey) => {
         (config["base_url"] as string) ?? "https://gateway.pixazo.ai/flux-1-schnell/v1/getData",
       model: (config["model"] as string) ?? "flux-1-schnell",
       responseKind: "flux",
-      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 55_000,
     },
     apiKey,
   );
@@ -126,7 +131,7 @@ registry.registerImage("pixazo_sdxl", (config, apiKey) => {
         (config["base_url"] as string) ?? "https://gateway.pixazo.ai/getImage/v1/getSDXLImage",
       model: (config["model"] as string) ?? "sdxl",
       responseKind: "sdxl",
-      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 55_000,
     },
     apiKey,
   );
@@ -138,7 +143,7 @@ registry.registerImage("pollinations_image", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://gen.pollinations.ai/v1",
       model: (config["model"] as string) ?? "flux",
-      timeoutMs: (config["timeout_ms"] as number) ?? 120000,
+      timeoutMs: (config["timeout_ms"] as number) ?? 55_000,
     },
     apiKey,
   );
