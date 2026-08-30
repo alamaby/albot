@@ -99,8 +99,14 @@ flowchart TD
 
 ### 3.3 Provider Selection
 
-- `ProviderSelector` (`priority_failover` / `weighted`) membungkus
-  `provider_configs` + `provider_keys` dari DB env yang bersangkutan.
+- `ProviderSelector` membungkus `provider_configs` + `provider_keys` dari DB env
+  yang bersangkutan. Urutan config dikendalikan oleh kolom `selection_strategy`
+  per-config (`priority_failover` / `weighted` / `round_robin`): config dijalan
+  berurutan by priority dan dikelompokkan per strategy kontigu — grup
+  `round_robin` diputar per-seed (mis. 5 model free OpenRouter, priority 200–230),
+  `weighted` di-draw dalam grupnya, `priority_failover` urut priority. Config
+  pertama dengan key eligible menang; grup tanpa key eligible tidak memblokir
+  grup di belakangnya.
 - Key didekripsi on-demand dengan `PROVIDER_KEY_ENCRYPTION_KEY` (AES-GCM);
   ciphertext disimpan di `provider_keys`. Cooldown/retry otomatis.
 
@@ -130,3 +136,12 @@ flowchart TD
   singleton — simpel tapi bypass RLS penuh (acceptable untuk single-server bot).
   Migrasi ke Supabase Secret Keys (`sb_secret_...`) adalah upgrade format/lifecycle,
   bukan perubahan model otorisasi.
+- **Self-dispatch (webhook → `/api/jobs/process`)**: webhook memicu processor
+  miliknya sendiri via HTTP POST best-effort (timeout 5s) alih-alih queue
+  eksternal. Trade-off yang diterima: (a) sederhana tanpa infrastruktur tambahan;
+  (b) mengonsumsi konkurensi function Vercel (panggilan origin ke diri sendiri);
+  (c) bergantung pada URL origin deployment yang benar; (d) kegagalan dispatch
+  terlihat user ("Gagal memulai pemrosesan. Silakan coba lagi sebentar.") —
+  namun job durable tetap tersimpan dan di-claim recovery cron */20, sehingga
+  tidak ada job yang hilang. Alternatif (pg_cron / queue eksternal) ditolak
+  agar tetap dalam batas Vercel Hobby.
