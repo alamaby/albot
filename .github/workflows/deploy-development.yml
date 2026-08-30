@@ -21,6 +21,7 @@ jobs:
   deploy-development:
     name: Deploy Vercel preview + alias albot-dev
     runs-on: ubuntu-latest
+    environment: development
     timeout-minutes: 15
     steps:
       - name: Checkout main
