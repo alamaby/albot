@@ -534,13 +534,9 @@ export class GenerateImageUseCase {
       }
     }
 
-    return this.selector.selectProvider(
-      "image_generation",
-      configs,
-      keysByConfig,
-      "priority_failover",
-      { seed: session.id },
-    );
+    return this.selector.selectProvider("image_generation", configs, keysByConfig, {
+      seed: session.id,
+    });
   }
 
   private async getUserDefaultPreferredId(telegramUserId: bigint): Promise<string | null> {

@@ -37,22 +37,21 @@ export class ProviderSelector {
 
   // Selects the provider config and key for a request.
   //
-  // Two strategy dimensions are intentionally independent:
-  // - `strategy` (caller-supplied) drives CONFIG selection: it picks among the
-  //   active configs for the requested capability (`priority_failover` sorts by
-  //   priority, `weighted` draws by config weight).
-  // - `selected.selectionStrategy` (read from the DB row) drives KEY selection
-  //   for the chosen config: `weighted` draws keys by their own weight, while
-  //   `priority_failover` picks the least-recently-used eligible key.
-  //
-  // They may differ (e.g. a caller passing `priority_failover` can select a
-  // config row whose `selection_strategy` is `weighted`). This is by design so
-  // the DB row is the source of truth for how keys within a config are rotated.
+  // Both selection dimensions are driven by the DB row (source of truth):
+  // - CONFIG selection: configs are walked in priority order and grouped into
+  //   contiguous runs sharing the same `selection_strategy`. Each group is
+  //   ordered by its own strategy (`priority_failover` keeps priority order,
+  //   `round_robin` rotates the group by seed, `weighted` draws within the
+  //   group with the rest of the group as fallback). The first config in the
+  //   combined order with an eligible key wins, so a group whose keys are all
+  //   ineligible never blocks the groups behind it.
+  // - KEY selection: the chosen config's `selection_strategy` rotates its keys
+  //   (`weighted` draws by key weight; `priority_failover`/`round_robin` pick
+  //   the first eligible key).
   async selectProvider(
     capability: ProviderCapability,
     configs: ProviderConfigSafe[],
     keysByConfig: Map<string, ProviderKeySafe[]>,
-    strategy: SelectionStrategy,
     options?: SelectionOptions,
   ): Promise<SelectedProvider> {
     const active = configs.filter((c) => c.isActive);
@@ -66,7 +65,7 @@ export class ProviderSelector {
 
     let selected: ProviderConfigSafe;
     let keys: ProviderKeySafe[] = [];
-    const picked = this.pickConfigWithKey(active, keysByConfig, strategy, options?.seed);
+    const picked = this.pickConfigWithKey(active, keysByConfig, options?.seed);
     if (picked) {
       selected = picked.config;
       keys = picked.keys;
@@ -84,15 +83,13 @@ export class ProviderSelector {
     return { config: selected, key };
   }
 
-  // Picks the first provider config that has at least one eligible key.
-  // For priority_failover the order is priority then id (deterministic);
-  // for weighted the drawn config comes first, then the remaining configs in
-  // priority order as fallback. Returns null when no config has an eligible
-  // key, so an active config without keys never blocks one that does.
+  // Picks the first provider config that has at least one eligible key, walking
+  // strategy groups in priority order (see selectProvider). Returns null when
+  // no config has an eligible key, so an active config without keys never
+  // blocks one that does.
   private pickConfigWithKey(
     active: ProviderConfigSafe[],
     keysByConfig: Map<string, ProviderKeySafe[]>,
-    strategy: SelectionStrategy,
     seed?: string,
   ): { config: ProviderConfigSafe; keys: ProviderKeySafe[] } | null {
     const priorityOrdered = [...active].sort((a, b) => {
@@ -100,15 +97,17 @@ export class ProviderSelector {
       return a.id.localeCompare(b.id);
     });
 
-    const order =
-      strategy === "priority_failover"
-        ? priorityOrdered
-        : strategy === "round_robin"
-          ? this.roundRobinOrder(active, seed)
-          : (() => {
-              const drawn = this.selectWeighted(active, this.configSeed(active, seed));
-              return [drawn, ...priorityOrdered.filter((c) => c.id !== drawn.id)];
-            })();
+    const order: ProviderConfigSafe[] = [];
+    let i = 0;
+    while (i < priorityOrdered.length) {
+      const strategy = priorityOrdered[i].selectionStrategy;
+      let j = i + 1;
+      while (j < priorityOrdered.length && priorityOrdered[j].selectionStrategy === strategy) {
+        j++;
+      }
+      order.push(...this.orderGroup(priorityOrdered.slice(i, j), strategy, seed));
+      i = j;
+    }
 
     for (const candidate of order) {
       const candidateKeys = keysByConfig.get(candidate.id) ?? [];
@@ -117,6 +116,20 @@ export class ProviderSelector {
       }
     }
     return null;
+  }
+
+  // Orders one contiguous strategy group according to its strategy.
+  private orderGroup(
+    group: ProviderConfigSafe[],
+    strategy: SelectionStrategy,
+    seed?: string,
+  ): ProviderConfigSafe[] {
+    if (strategy === "round_robin") return this.roundRobinOrder(group, seed);
+    if (strategy === "weighted") {
+      const drawn = this.selectWeighted(group, this.configSeed(group, seed));
+      return [drawn, ...group.filter((c) => c.id !== drawn.id)];
+    }
+    return group;
   }
 
   private isKeyEligible(key: ProviderKeySafe): boolean {

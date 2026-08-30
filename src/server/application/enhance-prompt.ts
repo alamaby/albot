@@ -449,13 +449,9 @@ export class EnhancePromptUseCase {
     for (const config of configs) {
       keysByConfig.set(config.id, await this.providerKeyRepository.listSafeKeys(config.id));
     }
-    const selected = await this.selector.selectProvider(
-      "reasoning",
-      configs,
-      keysByConfig,
-      "priority_failover",
-      { seed: sessionId },
-    );
+    const selected = await this.selector.selectProvider("reasoning", configs, keysByConfig, {
+      seed: sessionId,
+    });
     return { selected, startedAt: Date.now() };
   }
 

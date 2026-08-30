@@ -49,12 +49,7 @@ describe("ProviderSelector", () => {
       ["b", [makeKey()]],
     ]);
 
-    const result = await selector.selectProvider(
-      "image_generation",
-      configs,
-      keys,
-      "priority_failover",
-    );
+    const result = await selector.selectProvider("image_generation", configs, keys);
     expect(result.config.id).toBe("b"); // lower priority = higher precedence
   });
 
@@ -63,9 +58,9 @@ describe("ProviderSelector", () => {
     const configs = [makeConfig({ id: "a", isActive: false })];
     const keys = new Map([["a", [makeKey()]]]);
 
-    await expect(
-      selector.selectProvider("image_generation", configs, keys, "priority_failover"),
-    ).rejects.toThrow("no active provider configs");
+    await expect(selector.selectProvider("image_generation", configs, keys)).rejects.toThrow(
+      "no active provider configs",
+    );
   });
 
   it("skips keys in cooldown", async () => {
@@ -75,9 +70,9 @@ describe("ProviderSelector", () => {
       ["a", [makeKey({ id: "k1", isActive: true, cooldownUntil: "2099-01-01T00:00:00Z" })]],
     ]);
 
-    await expect(
-      selector.selectProvider("image_generation", configs, keys, "priority_failover"),
-    ).rejects.toThrow("no provider config with an eligible key");
+    await expect(selector.selectProvider("image_generation", configs, keys)).rejects.toThrow(
+      "no provider config with an eligible key",
+    );
   });
 
   it("returns key when eligible", async () => {
@@ -85,12 +80,7 @@ describe("ProviderSelector", () => {
     const configs = [makeConfig({ id: "a" })];
     const keys = new Map([["a", [makeKey({ id: "k1" })]]]);
 
-    const result = await selector.selectProvider(
-      "image_generation",
-      configs,
-      keys,
-      "priority_failover",
-    );
+    const result = await selector.selectProvider("image_generation", configs, keys);
     expect(result.key.id).toBe("k1");
   });
 
@@ -100,12 +90,7 @@ describe("ProviderSelector", () => {
     // Config "a" is active but has no key; config "b" has one.
     const keys = new Map([["b", [makeKey({ id: "k-b", providerConfigId: "b" })]]]);
 
-    const result = await selector.selectProvider(
-      "image_generation",
-      configs,
-      keys,
-      "priority_failover",
-    );
+    const result = await selector.selectProvider("image_generation", configs, keys);
     expect(result.config.id).toBe("b");
     expect(result.key.id).toBe("k-b");
   });
@@ -121,10 +106,10 @@ describe("ProviderSelector", () => {
       ["b", [makeKey({ providerConfigId: "b" })]],
     ]);
 
-    const low = await selector.selectProvider("image_generation", configs, keys, "weighted", {
+    const low = await selector.selectProvider("image_generation", configs, keys, {
       seed: "seed-0",
     });
-    const high = await selector.selectProvider("image_generation", configs, keys, "weighted", {
+    const high = await selector.selectProvider("image_generation", configs, keys, {
       seed: "seed-1",
     });
     expect(low.config.id).toBe("a");
@@ -142,8 +127,8 @@ describe("ProviderSelector", () => {
       ["b", [makeKey({ providerConfigId: "b" })]],
     ]);
 
-    const first = await selector.selectProvider("image_generation", configs, keys, "weighted");
-    const second = await selector.selectProvider("image_generation", configs, keys, "weighted");
+    const first = await selector.selectProvider("image_generation", configs, keys);
+    const second = await selector.selectProvider("image_generation", configs, keys);
     expect(first.config.id).toBe(second.config.id);
   });
 
@@ -160,24 +145,12 @@ describe("ProviderSelector", () => {
       ],
     ]);
 
-    const low = await selector.selectProvider(
-      "image_generation",
-      configs,
-      keys,
-      "priority_failover",
-      {
-        seed: "seed-3",
-      },
-    );
-    const high = await selector.selectProvider(
-      "image_generation",
-      configs,
-      keys,
-      "priority_failover",
-      {
-        seed: "seed-0",
-      },
-    );
+    const low = await selector.selectProvider("image_generation", configs, keys, {
+      seed: "seed-3",
+    });
+    const high = await selector.selectProvider("image_generation", configs, keys, {
+      seed: "seed-0",
+    });
     expect(low.key.id).toBe("k1");
     expect(high.key.id).toBe("k2");
   });
@@ -195,8 +168,8 @@ describe("ProviderSelector", () => {
       ],
     ]);
 
-    const first = await selector.selectProvider("image_generation", configs, keys, "weighted");
-    const second = await selector.selectProvider("image_generation", configs, keys, "weighted");
+    const first = await selector.selectProvider("image_generation", configs, keys);
+    const second = await selector.selectProvider("image_generation", configs, keys);
     expect(first.key.id).toBe(second.key.id);
   });
 
@@ -213,10 +186,10 @@ describe("ProviderSelector", () => {
       ["c", [makeKey({ providerConfigId: "c" })]],
     ]);
 
-    const seedA = await selector.selectProvider("reasoning", configs, keys, "round_robin", {
+    const seedA = await selector.selectProvider("reasoning", configs, keys, {
       seed: "session-A",
     });
-    const seedB = await selector.selectProvider("reasoning", configs, keys, "round_robin", {
+    const seedB = await selector.selectProvider("reasoning", configs, keys, {
       seed: "session-B",
     });
     expect(seedA.config.id).toBe(seedA.config.id);
@@ -239,12 +212,102 @@ describe("ProviderSelector", () => {
 
     const seen = new Set<string>();
     for (let i = 0; i < 6; i++) {
-      const r = await selector.selectProvider("reasoning", configs, keys, "round_robin", {
+      const r = await selector.selectProvider("reasoning", configs, keys, {
         seed: `session-${i}`,
       });
       seen.add(r.config.id);
     }
     // Across 6 different seeds, all three configs should be picked at least once.
     expect(seen.size).toBeGreaterThanOrEqual(2);
+  });
+
+  // Config-level strategy groups: the row's own selection_strategy drives its
+  // position in the walk, so failover groups stay in front of a round_robin
+  // tail regardless of seed.
+  it("priority_failover groups stay in front of a round_robin tail", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "cloud", priority: 0 }),
+      makeConfig({ id: "pollinations", priority: 150 }),
+      makeConfig({ id: "free-a", priority: 200, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "free-b", priority: 201, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "free-c", priority: 202, selectionStrategy: "round_robin" }),
+    ];
+    const keys = new Map<string, ProviderKeySafe[]>(
+      configs.map((c) => [c.id, [makeKey({ providerConfigId: c.id })]]),
+    );
+
+    for (const seed of ["seed-0", "seed-1", "seed-2", "seed-3"]) {
+      const result = await selector.selectProvider("reasoning", configs, keys, { seed });
+      expect(result.config.id).toBe("cloud");
+    }
+  });
+
+  it("failover groups without eligible keys fall through to the rotating round_robin tail", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "cloud", priority: 0 }),
+      makeConfig({ id: "pollinations", priority: 150 }),
+      makeConfig({ id: "free-a", priority: 200, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "free-b", priority: 201, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "free-c", priority: 202, selectionStrategy: "round_robin" }),
+    ];
+    const keys = new Map([
+      ["cloud", [makeKey({ providerConfigId: "cloud", cooldownUntil: "2099-01-01T00:00:00Z" })]],
+      [
+        "pollinations",
+        [makeKey({ providerConfigId: "pollinations", cooldownUntil: "2099-01-01T00:00:00Z" })],
+      ],
+      ["free-a", [makeKey({ providerConfigId: "free-a" })]],
+      ["free-b", [makeKey({ providerConfigId: "free-b" })]],
+      ["free-c", [makeKey({ providerConfigId: "free-c" })]],
+    ]);
+
+    const seen = new Set<string>();
+    for (let i = 0; i < 8; i++) {
+      const r = await selector.selectProvider("reasoning", configs, keys, {
+        seed: `session-${i}`,
+      });
+      expect(["free-a", "free-b", "free-c"]).toContain(r.config.id);
+      seen.add(r.config.id);
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it("weighted draw falls back within its group before later groups", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "a", priority: 0, weight: 1, selectionStrategy: "weighted" }),
+      makeConfig({ id: "b", priority: 1, weight: 3, selectionStrategy: "weighted" }),
+      makeConfig({ id: "c", priority: 2 }),
+    ];
+    const keys = new Map([
+      ["a", [makeKey({ providerConfigId: "a" })]],
+      ["b", [makeKey({ providerConfigId: "b" })]],
+      ["c", [makeKey({ providerConfigId: "c" })]],
+    ]);
+
+    for (const seed of ["seed-0", "seed-1", "seed-2", "seed-3"]) {
+      const r = await selector.selectProvider("image_generation", configs, keys, { seed });
+      expect(["a", "b"]).toContain(r.config.id);
+    }
+  });
+
+  it("non-contiguous same-strategy configs form separate groups", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "a", priority: 0, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "b", priority: 1 }),
+      makeConfig({ id: "c", priority: 2, selectionStrategy: "round_robin" }),
+    ];
+    const keys = new Map([
+      ["a", [makeKey({ providerConfigId: "a" })]],
+      ["b", [makeKey({ providerConfigId: "b" })]],
+      ["c", [makeKey({ providerConfigId: "c" })]],
+    ]);
+
+    // Single-config groups make rotation a no-op, so priority order wins.
+    const r = await selector.selectProvider("reasoning", configs, keys, { seed: "seed-1" });
+    expect(r.config.id).toBe("a");
   });
 });
