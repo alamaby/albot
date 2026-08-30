@@ -75,8 +75,12 @@ jobs:
       - name: Pull Vercel project settings
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          # Org/project IDs are non-secret identifiers (they also live in the
+          # local .vercel/repo.json). Hardcoding them avoids a mismatch with
+          # the environment secrets, which caused "Could not retrieve Project
+          # Settings" on vercel pull.
+          VERCEL_ORG_ID: team_7caBsxNQrtdtkzQGbPBAFYKe
+          VERCEL_PROJECT_ID: prj_joLciwdA37o6er3DKRSkiWlOhgJs
         run: |
           # Fresh runners have no .vercel/project.json (gitignored), and
           # `vercel link` in CLI 47 only accepts --project <NAME>, not
