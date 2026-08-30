@@ -366,7 +366,7 @@ const EXPECTED_FUNCTIONS: [string, string, boolean][] = [
     true,
   ],
   [
-    "create_revision(p_session_id uuid, p_source_prompt text, p_previous_prompt text, p_revision_instruction text)",
+    "create_revision(p_session_id uuid, p_source_prompt text, p_previous_prompt text, p_revision_instruction text, p_instruction_kind text)",
     "search_path=pg_catalog, public",
     true,
   ],
@@ -437,6 +437,7 @@ const EXPECTED_MIGRATIONS = [
   "20260829160000",
   "20260829170000",
   "20260829180000",
+  "20260830100000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];
@@ -600,7 +601,7 @@ describe.skipIf(skip)("schema integration", () => {
       "transition_prompt_session(uuid, text, text, uuid, uuid)",
       "increment_provider_key_failure(uuid, uuid, integer)",
       "mark_revision_failed(uuid, text, text)",
-      "create_revision(uuid, text, text, text)",
+      "create_revision(uuid, text, text, text, text)",
       "create_generation_attempt(uuid, uuid)",
       "mark_generation_attempt_failed(uuid, text, text)",
       "mark_generation_attempt_succeeded(uuid, text, bigint)",

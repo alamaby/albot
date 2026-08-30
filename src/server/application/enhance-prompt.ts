@@ -293,15 +293,18 @@ export class EnhancePromptUseCase {
     // outbound call so even a network failure leaves a record. redactJson
     // is defense-in-depth against accidental key leakage in user content.
     const adapter = await this.createAdapter(selected);
-    const requestMessages = redactJson(
-      (adapter as OpenAICompatibleReasoningAdapter).buildMessagesForAudit({
-        sourcePrompt: revision.sourcePrompt,
-        previousPrompt: revision.previousPrompt ?? undefined,
-        revisionInstruction: revision.revisionInstruction ?? undefined,
-        systemPrompt: ENHANCEMENT_SYSTEM_PROMPT,
-        options: {},
-      }),
-    );
+    const requestMessages =
+      typeof (adapter as OpenAICompatibleReasoningAdapter).buildMessagesForAudit === "function"
+        ? redactJson(
+            (adapter as OpenAICompatibleReasoningAdapter).buildMessagesForAudit({
+              sourcePrompt: revision.sourcePrompt,
+              previousPrompt: revision.previousPrompt ?? undefined,
+              revisionInstruction: revision.revisionInstruction ?? undefined,
+              systemPrompt: ENHANCEMENT_SYSTEM_PROMPT,
+              options: {},
+            }),
+          )
+        : undefined;
 
     const requestId = await this.enhancementRepository.recordProviderRequest({
       jobId: job.id,
