@@ -49,8 +49,9 @@ create index prompt_audit_session_idx
 create index prompt_audit_created_idx
   on public.prompt_audit (created_at desc);
 
--- service_role only. The table is intentionally not RLS-protected to match
--- the existing transactional tables; access control is at the application
--- layer (Bearer-protected admin endpoint).
+-- service_role only. RLS enabled+forced (same posture as other tables;
+-- service_role bypasses RLS, so no policies needed).
+alter table public.prompt_audit enable row level security;
+alter table public.prompt_audit force row level security;
 revoke all on table public.prompt_audit from public, anon, authenticated;
 grant select, insert, update, delete on table public.prompt_audit to service_role;
