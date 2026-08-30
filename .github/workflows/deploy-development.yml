@@ -44,42 +44,31 @@ jobs:
         run: |
           SHA="${{ github.sha }}"
           echo "waiting for migrate-development on $SHA"
-          # Loop polls the GitHub API for the migrate-development run for this
-          # exact commit. The run is auto-triggered by the same push; the loop
-          # tolerates initial in_progress state until it sees a terminal
-          # conclusion.
+          # Poll for the migrate-development workflow run whose head_sha matches
+          # the current commit and whose status is completed. No event filter
+          # so dispatch triggers are also covered.
+          FINAL="pending"
           for i in $(seq 1 30); do
             RESP="$(curl -s -f -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/migrate-development.yml/runs?head_sha=$SHA&event=push&status=completed")" || {
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/migrate-development.yml/runs?head_sha=$SHA&status=completed")" || {
               echo "::warning::cannot query workflow runs (attempt $i)"; sleep 10; continue;
             }
-            if [ "$(echo "$RESP" | jq -r '.total_count // 0')" -gt 0 ]; then
-              CONCLUSION="$(echo "$RESP" | jq -r '.workflow_runs[0].conclusion')"
-              echo "migrate-development conclusion=$CONCLUSION (attempt $i)"
-              if [ "$CONCLUSION" = "success" ]; then
+            TOTAL="$(echo "$RESP" | jq -r '.total_count // 0')"
+            if [ "$TOTAL" -gt 0 ]; then
+              FINAL="$(echo "$RESP" | jq -r '.workflow_runs[0].conclusion // "unknown"')"
+              echo "migrate-development conclusion=$FINAL (attempt $i)"
+              if [ "$FINAL" = "success" ]; then
                 echo "schema migration ok"; break
-              elif [ "$CONCLUSION" = "failure" ] || [ "$CONCLUSION" = "cancelled" ]; then
-                echo "::error::migrate-development failed ($CONCLUSION); skipping deploy"; exit 1
               fi
             else
               echo "no completed migrate-development run yet for $SHA (attempt $i)"
             fi
             sleep 10
           done
-          # Final guard: if the loop exited without finding a success, the most
-          # recent state is whatever the API reported. Re-check once before
-          # failing, since the API can lag behind the workflow completion.
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "::warning::migrate-development not in 'success' state after polling window; re-checking once"
-            sleep 15
-            RESP="$(curl -s -f -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/migrate-development.yml/runs?head_sha=$SHA")" || true
-            FINAL="$(echo "$RESP" | jq -r '.workflow_runs[0].conclusion // "unknown"')"
-            if [ "$FINAL" != "success" ]; then
-              echo "::error::migrate-development final state=$FINAL; skipping deploy"; exit 1
-            fi
+          echo "final migrate-development conclusion=$FINAL"
+          if [ "$FINAL" != "success" ]; then
+            echo "::error::migrate-development not in success state; skipping deploy"; exit 1
           fi
 
       - name: Pull Vercel project settings
