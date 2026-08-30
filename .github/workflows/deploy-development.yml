@@ -44,25 +44,26 @@ jobs:
         run: |
           SHA="${{ github.sha }}"
           echo "waiting for migrate-development on $SHA"
-          # Poll for the migrate-development workflow run whose head_sha matches
-          # the current commit and whose status is completed. No event filter
-          # so dispatch triggers are also covered.
+          # Poll the latest run for this commit. Do not filter by status; just
+          # look for the terminal conclusion. The run can take 5+ minutes
+          # because of hosted tests, so the loop runs up to 40 iterations
+          # (~6.5 min) and falls back to a final recheck.
           FINAL="pending"
-          for i in $(seq 1 30); do
+          for i in $(seq 1 40); do
             RESP="$(curl -s -f -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/migrate-development.yml/runs?head_sha=$SHA&status=completed")" || {
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/migrate-development.yml/runs?head_sha=$SHA&per_page=1")" || {
               echo "::warning::cannot query workflow runs (attempt $i)"; sleep 10; continue;
             }
-            TOTAL="$(echo "$RESP" | jq -r '.total_count // 0')"
-            if [ "$TOTAL" -gt 0 ]; then
+            STATUS="$(echo "$RESP" | jq -r '.workflow_runs[0].status // "missing"')"
+            if [ "$STATUS" = "completed" ]; then
               FINAL="$(echo "$RESP" | jq -r '.workflow_runs[0].conclusion // "unknown"')"
               echo "migrate-development conclusion=$FINAL (attempt $i)"
               if [ "$FINAL" = "success" ]; then
                 echo "schema migration ok"; break
               fi
             else
-              echo "no completed migrate-development run yet for $SHA (attempt $i)"
+              echo "migrate-development status=$STATUS (attempt $i)"
             fi
             sleep 10
           done
