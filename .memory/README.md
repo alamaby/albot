@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-08-30 (repo analysis + CI fix + doc backfill)
+Last updated: 2026-08-30 21:30 (repo analysis remediation — F1–F8 selesai)
 
 ## Current State
 
@@ -26,14 +26,16 @@ Last updated: 2026-08-30 (repo analysis + CI fix + doc backfill)
 
 ## Open Blockers
 
-- **PROD: `recovery-production` 500 sejak 29 Ags 18:00 UTC** — hipotesis: kode prod (auto-deploy) memanggil `purge_prompt_audit` yang belum ada di DB prod. **Butuh keputusan user: jalankan `migrate-production` (manual, attestation-gated) untuk migration 27–39.** Sampai itu: recovery sweep prod mati (lease/session/purge tertunda).
-- `deploy-development`: fix `361d10e` di-push, menunggu bukti hijau (belum pernah sukses sejak dibuat 29 Ags; RCA: secrets kosong → tanpa project.json → flag `--project-id` invalid)
-- `maxDuration 60s` (Vercel Hobby) < Pixazo PixelForge adapter timeout 120s — F4 dalam remediation
+- **deploy-development**: blockir terakhir = `VERCEL_TOKEN` adalah Team Access Token (bukti: probe API `?teamId=` → 200; CLI `/v2/user` → 404 "User not found"). **User action**: ganti ke personal access token di GitHub Environment `development`, lalu `workflow_dispatch`. Semua fix workflow lain sudah di `fed6a84` (project.json langsung, ID hardcode, `--scope`, probe diagnosa).
+- **PROD: `recovery-production` 500 sejak 29 Ags 18:00 UTC** — kode prod (auto-deploy) memanggil `purge_prompt_audit` yang belum ada di DB prod. **User action: jalankan `migrate-production` (manual, attestation-gated) untuk migration 27–39.** Sampai itu: recovery sweep prod mati (lease/session/purge tertunda).
+- `maxDuration 60s` (Vercel Hobby): default timeout adapter sudah di-clamp ke 55s (F4, commit `0b72af2`) — known limitation tertutup di sisi kode.
 - User action tooling: restart opencode + verifikasi MCP Supabase prod; restart opencode + smoke test Naraya GLM 5.3 Flash (plan 27 Ags)
-- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual; deploy job tanpa `environment:` tidak menerima secrets
+- Hosted tests flaky di runner (1× dari 4 run 30 Ags) — rerun menyelesaikan.
+- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual; deploy job tanpa `environment:` tidak menerima secrets; Team Access Token tidak bisa dipakai CLI untuk `pull` (butuh personal token).
 
 ## Recent Entries
 
+- `2026-08-30/213000-repo-analysis-remediation.md` — Remediasi F1–F8 selesai (selector per-config strategy, rate-limit /enhance-prompt, clamp 55s, env attribution, cast, docs, hygiene); unit 297 + hosted 126/126 lokal; CI thread: project.json + ID hardcode, hosted flaky 1× (rerun)
 - `2026-08-30/203300-ci-deploy-pipeline-and-prod-recovery-incident.md` — RCA 21× deploy-development failure + fix `361d10e`; insiden recovery-production 500 (drift schema prod, butuh migrate-production)
 - `2026-08-30/203200-*` — (plan) `plans/2026-08-30-repo-analysis-remediation-plan.md` — remediasi F1–F8 hasil analisa repo
 - `2026-08-29/233000-prompt-audit-feature.md` — prompt_audit 180d + provider_requests audit columns + instruction_kind + /api/admin/prompts

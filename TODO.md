@@ -8,12 +8,13 @@ Post-M7 iterasi: Command Expansion (**CLOSED 2026-08-26**), content-policy refus
 
 ## In Progress
 
-Repo analysis remediation 2026-08-30 — plan: `plans/2026-08-30-repo-analysis-remediation-plan.md`
+Repo analysis remediation 2026-08-30 — plan: `plans/2026-08-30-repo-analysis-remediation-plan.md`; memory: `.memory/2026-08-30/213000-repo-analysis-remediation.md`
 
-- [x] RCA thread CI `deploy-development` (21× gagal): tanpa `.vercel/project.json` + flag `--project-id` invalid di CLI 47 → fix tulis project.json langsung (`361d10e`)
-- [x] Backfill `.memory/` + TODO untuk kerja 27–30 Ags (6 entri)
-- [ ] Remediasi F1–F8 (round_robin selector, type drift, rate limit `/enhance-prompt`, clamp Pixazo, env referer, type cast, docs, hygiene)
-- [ ] **Keputusan user: `migrate-production` untuk migration 27–39** — `recovery-production` 500 sejak 29 Ags (kode prod auto-deploy memanggil `purge_prompt_audit` yang belum ada di DB prod)
+- [x] RCA thread CI `deploy-development` (21× gagal): tanpa `.vercel/project.json` + flag `--project-id` invalid di CLI 47 → tulis project.json langsung (`361d10e`) + ID hardcode (`8f7a8e2`)
+- [x] Backfill `.memory/` + TODO untuk kerja 27–30 Ags (7 entri)
+- [x] Remediasi F1–F8 (selector per-config strategy, type drift, rate limit `/enhance-prompt`, clamp timeout 55s, env attribution, cast removal, docs, hygiene) — unit 297 + hosted 126/126, validate+migrate hijau di `fed6a84`
+- [ ] **USER ACTION: ganti `VERCEL_TOKEN` (Team Access Token → personal token)** di GitHub Environment `development` — diagnosis: probe API 200, CLI `/v2/user` 404 = team token; setelah diganti, `workflow_dispatch` deploy-development
+- [ ] **USER ACTION: `migrate-production` untuk migration 27–39** — `recovery-production` 500 sejak 29 Ags (kode prod auto-deploy memanggil `purge_prompt_audit` yang belum ada di DB prod)
 
 ## Pending
 

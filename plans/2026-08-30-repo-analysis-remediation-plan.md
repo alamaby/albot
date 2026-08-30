@@ -61,9 +61,10 @@ Created: 2026-08-30 20:32:27
 ### Phase 4 — Verifikasi & penutup
 
 - [x] Gate lokal: `format:check` ✓ (4 file di-prettier), `lint` ✓ (0 error; 2 warning pre-existing di `scripts/e2e-m6-fault-injection.mjs`), `typecheck` ✓, `test:unit` 297/297 ✓, `build` ✓, `db:lint` ✓, `db:check-migrations` 39 ✓, `db:types:check` ✓
-- [ ] Commit terpisah per topik — tanpa trailer `Co-authored-by:`
-- [ ] Push → pastikan `deploy-development` hijau; prod tetap tidak disentuh dari sisi kode
-- [ ] Entri `.memory` penutup + checklist akhir plan
+- [x] Commit terpisah per topik — tanpa trailer `Co-authored-by:`
+- [x] Push → `validate` ✓ + `migrate-development` ✓ (hosted 126/126) di HEAD `fed6a84`
+- [x] Entri `.memory` penutup + checklist akhir plan
+- [ ] **USER ACTION — satu-satunya blockir `deploy-development`**: secret `VERCEL_TOKEN` (GitHub Environment `development`) berisi **Team Access Token** — dibuktikan: probe API `GET /v9/projects/{id}?teamId={org}` → HTTP 200, tapi CLI `pull` gagal `/v2/user` → `User not found (404)` (team token tidak punya user context). Ganti dengan **personal access token** yang punya akses ke team `7caBsxNQrtdtkzQGbPBAFYKe` di Vercel dashboard, update secret, lalu `workflow_dispatch` deploy-development
 
 ## Risks
 
@@ -77,7 +78,10 @@ Created: 2026-08-30 20:32:27
 - 2026-08-30 20:32:27 — Plan dibuat. Phase 1 selesai: RCA CI (3 lapis), fix `361d10e` di-push, insiden `recovery-production` 500 terdokumentasi + korelasi waktu.
 - 2026-08-30 20:55 — Phase 2 selesai (5 entri memory + README + TODO). Phase 3 F1–F3 selesai; selector test 15/15, webhook test 42/42.
 - 2026-08-30 21:10 — F4–F8 selesai. Gate lokal hijau penuh (297 unit). Temuan tambahan: cast F7 tidak diperlukan; PixelForge adapter sudah dihapus (F4 scope menyesuaikan ke pixazo/pollinations/reasoning defaults).
-- 2026-08-30 21:12 — Iterasi CI lanjutan: run `361d10e` masih gagal di `vercel pull` ("Could not retrieve Project Settings") — nilai secrets `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` dicurigai tidak cocok. Verifikasi lokal: CLI 47 membaca env `VERCEL_PROJECT_ID`/`VERCEL_ORG_ID` sebagai link info. Fix `8f7a8e2`: hardcode ID sebenarnya (non-secret, dari `.vercel/repo.json` lokal) di workflow, token tetap dari secrets. Menunggu run berikutnya; bila masih gagal → token `VERCEL_TOKEN` yang bermasalah (escalate ke user).
+- 2026-08-30 21:12 — Iterasi CI lanjutan: run `361d10e` masih gagal di `vercel pull` ("Could not retrieve Project Settings") — nilai secrets `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` dicurigai tidak cocok. Fix `8f7a8e2`: hardcode ID sebenarnya (non-secret, dari `.vercel/repo.json` lokal).
+- 2026-08-30 21:30 — Run `8f7a8e2`: migrate gagal FLAKY di hosted tests → **rerun sukses**; hosted 126/126 lulus lokal. Commit kode remediasi `56dc4a8..426f745` di-push; migrate hijau di `426f745`.
+- 2026-08-30 21:45 — Deploy tetap gagal; tambah probe API (`f429bdf`): **HTTP 200** → token valid & ID benar. Fix scope (`fed6a84`): CLI tanpa `--scope` resolve ke default team token → project 404; dengan `--scope` muncul `User not found (404)` pada `/v2/user` → **kesimpulan: `VERCEL_TOKEN` adalah Team Access Token; CLI pull butuh user token**. Blockir terakhir = user action di Vercel dashboard.
+- 2026-08-30 21:50 — STATUS AKHIR: semua pekerjaan agent selesai. validate ✓, migrate ✓ (hosted 126/126), deploy-development menunggu user ganti token. Prod migration 27–39 juga menunggu keputusan user (`migrate-production`).
 
 ## Notes
 
