@@ -132,6 +132,24 @@ export class JobRepository {
     return data!.id;
   }
 
+  // Counts enhance_only jobs created for a user within the sliding window.
+  // The session-based rate limit cannot see these session-less jobs, so the
+  // webhook uses this counter to give /enhance-prompt the same abuse-control
+  // budget as prompt submissions.
+  async countRecentEnhanceOnlyJobs(telegramUserId: bigint, windowMinutes: number): Promise<number> {
+    const supabase = getSupabaseAdmin();
+    const since = new Date(Date.now() - windowMinutes * 60_000).toISOString();
+    const { count, error } = await supabase
+      .from("jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("job_type", "enhance_only")
+      .filter("payload->>telegram_user_id", "eq", bigintToDb(telegramUserId))
+      .gte("created_at", since);
+
+    if (error) throw new Error(`recent enhance_only job count failed: ${error.message}`);
+    return count ?? 0;
+  }
+
   // Creates a generate_image job from a confirmed revision (Milestone 5 owns
   // the handler; the job stays queued until then).
   async insertGenerateImageJob(input: {

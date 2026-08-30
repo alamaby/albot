@@ -23,11 +23,7 @@ import { SessionRepository } from "@/server/repositories/session.repository";
 import { JobRepository } from "@/server/repositories/job.repository";
 import { logStructured } from "@/server/observability/logger";
 import { RevisionInputUseCase } from "./revision-input";
-import {
-  CallbackStateMachine,
-  extractMessageId,
-  type CallbackAction,
-} from "./callback-state-machine";
+import { CallbackStateMachine, extractMessageId } from "./callback-state-machine";
 
 export const ACCESS_CONTROLS = {
   maxPromptLength: TELEGRAM_MAX_PROMPT_LENGTH,
@@ -224,14 +220,14 @@ async function handleCallbackQuery(
       const session = await deps.sessionRepository.getById(sessionId);
       if (session) {
         await deps.callbackStateMachine.handle({
-          action: action as CallbackAction,
+          action,
           sessionId,
           session,
           telegramUserId: callback.userId,
           callbackQueryId: callback.callbackQueryId,
           origin,
           rawData: callback.data,
-        } as unknown as Parameters<typeof deps.callbackStateMachine.handle>[0]);
+        });
       } else {
         await deps.answerTelegramCallback(env.TELEGRAM_BOT_TOKEN, callback.callbackQueryId, {
           text: "Sesi tidak ditemukan.",
@@ -525,7 +521,9 @@ async function handleDirectGenerateCommand(
 
 // /enhance-prompt <prompt>: enhance-only. Inserts a session-less enhance_only
 // job and dispatches; the handler replies with the enhanced prompt as plain
-// text. Not counted by the session-based rate limit (documented limitation).
+// text. The session-based rate limit cannot see these session-less jobs, so
+// the command counts its own recent jobs against the same abuse-control
+// budget (same window and max as prompt submissions).
 async function handleEnhanceOnlyCommand(
   env: ServerEnv,
   deps: TelegramWebhookDeps,
@@ -540,6 +538,16 @@ async function handleEnhanceOnlyCommand(
 
   if (args.length > ACCESS_CONTROLS.maxPromptLength) {
     await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
+    return;
+  }
+
+  // Count recent session-less jobs; same budget as the prompt rate limit.
+  const recentEnhanceOnly = await deps.jobRepository.countRecentEnhanceOnlyJobs(
+    message.userId,
+    ACCESS_CONTROLS.rateLimitWindowMinutes,
+  );
+  if (recentEnhanceOnly >= ACCESS_CONTROLS.rateLimitMaxSubmissions) {
+    await trySendMessage(env, deps, message.chatId, buildBotMessage("rate_limited"));
     return;
   }
 

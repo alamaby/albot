@@ -90,6 +90,7 @@ function buildDeps(overrides: Partial<MutableDeps> = {}): {
     } as unknown as TelegramWebhookDeps["sessionRepository"],
     jobRepository: {
       insertEnhanceOnlyJob: vi.fn(async () => "job-enhance-only-1"),
+      countRecentEnhanceOnlyJobs: vi.fn(async () => 0),
     } as unknown as TelegramWebhookDeps["jobRepository"],
     revisionInput: {
       handle: vi.fn(async () => ({ status: "ignored" })),
@@ -636,6 +637,29 @@ describe("handleTelegramUpdate - slash enhance-prompt", () => {
 
     expect(calls.sentMessages.some((m) => m.text.includes("/enhance-prompt <prompt>"))).toBe(true);
     expect(deps.jobRepository.insertEnhanceOnlyJob).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits enhance_only when the recent-job budget is exhausted", async () => {
+    withEnv();
+    const { deps, calls } = buildDeps({
+      jobRepository: {
+        insertEnhanceOnlyJob: vi.fn(async () => "job-enhance-only-1"),
+        countRecentEnhanceOnlyJobs: vi.fn(async () => 5),
+      } as unknown as TelegramWebhookDeps["jobRepository"],
+    });
+    await handleTelegramUpdate(
+      privateTextMessage({ text: "/enhance-prompt kucing oren" }),
+      "https://example.vercel.app",
+      deps,
+    );
+
+    expect(deps.jobRepository.countRecentEnhanceOnlyJobs).toHaveBeenCalledWith(
+      123n,
+      ACCESS_CONTROLS.rateLimitWindowMinutes,
+    );
+    expect(deps.jobRepository.insertEnhanceOnlyJob).not.toHaveBeenCalled();
+    expect(deps.dispatchToProcessor).not.toHaveBeenCalled();
+    expect(calls.sentMessages.some((m) => m.text.includes("Terlalu banyak permintaan"))).toBe(true);
   });
 
   it("reports dispatch failure explicitly", async () => {
