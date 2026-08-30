@@ -164,6 +164,42 @@ id='<id>';` — failover otomatis pindah ke provider berikutnya.
 3. `sendPhoto` gagal → attempt `failed` + session `generation_failed`; user
    retry dari keyboard.
 
+## 11b. Cek audit prompt lintas purge (180 hari)
+
+Endpoint admin `GET /api/admin/prompts` (Bearer `JOB_PROCESSOR_SECRET`)
+mengembalikan riwayat prompt per-user dari tabel `prompt_audit` (retention
+180 hari, independen dari `purge_expired_metadata` 30 hari). Berguna untuk
+RCA setelah sesi lama sudah di-purge dari tabel transaksional.
+
+Query params:
+
+| Param        | Tipe     | Keterangan                                    |
+| ------------ | -------- | --------------------------------------------- |
+| `user_id`    | integer  | Telegram user id (wajib kecuali `session_id`) |
+| `session_id` | uuid     | Filter session tertentu                       |
+| `since`      | iso date | `created_at >= since`                         |
+| `until`      | iso date | `created_at < until`                          |
+| `limit`      | 1..200   | Default 100                                   |
+| `offset`     | integer  | Default 0                                     |
+
+Contoh:
+
+```bash
+# Riwayat 1 user, 50 row terakhir
+curl -s -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
+  "https://albot-be.alamaby.com/api/admin/prompts?user_id=83540732&limit=50" | jq
+
+# Audit per session
+curl -s -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
+  "https://albot-be.alamaby.com/api/admin/prompts?session_id=7e82a330-e629-46e1-be61-c558e1c99f8a" | jq
+```
+
+Stage yang direkam: `enhance_input` (raw user text), `enhance_output`
+(hasil enhance), `generate_input` (enhanced prompt yang dipakai image
+provider). Kolom `model`, `provider_config_id`, `error_code` membantu RCA
+content policy / rate-limit / provider outage. Retention 180 hari, sweep
+oleh `purge_prompt_audit` (lihat runbook cron `recovery-production.yml`).
+
 ## 12. Menjalankan migration development dan production
 
 1. Commit migration baru (`supabase/migrations/<timestamp>_*.sql`, additive).
