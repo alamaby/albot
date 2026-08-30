@@ -97,27 +97,36 @@ jobs:
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")"
           echo "vercel api projects probe: HTTP $CODE"
-          npx vercel pull --yes --environment=preview --token "$VERCEL_TOKEN"
+          # --scope pins the team: the CLI resolves the project against the
+          # token's default team unless told otherwise, and the token's
+          # default team is not the one owning this project.
+          npx vercel pull --yes --scope "$VERCEL_ORG_ID" \
+            --environment=preview --token "$VERCEL_TOKEN"
 
       - name: Build (preview target)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx vercel build --yes --token "$VERCEL_TOKEN"
+          VERCEL_ORG_ID: team_7caBsxNQrtdtkzQGbPBAFYKe
+        run: npx vercel build --yes --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
 
       - name: Deploy to Vercel (preview)
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_7caBsxNQrtdtkzQGbPBAFYKe
         run: |
-          URL="$(npx vercel deploy --prebuilt --yes --token "$VERCEL_TOKEN")"
+          URL="$(npx vercel deploy --prebuilt --yes --scope "$VERCEL_ORG_ID" \
+            --token "$VERCEL_TOKEN")"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "deployed: $URL"
 
       - name: Alias albot-dev.vercel.app to the new deployment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_7caBsxNQrtdtkzQGbPBAFYKe
           DEPLOY_URL: ${{ steps.deploy.outputs.url }}
-        run: npx vercel alias set "$DEPLOY_URL" albot-dev.vercel.app --token "$VERCEL_TOKEN"
+        run: npx vercel alias set "$DEPLOY_URL" albot-dev.vercel.app \
+          --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
 
       - name: Health check
         run: |
