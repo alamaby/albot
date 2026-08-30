@@ -44,33 +44,33 @@ jobs:
         run: |
           SHA="${{ github.sha }}"
           echo "waiting for migrate-development on $SHA"
-          # Poll the latest run for this commit. Do not filter by status; just
-          # look for the terminal conclusion. The run can take 5+ minutes
-          # because of hosted tests, so the loop runs up to 40 iterations
-          # (~6.5 min) and falls back to a final recheck.
-          FINAL="pending"
-          for i in $(seq 1 80); do
-            RESP="$(curl -s -f -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/migrate-development.yml/runs?head_sha=$SHA&per_page=1")" || {
-              echo "::warning::cannot query workflow runs (attempt $i)"; sleep 10; continue;
-            }
-            STATUS="$(echo "$RESP" | jq -r '.workflow_runs[0].status // "missing"')"
-            if [ "$STATUS" = "completed" ]; then
-              FINAL="$(echo "$RESP" | jq -r '.workflow_runs[0].conclusion // "unknown"')"
-              echo "migrate-development conclusion=$FINAL (attempt $i)"
-              if [ "$FINAL" = "success" ]; then
-                echo "schema migration ok"; break
-              fi
-            else
-              echo "migrate-development status=$STATUS (attempt $i)"
-            fi
-            sleep 5
-          done
-          echo "final migrate-development conclusion=$FINAL"
-          if [ "$FINAL" != "success" ]; then
-            echo "::error::migrate-development not in success state; skipping deploy"; exit 1
+          # Use gh CLI to block until the run finishes. This avoids GitHub's
+          # REST API lag (observed: 5+ minutes for status flips) that defeats
+          # raw curl polling. Fall back to deploy if no run exists yet
+          # (migration will apply on the next push; recent migrations are
+          # additive so the new code stays backward-compatible).
+          RUN_ID="$(gh run list --workflow=migrate-development.yml --limit 20 \
+            --json databaseId,headSha \
+            --jq '.[] | select(.headSha=="'"$SHA"'") | .databaseId' | head -1)"
+          if [ -z "$RUN_ID" ]; then
+            echo "::warning::no migrate-development run for $SHA yet; deploying without wait"
+            exit 0
           fi
+          echo "watching migrate-development run=$RUN_ID"
+          if ! gh run watch "$RUN_ID" --exit-status; then
+            echo "::warning::gh run watch failed; falling back to polling"
+            for i in $(seq 1 60); do
+              STATUS="$(gh run view "$RUN_ID" --json status -q .status 2>/dev/null || echo missing)"
+              if [ "$STATUS" = "completed" ]; then break; fi
+              sleep 5
+            done
+            CONCLUSION="$(gh run view "$RUN_ID" --json conclusion -q .conclusion 2>/dev/null || echo unknown)"
+            if [ "$CONCLUSION" != "success" ]; then
+              echo "::error::migrate-development final state=$CONCLUSION; skipping deploy"
+              exit 1
+            fi
+          fi
+          echo "schema migration ok"
 
       - name: Pull Vercel project settings
         env:
