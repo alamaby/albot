@@ -7,15 +7,15 @@ otomatis via `migrate-development` CI setiap push ke main.
 
 ## Topologi
 
-| Komponen       | Nilai                                                          |
-| -------------- | -------------------------------------------------------------- |
-| Vercel dev     | `https://albot-dev.vercel.app` (alias stabil, project dev)     |
-| Vercel prod    | `https://albot-be.alamaby.com` (project prod)                  |
-| Vercel dev ID  | `prj_joLciwdA37o6er3DKRSkiWlOhgJs`                             |
-| Vercel team ID | `team_7caBsxNQrtdtkzQGbPBAFYKe`                                |
+| Komponen       | Nilai                                                              |
+| -------------- | ------------------------------------------------------------------ |
+| Vercel dev     | `https://albot-dev.vercel.app` (alias stabil, project dev)         |
+| Vercel prod    | `https://albot-be.alamaby.com` (project prod)                      |
+| Vercel dev ID  | `prj_joLciwdA37o6er3DKRSkiWlOhgJs`                                 |
+| Vercel team ID | `team_7caBsxNQrtdtkzQGbPBAFYKe`                                    |
 | Supabase dev   | `ceqcitzbosqzxpbtlpfn` (auto-migrate via CI `migrate-development`) |
-| Supabase prod  | `pcexxtckvwmiquseznaz` (manual migrate via `migrate-production`) |
-| Bot            | `@albot_ai_bot`                                                |
+| Supabase prod  | `pcexxtckvwmiquseznaz` (manual migrate via `migrate-production`)   |
+| Bot            | `@albot_ai_bot`                                                    |
 
 ## Prerequisites (per workstation)
 
@@ -207,8 +207,8 @@ Next.js 16 masih 0.0.1-beta untuk adapter. Cek changelog:
 
 - **Vercel Git integration (prod)** masih auto-deploy dari main (di luar workflow
   `deploy-development.yml` ini). Jadi prod sebenernya deploy via Git integration
-  + manual via CLI; dua jalur. Gunakan CLI untuk kontrol lebih (rollout
-  selektif, alias manual, dst).
+  - manual via CLI; dua jalur. Gunakan CLI untuk kontrol lebih (rollout
+    selektif, alias manual, dst).
 - **Vercel CLI 47 + Next.js 16** kadang tidak auto-inject adapter (auto-inject
   hanya di Vercel platform Git integration build). Konfigurasi `adapterPath`
   di `next.config.ts` (commit `f150b01`) memastikan build bekerja baik di CLI
