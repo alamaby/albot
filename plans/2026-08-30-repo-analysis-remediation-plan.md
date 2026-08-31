@@ -64,7 +64,8 @@ Created: 2026-08-30 20:32:27
 - [x] Commit terpisah per topik — tanpa trailer `Co-authored-by:`
 - [x] Push → `validate` ✓ + `migrate-development` ✓ (hosted 126/126) di HEAD `fed6a84`
 - [x] Entri `.memory` penutup + checklist akhir plan
-- [ ] **USER ACTION — satu-satunya blockir `deploy-development`**: secret `VERCEL_TOKEN` (GitHub Environment `development`) berisi **Team Access Token** — dibuktikan: probe API `GET /v9/projects/{id}?teamId={org}` → HTTP 200, tapi CLI `pull` gagal `/v2/user` → `User not found (404)` (team token tidak punya user context). Ganti dengan **personal access token** yang punya akses ke team `7caBsxNQrtdtkzQGbPBAFYKe` di Vercel dashboard, update secret, lalu `workflow_dispatch` deploy-development
+- [x] **USER ACTION — re-scope `VERCEL_TOKEN`** — DONE 2026-08-31: error 403 "You do not have access to the specified account" hilang setelah user ganti ke personal token dengan Scope = team. `vercel pull` sekarang sukses menarik project settings.
+- [ ] **USER ACTION — set Vercel dashboard Node.js Version = 22.x** (blocker saat ini): `vercel build` (CLI 47) reject pulled `nodeVersion: "24.x"` dari dashboard. Repo guardrail `engines.node: "22.x"` sudah di-push (`08ad863`); untuk dev CI definitif butuh dashboard Node 22.x. Set Project Settings → General → Node.js Version = **22.x** untuk dev `prj_joLciwdA37o6er3DKRSkiWlOhgJs` (dan prod untuk konsistensi), lalu `workflow_dispatch` deploy-development → verifikasi step "Build (preview target)" hijau. Plan terpisah: `plans/2026-08-31-fix-deploy-development-node-22.md`.
 
 ## Risks
 
@@ -85,6 +86,8 @@ Created: 2026-08-30 20:32:27
 - 2026-08-31 00:48 — **USER ACTION 2 selesai**: `migrate-production` run `33345671587` sukses di `0a83769` — migration 27–39 ter-apply ke prod (26→39); DB prod kini selaras dengan kode prod yang auto-deploy. Prod health `status:ok`.
 - 2026-08-31 01:00 — **Insiden prod CLOSED**: cron `recovery-production` run `33346233290` (pertama setelah migrate) → **success**; rangkaian failure 29 Ags 18:00 UTC → 31 Aug 00:37 UTC berakhir. Hipotesis drift schema terbukti. Sisa satu user action: `VERCEL_TOKEN` personal untuk deploy-development.
 - 2026-08-31 01:15 — User report: (1) `VERCEL_TOKEN` sudah diganti, (2) `migrate-production` sudah dijalankan (verified di atas), (3) `PROVIDER_APP_URL` sudah di-set, tooling opencode tidak perlu. Run deploy pertama dengan token baru (`0054340`) masih gagal: probe **HTTP 403 "You do not have access to the specified account"** → scope token personal tidak mencakup team pemilik project. Sisa langkah user: buat ulang token dengan Scope = team (atau Full Account) → update secret → `workflow_dispatch`.
+- 2026-08-31 10:30 — User re-scope `VERCEL_TOKEN` sukses: error 403 "You do not have access to the specified account" hilang; `vercel pull` sekarang sukses menarik project settings. **Error berikutnya muncul di step "Build (preview target)"**: `vercel build` (CLI 47) reject pulled `nodeVersion: "24.x"` sebagai invalid, minta "22.x". RCA: `package.json` tidak ada `engines`, fallback ke dashboard 24.x. Precedence Vercel: `engines.node` override dashboard untuk platform build (prod git-integration), tapi CLI `vercel build` lokal validasi project-setting hasil `vercel pull` — untuk dev CI butuh dashboard 22.x, tidak cukup engines saja.
+- 2026-08-31 10:55 — Repo guardrail dipush: `engines.node: "22.x"` di `package.json` (`08ad863`) + plan file `plans/2026-08-31-fix-deploy-development-node-22.md` (`6a961ea`). Gate lokal hijau penuh (lint, typecheck, test:unit 297/297, build, format:check). Sisa user action: set Vercel dashboard Node.js Version = **22.x** untuk dev (dan prod untuk konsistensi) → `workflow_dispatch` deploy-development. Setelah bukti hijau, Phase 4 task final di plan ini CLOSED.
 
 ## Notes
 

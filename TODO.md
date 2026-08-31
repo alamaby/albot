@@ -13,7 +13,8 @@ Repo analysis remediation 2026-08-30 — plan: `plans/2026-08-30-repo-analysis-r
 - [x] RCA thread CI `deploy-development` (21× gagal): tanpa `.vercel/project.json` + flag `--project-id` invalid di CLI 47 → tulis project.json langsung (`361d10e`) + ID hardcode (`8f7a8e2`)
 - [x] Backfill `.memory/` + TODO untuk kerja 27–30 Ags (7 entri)
 - [x] Remediasi F1–F8 (selector per-config strategy, type drift, rate limit `/enhance-prompt`, clamp timeout 55s, env attribution, cast removal, docs, hygiene) — unit 297 + hosted 126/126, validate+migrate hijau di `fed6a84`
-- [ ] **USER ACTION (terakhir): re-scope `VERCEL_TOKEN`** — token personal sudah terpasang, tapi run `0054340` probe **403 "You do not have access to the specified account"** → scope token tidak mencakup team `7caBsxNQ...`. Buat ulang token dengan Scope = team pemilik project (atau Full Account), update secret, `workflow_dispatch` deploy-development
+- [x] **USER ACTION: re-scope `VERCEL_TOKEN`** — DONE: token personal terpasang, `vercel pull` sekarang sukses menarik project settings
+- [ ] **USER ACTION: set Vercel dashboard Node.js Version = 22.x** (deploy-development, last blocker) — repo guardrail `engines.node: "22.x"` sudah di-push (`08ad863`), tapi `vercel build` CLI 47 validasi project-setting hasil pull (bukan di-override engines), sehingga dashboard Node.js Version = **22.x** untuk dev `prj_joLciwdA37o6er3DKRSkiWlOhgJs` (dan prod untuk konsistensi) tetap dibutuhkan. Setelah set, `workflow_dispatch` deploy-development → verifikasi step "Build (preview target)" hijau. Plan: `plans/2026-08-31-fix-deploy-development-node-22.md`; memory: `.memory/2026-08-31/105212-fix-deploy-development-node-22.md`
 - [x] **USER ACTION: `migrate-production` untuk migration 27–39** — DONE 2026-08-31: run `33345671587` sukses (prod 26→39); `recovery-production` hijau lagi (run `33346233290`) — insiden 500 sejak 29 Ags CLOSED
 - [x] **USER ACTION: `PROVIDER_APP_URL`** — sudah di-set di Vercel (2026-08-31)
 
@@ -26,9 +27,10 @@ Repo analysis remediation 2026-08-30 — plan: `plans/2026-08-30-repo-analysis-r
 Plan: `plans/2026-08-30-repo-analysis-remediation-plan.md`; memory: `.memory/2026-08-30/203300-ci-deploy-pipeline-and-prod-recovery-incident.md`
 
 - [x] RCA 3 lapis: secrets kosong (fixed `1827187`) → tanpa `.vercel/project.json` → flag `--project-id` invalid CLI 47
-- [x] Fix workflow: tulis `.vercel/project.json` dari secrets (`361d10e`)
+- [x] Fix workflow: tulis `.vercel/project.json` dari secrets (`361d10e`) + ID hardcode (`8f7a8e2`) + `--scope` (`fed6a84`)
 - [x] Deteksi insiden `recovery-production` 500 (6× sejak 29 Ags 18:00 UTC) + korelasi push `eff14bf` prompt_audit
-- [ ] Bukti hijau `deploy-development`; keputusan migrate-production (user)
+- [x] Keputusan migrate-production (user) — DONE 2026-08-31: `33345671587` sukses, recovery cron hijau lagi
+- [ ] Bukti hijau `deploy-development` (setelah user set dashboard Node 22.x + workflow_dispatch) — engines pin `08ad863`
 
 ### OpenRouter free models + round_robin + prompt_audit (2026-08-29/30)
 
