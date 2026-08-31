@@ -33,10 +33,9 @@ Gate lokal hijau penuh: format:check, lint (0 error; 2 warning pre-existing di `
 - Workflow-only fix di-push duluan untuk feedback cepat (validate HEAD lama hijau, tanpa migration)
 
 ## Open Items / Blockers
-- **USER ACTION 1 — deploy-development (satu-satunya tersisa)**: ganti `VERCEL_TOKEN` (Team Access Token → personal access token, akses team `7caBsxNQrtdtkzQGbPBAFYKe`) di GitHub Environment `development`; workflow sudah siap (project.json + `--scope` + probe diagnosa)
+- **USER ACTION 1 — deploy-development (satu-satunya tersisa, progres)**: user sudah mengganti `VERCEL_TOKEN` ke personal token (error team-token `/v2/user` 404 hilang), tapi run `0054340` probe **HTTP 403 "You do not have access to the specified account"** → scope token tidak mencakup team `7caBsxNQrtdtkzQGbPBAFYKe`. Sisa langkah: buat ulang token dengan Scope = team pemilik project (atau Full Account), update secret, `workflow_dispatch`
 - ~~USER ACTION 2 — prod recovery 500~~ **CLOSED 2026-08-31 01:00 UTC**: user menjalankan `migrate-production` (run `33345671587`, sukses di `0a83769`, prod 26→39 migrations); cron `recovery-production` run `33346233290` → success pada percobaan pertama setelahnya
-- **USER ACTION 3 (opsional)**: set `PROVIDER_APP_URL=https://albot-be.alamaby.com` di Vercel (dev+prod) untuk atribusi OpenRouter yang benar
-- Hosted tests flaky di runner (1× dari 4 run hari ini) — rerun menyelesaikan; pantau bila berulang
+- ~~USER ACTION 3 (opsional)~~ **DONE**: `PROVIDER_APP_URL` di-set user di Vercel 2026-08-31; tooling opencode (MCP verify + Naraya smoke test) dinyatakan tidak perlu oleh user
 
 ## Commit Proposal
 `fix(selector): derive config order from per-config selection_strategy`

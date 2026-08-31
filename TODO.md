@@ -13,8 +13,9 @@ Repo analysis remediation 2026-08-30 — plan: `plans/2026-08-30-repo-analysis-r
 - [x] RCA thread CI `deploy-development` (21× gagal): tanpa `.vercel/project.json` + flag `--project-id` invalid di CLI 47 → tulis project.json langsung (`361d10e`) + ID hardcode (`8f7a8e2`)
 - [x] Backfill `.memory/` + TODO untuk kerja 27–30 Ags (7 entri)
 - [x] Remediasi F1–F8 (selector per-config strategy, type drift, rate limit `/enhance-prompt`, clamp timeout 55s, env attribution, cast removal, docs, hygiene) — unit 297 + hosted 126/126, validate+migrate hijau di `fed6a84`
-- [x] **USER ACTION: ganti `VERCEL_TOKEN` (Team Access Token → personal token)** di GitHub Environment `development` — diagnosis: probe API 200, CLI `/v2/user` 404 = team token; setelah diganti, `workflow_dispatch` deploy-development
+- [ ] **USER ACTION (terakhir): re-scope `VERCEL_TOKEN`** — token personal sudah terpasang, tapi run `0054340` probe **403 "You do not have access to the specified account"** → scope token tidak mencakup team `7caBsxNQ...`. Buat ulang token dengan Scope = team pemilik project (atau Full Account), update secret, `workflow_dispatch` deploy-development
 - [x] **USER ACTION: `migrate-production` untuk migration 27–39** — DONE 2026-08-31: run `33345671587` sukses (prod 26→39); `recovery-production` hijau lagi (run `33346233290`) — insiden 500 sejak 29 Ags CLOSED
+- [x] **USER ACTION: `PROVIDER_APP_URL`** — sudah di-set di Vercel (2026-08-31)
 
 ## Pending
 

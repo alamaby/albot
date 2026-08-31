@@ -84,6 +84,7 @@ Created: 2026-08-30 20:32:27
 - 2026-08-30 21:50 — STATUS AKHIR: semua pekerjaan agent selesai. validate ✓, migrate ✓ (hosted 126/126), deploy-development menunggu user ganti token. Prod migration 27–39 juga menunggu keputusan user (`migrate-production`).
 - 2026-08-31 00:48 — **USER ACTION 2 selesai**: `migrate-production` run `33345671587` sukses di `0a83769` — migration 27–39 ter-apply ke prod (26→39); DB prod kini selaras dengan kode prod yang auto-deploy. Prod health `status:ok`.
 - 2026-08-31 01:00 — **Insiden prod CLOSED**: cron `recovery-production` run `33346233290` (pertama setelah migrate) → **success**; rangkaian failure 29 Ags 18:00 UTC → 31 Aug 00:37 UTC berakhir. Hipotesis drift schema terbukti. Sisa satu user action: `VERCEL_TOKEN` personal untuk deploy-development.
+- 2026-08-31 01:15 — User report: (1) `VERCEL_TOKEN` sudah diganti, (2) `migrate-production` sudah dijalankan (verified di atas), (3) `PROVIDER_APP_URL` sudah di-set, tooling opencode tidak perlu. Run deploy pertama dengan token baru (`0054340`) masih gagal: probe **HTTP 403 "You do not have access to the specified account"** → scope token personal tidak mencakup team pemilik project. Sisa langkah user: buat ulang token dengan Scope = team (atau Full Account) → update secret → `workflow_dispatch`.
 
 ## Notes
 

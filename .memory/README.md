@@ -26,11 +26,11 @@ Last updated: 2026-08-31 08:05 (migrate-production sukses — insiden prod recov
 
 ## Open Blockers
 
-- **deploy-development**: blockir terakhir = `VERCEL_TOKEN` adalah Team Access Token (bukti: probe API `?teamId=` → 200; CLI `/v2/user` → 404 "User not found"). **User action**: ganti ke personal access token di GitHub Environment `development`, lalu `workflow_dispatch`. Semua fix workflow lain sudah di `fed6a84` (project.json langsung, ID hardcode, `--scope`, probe diagnosa).
+- **deploy-development**: token sudah diganti user ke personal token (progress: error team-token hilang), tapi probe kini **HTTP 403 "You do not have access to the specified account"** → scope token tidak mencakup team `7caBsxNQrtdtkzQGbPBAFYKe`. **User action terakhir**: buat ulang token di Vercel dengan Scope = team pemilik project (atau Full Account), update secret, `workflow_dispatch`. Fix workflow lain sudah lengkap di `fed6a84`.
 - ~~recovery-production 500~~ **CLOSED 2026-08-31 01:00 UTC**: migrate-production run `33345671587` sukses (prod 26→39 migrations); cron run `33346233290` → success.
-- User action tooling: restart opencode + verifikasi MCP Supabase prod; restart opencode + smoke test Naraya GLM 5.3 Flash (plan 27 Ags)
+- ~~PROVIDER_APP_URL~~ di-set user 2026-08-31 (atribusi OpenRouter kini mengikuti domain deployed).
 - Hosted tests flaky di runner (1× dari 4 run 30 Ags) — rerun menyelesaikan.
-- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual; deploy job tanpa `environment:` tidak menerima secrets; Team Access Token tidak bisa dipakai CLI untuk `pull` (butuh personal token); **push main = deploy prod (Vercel Git integration) — migration prod harus selalu mendahului push fitur berschema** (dibuktikan insiden 29–31 Ags).
+- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual; deploy job tanpa `environment:` tidak menerima secrets; Team Access Token tidak bisa dipakai CLI untuk `pull` (butuh personal token), dan personal token pun harus di-scope ke team — scope "Personal Account" tidak bisa mengakses project milik team (403); **push main = deploy prod (Vercel Git integration) — migration prod harus selalu mendahului push fitur berschema** (dibuktikan insiden 29–31 Ags).
 
 ## Recent Entries
 
