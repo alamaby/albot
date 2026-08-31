@@ -1,16 +1,16 @@
 # Project Memory
 
-Last updated: 2026-08-30 21:30 (repo analysis remediation — F1–F8 selesai)
+Last updated: 2026-08-31 08:05 (migrate-production sukses — insiden prod recovery CLOSED)
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
 - Status: semua milestone M0–M7 CLOSED; pasca-M7 berjalan iterasi fitur/fix: command expansion (26 Ags), content-policy refusal fix + regenerate-after-failure (27 Ags), Bynara providers + timeout clamp + `SUPABASE_SECRET_KEY` rename (28 Ags), OpenRouter free models + `round_robin` + `prompt_audit` audit 180d + CI auto-pipeline (29–30 Ags). Backfill memory untuk 27–30 Ags dilakukan 30 Ags.
-- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (39 migrations di repo, dev ikut migrate-development otomatis), prod `pcexxtckvwmiquseznaz` (**tercatat 26 migrations per 26 Ags — migration 27–39 BELUM terkonfirmasi apply; lihat Open Blockers**)
+- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (39 migrations di repo, dev ikut migrate-development otomatis), prod `pcexxtckvwmiquseznaz` (**39 migrations — migrate-production run `33345671587` sukses 2026-08-31 di `0a83769`**; selaras dengan kode prod yang auto-deploy)
 - Production topology: Vercel `albot-be.alamaby.com`, webhook `@albot_ai_bot`, allowlist `83540732`, provider: Cloudflare gpt-oss-120b (0) → Pollinations gpt-oss (150) → OpenRouter free ×5 (200–230, round_robin); image: Bynara a20f/a21f/nbn (picker; grok & sdxl dihapus dari picker 28 Ags), Pollinations flux (151). Kunci provider terenkripsi AES-256-GCM via `upsert-provider-key.mjs`.
 - **Prod auto-deploy dari main via Vercel Git integration** (terbukti dari E2E prod 27 Ags tanpa deploy manual) — push main = kode prod baru; DB prod harus selalu mendahului.
 - Health endpoint: readiness probe — HTTP 200 `status:ok` saat DB reachable, 503 `status:degraded` sebaliknya, `Cache-Control: no-store`
-- CI: `validate` (PR+push), `migrate-development` + `deploy-development` (auto on push main — pipeline baru 29 Ags), `migrate-production` (manual attestation-gated), `recovery-*` cron */20 (dev hijau; **prod 500 — lihat Open Blockers**)
+- CI: `validate` (PR+push), `migrate-development` + `deploy-development` (auto on push main — pipeline baru 29 Ags), `migrate-production` (manual attestation-gated), `recovery-*` cron */20 (dev & prod hijau; deploy-development menunggu user ganti `VERCEL_TOKEN` — lihat Open Blockers)
 
 ## Active Decisions
 
@@ -27,11 +27,10 @@ Last updated: 2026-08-30 21:30 (repo analysis remediation — F1–F8 selesai)
 ## Open Blockers
 
 - **deploy-development**: blockir terakhir = `VERCEL_TOKEN` adalah Team Access Token (bukti: probe API `?teamId=` → 200; CLI `/v2/user` → 404 "User not found"). **User action**: ganti ke personal access token di GitHub Environment `development`, lalu `workflow_dispatch`. Semua fix workflow lain sudah di `fed6a84` (project.json langsung, ID hardcode, `--scope`, probe diagnosa).
-- **PROD: `recovery-production` 500 sejak 29 Ags 18:00 UTC** — kode prod (auto-deploy) memanggil `purge_prompt_audit` yang belum ada di DB prod. **User action: jalankan `migrate-production` (manual, attestation-gated) untuk migration 27–39.** Sampai itu: recovery sweep prod mati (lease/session/purge tertunda).
-- `maxDuration 60s` (Vercel Hobby): default timeout adapter sudah di-clamp ke 55s (F4, commit `0b72af2`) — known limitation tertutup di sisi kode.
+- ~~recovery-production 500~~ **CLOSED 2026-08-31 01:00 UTC**: migrate-production run `33345671587` sukses (prod 26→39 migrations); cron run `33346233290` → success.
 - User action tooling: restart opencode + verifikasi MCP Supabase prod; restart opencode + smoke test Naraya GLM 5.3 Flash (plan 27 Ags)
 - Hosted tests flaky di runner (1× dari 4 run 30 Ags) — rerun menyelesaikan.
-- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual; deploy job tanpa `environment:` tidak menerima secrets; Team Access Token tidak bisa dipakai CLI untuk `pull` (butuh personal token).
+- Pelajaran GitHub: environment yang direferensikan workflow auto-created KOSONG (tanpa secret) → cron 401 sampai secret diisi manual; deploy job tanpa `environment:` tidak menerima secrets; Team Access Token tidak bisa dipakai CLI untuk `pull` (butuh personal token); **push main = deploy prod (Vercel Git integration) — migration prod harus selalu mendahului push fitur berschema** (dibuktikan insiden 29–31 Ags).
 
 ## Recent Entries
 

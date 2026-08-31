@@ -33,8 +33,8 @@ Gate lokal hijau penuh: format:check, lint (0 error; 2 warning pre-existing di `
 - Workflow-only fix di-push duluan untuk feedback cepat (validate HEAD lama hijau, tanpa migration)
 
 ## Open Items / Blockers
-- **USER ACTION 1 — deploy-development**: ganti `VERCEL_TOKEN` (Team Access Token → personal access token, akses team `7caBsxNQrtdtkzQGbPBAFYKe`) di GitHub Environment `development`; workflow sudah siap (project.json + `--scope` + probe diagnosa)
-- **USER ACTION 2 — prod recovery 500**: jalankan `migrate-production` (manual, attestation-gated) untuk migration 27–39; sampai itu recovery sweep prod mati
+- **USER ACTION 1 — deploy-development (satu-satunya tersisa)**: ganti `VERCEL_TOKEN` (Team Access Token → personal access token, akses team `7caBsxNQrtdtkzQGbPBAFYKe`) di GitHub Environment `development`; workflow sudah siap (project.json + `--scope` + probe diagnosa)
+- ~~USER ACTION 2 — prod recovery 500~~ **CLOSED 2026-08-31 01:00 UTC**: user menjalankan `migrate-production` (run `33345671587`, sukses di `0a83769`, prod 26→39 migrations); cron `recovery-production` run `33346233290` → success pada percobaan pertama setelahnya
 - **USER ACTION 3 (opsional)**: set `PROVIDER_APP_URL=https://albot-be.alamaby.com` di Vercel (dev+prod) untuk atribusi OpenRouter yang benar
 - Hosted tests flaky di runner (1× dari 4 run hari ini) — rerun menyelesaikan; pantau bila berulang
 

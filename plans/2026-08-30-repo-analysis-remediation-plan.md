@@ -36,7 +36,7 @@ Created: 2026-08-30 20:32:27
 - [x] Fix: tulis `.vercel/project.json` langsung dari secrets `VERCEL_PROJECT_ID`/`VERCEL_ORG_ID` (versi-independen) — commit `361d10e`, menunggu bukti hijau
 - [x] Temuan tambahan: cron `recovery-production` gagal 6× berturut-turut sejak 29 Ags 18:00 UTC — prod balas HTTP 500 `{"ok":false,"reason":"internal"}`; health endpoint prod `status:ok` (DB reachable)
 - [x] Hipotesis insiden prod (belum diverifikasi langsung ke DB prod): Vercel Git integration auto-deploy main → prod, sehingga kode prod (sejak `eff14bf` prompt_audit, 16:13 UTC) memanggil RPC `purge_prompt_audit` yang belum ada di DB prod (terakhir tercat 26 migrations). Korelasi waktu: sukses terakhir 14:40 UTC, gagal pertama 18:00 UTC, push prompt_audit 16:13 UTC
-- [ ] **Keputusan user diperlukan**: jalankan workflow `migrate-production` (manual, attestation-gated, input `confirm_project_ref` + `development_run_id`) untuk menerapkan migration 27–39 ke prod; tanpa itu recovery sweep prod tetap 500
+- [x] **Keputusan user diperlukan**: jalankan workflow `migrate-production` (manual, attestation-gated, input `confirm_project_ref` + `development_run_id`) untuk menerapkan migration 27–39 ke prod; tanpa itu recovery sweep prod tetap 500 — **DONE 2026-08-31: run `33345671587` sukses di `0a83769`**
 
 ### Phase 2 — Backfill dokumentasi
 
@@ -82,6 +82,8 @@ Created: 2026-08-30 20:32:27
 - 2026-08-30 21:30 — Run `8f7a8e2`: migrate gagal FLAKY di hosted tests → **rerun sukses**; hosted 126/126 lulus lokal. Commit kode remediasi `56dc4a8..426f745` di-push; migrate hijau di `426f745`.
 - 2026-08-30 21:45 — Deploy tetap gagal; tambah probe API (`f429bdf`): **HTTP 200** → token valid & ID benar. Fix scope (`fed6a84`): CLI tanpa `--scope` resolve ke default team token → project 404; dengan `--scope` muncul `User not found (404)` pada `/v2/user` → **kesimpulan: `VERCEL_TOKEN` adalah Team Access Token; CLI pull butuh user token**. Blockir terakhir = user action di Vercel dashboard.
 - 2026-08-30 21:50 — STATUS AKHIR: semua pekerjaan agent selesai. validate ✓, migrate ✓ (hosted 126/126), deploy-development menunggu user ganti token. Prod migration 27–39 juga menunggu keputusan user (`migrate-production`).
+- 2026-08-31 00:48 — **USER ACTION 2 selesai**: `migrate-production` run `33345671587` sukses di `0a83769` — migration 27–39 ter-apply ke prod (26→39); DB prod kini selaras dengan kode prod yang auto-deploy. Prod health `status:ok`.
+- 2026-08-31 01:00 — **Insiden prod CLOSED**: cron `recovery-production` run `33346233290` (pertama setelah migrate) → **success**; rangkaian failure 29 Ags 18:00 UTC → 31 Aug 00:37 UTC berakhir. Hipotesis drift schema terbukti. Sisa satu user action: `VERCEL_TOKEN` personal untuk deploy-development.
 
 ## Notes
 
