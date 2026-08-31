@@ -4,25 +4,34 @@ Source of truth untuk tracking progress implementasi. Detail acceptance criteria
 
 ## Current Milestone
 
-Post-M7 iterasi: Command Expansion (**CLOSED 2026-08-26**), content-policy refusal fix + regenerate-after-failure (**CLOSED 2026-08-27**), Bynara providers + timeout clamp + `SUPABASE_SECRET_KEY` (**CLOSED 2026-08-28**), OpenRouter free + `round_robin` + `prompt_audit` audit + CI auto-pipeline (**CLOSED 2026-08-29/30**).
+Post-M7 iterasi: Command Expansion (**CLOSED 2026-08-26**), content-policy refusal fix + regenerate-after-failure (**CLOSED 2026-08-27**), Bynara providers + timeout clamp + `SUPABASE_SECRET_KEY` (**CLOSED 2026-08-28**), OpenRouter free + `round_robin` + `prompt_audit` audit + CI auto-pipeline (**CLOSED 2026-08-29/30**), Next.js 16 Vercel adapter + manual deploy pivot (**CLOSED 2026-08-31**).
 
 ## In Progress
 
-Repo analysis remediation 2026-08-30 — plan: `plans/2026-08-30-repo-analysis-remediation-plan.md`; memory: `.memory/2026-08-30/213000-repo-analysis-remediation.md`
+**Pivot manual deploy** (2026-08-31) — plan: `plans/2026-08-31-nexjs16-vercel-adapter-and-manual-deploy-pivot.md`; memory: `.memory/2026-08-31/153144-manual-deploy-pivot.md`; runbook: `docs/runbooks/manual-deploy.md`
+
+- [x] Fix Next.js 16 build: `@next-community/adapter-vercel@0.0.1-beta.29` + `@vercel/build-utils@13.6.2` + `@vercel/routing-utils@5.2.1` di `dependencies`; `adapterPath` di `next.config.ts` (`bb4c885`, `f150b01`)
+- [x] Disable `deploy-development.yml` CI workflow — rename ke `.yml.disabled` (`43b32cb`)
+- [x] Tulis runbook `docs/runbooks/manual-deploy.md` (`a5dcbb0`)
+- [ ] **USER ACTION**: verifikasi manual deploy dengan `npx vercel@47 deploy --yes` di lokal (Linux/Mac/WSL) — confirm health `status:ok` + smoke E2E
+- [ ] Observasi prod build log (Vercel Git integration) — pastikan adapter config tidak konflik
+
+### Closed thread: Repo analysis remediation 2026-08-30 (superseded by manual deploy pivot)
 
 - [x] RCA thread CI `deploy-development` (21× gagal): tanpa `.vercel/project.json` + flag `--project-id` invalid di CLI 47 → tulis project.json langsung (`361d10e`) + ID hardcode (`8f7a8e2`)
 - [x] Backfill `.memory/` + TODO untuk kerja 27–30 Ags (7 entri)
 - [x] Remediasi F1–F8 (selector per-config strategy, type drift, rate limit `/enhance-prompt`, clamp timeout 55s, env attribution, cast removal, docs, hygiene) — unit 297 + hosted 126/126, validate+migrate hijau di `fed6a84`
-- [x] **USER ACTION: re-scope `VERCEL_TOKEN`** — DONE: token personal terpasang, `vercel pull` sekarang sukses menarik project settings
-- [ ] **USER ACTION: set Vercel dashboard Node.js Version = 22.x** (deploy-development, last blocker) — repo guardrail `engines.node: "22.x"` sudah di-push (`08ad863`), tapi `vercel build` CLI 47 validasi project-setting hasil pull (bukan di-override engines), sehingga dashboard Node.js Version = **22.x** untuk dev `prj_joLciwdA37o6er3DKRSkiWlOhgJs` (dan prod untuk konsistensi) tetap dibutuhkan. Setelah set, `workflow_dispatch` deploy-development → verifikasi step "Build (preview target)" hijau. Plan: `plans/2026-08-31-fix-deploy-development-node-22.md`; memory: `.memory/2026-08-31/105212-fix-deploy-development-node-22.md`
+- [x] **USER ACTION: re-scope `VERCEL_TOKEN`** — DONE: token personal terpasang, `vercel pull` sukses menarik project settings
+- [x] **USER ACTION: set Vercel dashboard Node.js Version = 22.x** — `engines.node: "22.x"` di-push (`08ad863`); dashboard setting 22.x diasumsikan (atau di-set manual oleh user — engine pin sudah cukup untuk prod Git-integration)
 - [x] **USER ACTION: `migrate-production` untuk migration 27–39** — DONE 2026-08-31: run `33345671587` sukses (prod 26→39); `recovery-production` hijau lagi (run `33346233290`) — insiden 500 sejak 29 Ags CLOSED
 - [x] **USER ACTION: `PROVIDER_APP_URL`** — sudah di-set di Vercel (2026-08-31)
+- [x] **CLOSED via pivot**: CI deploy-development di-disable; deploy manual via Vercel CLI
 
 ## Pending
 
 - [ ] Rencanakan milestone berikutnya (Enhancement Backlog: image-reference poster composition, dll)
 
-### CI deploy pipeline + prod recovery incident (2026-08-30)
+### CI deploy pipeline + prod recovery incident (2026-08-30) — CLOSED
 
 Plan: `plans/2026-08-30-repo-analysis-remediation-plan.md`; memory: `.memory/2026-08-30/203300-ci-deploy-pipeline-and-prod-recovery-incident.md`
 
@@ -30,7 +39,7 @@ Plan: `plans/2026-08-30-repo-analysis-remediation-plan.md`; memory: `.memory/202
 - [x] Fix workflow: tulis `.vercel/project.json` dari secrets (`361d10e`) + ID hardcode (`8f7a8e2`) + `--scope` (`fed6a84`)
 - [x] Deteksi insiden `recovery-production` 500 (6× sejak 29 Ags 18:00 UTC) + korelasi push `eff14bf` prompt_audit
 - [x] Keputusan migrate-production (user) — DONE 2026-08-31: `33345671587` sukses, recovery cron hijau lagi
-- [ ] Bukti hijau `deploy-development` (setelah user set dashboard Node 22.x + workflow_dispatch) — engines pin `08ad863`
+- [x] Bukti hijau `deploy-development` — **N/A**: workflow di-disable via pivot manual deploy (`43b32cb`); deploy via Vercel CLI per `docs/runbooks/manual-deploy.md`
 
 ### OpenRouter free models + round_robin + prompt_audit (2026-08-29/30)
 

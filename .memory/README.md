@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-08-31 10:55 (deploy-development Node 22.x pin push 6a961ea — user action: set Vercel dashboard Node.js Version 22.x + workflow_dispatch)
+Last updated: 2026-08-31 15:35 (pivot manual deploy: Next.js 16 Vercel adapter + disable deploy-development CI; runbook `docs/runbooks/manual-deploy.md`; commits bb4c885..a5dcbb0)
 
 ## Current State
 
@@ -23,11 +23,12 @@ Last updated: 2026-08-31 10:55 (deploy-development Node 22.x pin push 6a961ea �
 - RLS: enable+force semua tabel, nol policy, hanya `service_role`; semua RPC security definer + fixed search_path + EXECUTE service_role only
 - CI deploy-development: link Vercel via penulisan `.vercel/project.json` langsung dari secrets (CLI 47 drop `--project-id`) — fix `361d10e`
 - Migration: Database as Code, forward-fix only, `EXPECTED_MIGRATIONS` wajib sinkron (39 entri), immutability gate di CI
-- Node runtime: `engines.node: "22.x"` (pinned `08ad863`); `actions/setup-node@22` di semua workflow (validate + deploy-development); Vercel dashboard Node.js Version = 22.x untuk dev + prod projects (CLI `vercel build` validasi project-setting hasil pull — engines tidak override di CLI-build lokal)
+- Node runtime: `engines.node: "22.x"` (pinned `08ad863`); `actions/setup-node@22` di validate + migrate workflows; **Vercel dashboard Node.js Version tetap 22.x** (konsistensi dengan prod Git-integration builds); deploy ke Vercel via **manual CLI** (`npx vercel@47`, runbook `docs/runbooks/manual-deploy.md`), bukan via `deploy-development.yml` (disabled `43b32cb`)
+- Next.js 16 deployment: `adapterPath: "@next-community/adapter-vercel"` di `next.config.ts` (`f150b01`); adapter + build-utils + routing-utils di `dependencies` (bukan devDeps — `vercel build` strip devDeps)
 
 ## Open Blockers
 
-- **deploy-development**: scope `VERCEL_TOKEN` user-sudah-oke (team token → personal token 403 issue user re-scope), **tapi sekarang step "Build (preview target)" gagal** — `vercel build` (CLI 47) reject pulled `nodeVersion: "24.x"` sebagai invalid, minta "22.x". Repo guardrail `engines.node: "22.x"` sudah di-push (`08ad863`); **user action tersisa**: set Vercel dashboard → Project Settings → General → Node.js Version = **22.x** untuk dev (dan prod untuk konsistensi), lalu `gh workflow run deploy-development.yml` (atau `workflow_dispatch`). Fix workflow lain sudah lengkap di `fed6a84`.
+- **deploy-development**: **CLOSED via pivot 2026-08-31**. Workflow `deploy-development.yml` di-rename ke `.yml.disabled` (commit `43b32cb`). Deploy manual via Vercel CLI (`npx vercel@47 deploy --yes`); runbook `docs/runbooks/manual-deploy.md`. Root cause build trace failure: Next.js 16 pakai adapter API baru; fixed via `@next-community/adapter-vercel@0.0.1-beta.29` + `adapterPath` di `next.config.ts` (`bb4c885` + `f150b01`).
 - ~~recovery-production 500~~ **CLOSED 2026-08-31 01:00 UTC**: migrate-production run `33345671587` sukses (prod 26→39 migrations); cron run `33346233290` → success.
 - ~~PROVIDER_APP_URL~~ di-set user 2026-08-31 (atribusi OpenRouter kini mengikuti domain deployed).
 - Hosted tests flaky di runner (1× dari 4 run 30 Ags) — rerun menyelesaikan.
@@ -35,7 +36,8 @@ Last updated: 2026-08-31 10:55 (deploy-development Node 22.x pin push 6a961ea �
 
 ## Recent Entries
 
-- `2026-08-31/105212-fix-deploy-development-node-22.md` — Repo guardrail `engines.node: "22.x"` push `6a961ea`; dev CI `vercel build` masih tunggu dashboard 22.x user action
+- `2026-08-31/153144-manual-deploy-pivot.md` — Next.js 16 Vercel adapter + disable deploy-development CI; manual deploy via `vercel` CLI
+- `2026-08-31/105212-fix-deploy-development-node-22.md` — Repo guardrail `engines.node: "22.x"` push `6a961ea`; superseded oleh pivot manual deploy
 - `2026-08-30/213000-repo-analysis-remediation.md` — Remediasi F1–F8 selesai (selector per-config strategy, rate-limit /enhance-prompt, clamp 55s, env attribution, cast, docs, hygiene); unit 297 + hosted 126/126 lokal; CI thread: project.json + ID hardcode, hosted flaky 1× (rerun)
 - `2026-08-30/203300-ci-deploy-pipeline-and-prod-recovery-incident.md` — RCA 21× deploy-development failure + fix `361d10e`; insiden recovery-production 500 (drift schema prod, butuh migrate-production)
 - `2026-08-30/203200-*` — (plan) `plans/2026-08-30-repo-analysis-remediation-plan.md` — remediasi F1–F8 hasil analisa repo
@@ -60,8 +62,9 @@ Last updated: 2026-08-31 10:55 (deploy-development Node 22.x pin push 6a961ea �
 
 ## Related Plans
 
-- `plans/2026-08-31-fix-deploy-development-node-22.md` — **ACTIVE**: engines.node 22.x pinned (push `6a961ea`); tunggu user action dashboard + workflow_dispatch
-- `plans/2026-08-30-repo-analysis-remediation-plan.md` — CI thread closure + backfill + remediasi F1–F8 (deploy-development masih open sampai Node fix hijau)
+- `plans/2026-08-31-fix-deploy-development-node-22.md` — **CLOSED** (superseded): engines.node 22.x pinned (`08ad863`), tapi tidak cukup untuk build trace — butuh adapter
+- `plans/2026-08-31-nexjs16-vercel-adapter-and-manual-deploy-pivot.md` — **CLOSED**: Next.js 16 adapter + disable CI + manual deploy runbook
+- `plans/2026-08-30-repo-analysis-remediation-plan.md` — **CLOSED** via manual deploy pivot (Phase 4 final user action tidak lagi applicable)
 - `plans/2026-08-27-content-policy-refusal-fix.md` + `-review-followup.md` — closed
 - `plans/2026-08-27-regenerate-after-failure-toast-fix.md` — closed
 - `plans/2026-08-27-add-naraya-glm-5-3-flash-models.md` — tooling opencode (user action tersisa)
