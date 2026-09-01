@@ -86,6 +86,35 @@ tetap jalan. Bot production tidak terpengaruh (workflow ini hanya Preview).
 - `POST /api/recovery/run` — internal recovery sweep: lease-expiry recovery, queued claim (batch 3), dead-job marking, session expiry, retention purge. Cron GitHub Actions tiap 20 menit: `recovery-development.yml` (dev, alias `albot-dev.vercel.app`) dan `recovery-production.yml` (prod, `albot-be.alamaby.com`).
 - `GET /api/admin/diagnostics` — internal read-only status operasional (Bearer `JOB_PROCESSOR_SECRET`).
 
+## Telegram Webhook
+
+Dev bot (`Albot Dev`) harus menunjuk ke `https://albot-dev.vercel.app/api/telegram/webhook`. Setelah `vercel` (preview) yang menggeser deployment, alias bisa tertinggal di deployment lama — update manual:
+
+```bash
+# cek webhook saat ini (jangan paste nilai token, pakai env)
+node scripts/set-telegram-webhook.mjs get "$TELEGRAM_BOT_TOKEN"
+
+# set ulang ke alias dev (development, tanpa --allow-prod)
+node scripts/set-telegram-webhook.mjs set "$TELEGRAM_BOT_TOKEN" https://albot-dev.vercel.app/api/telegram/webhook "$TELEGRAM_WEBHOOK_SECRET"
+
+# jika albot-dev.vercel.app masih menunjuk deployment lama, pindahkan alias ke preview terbaru
+vercel alias set https://<preview-deployment>.vercel.app albot-dev.vercel.app
+vercel alias ls | grep albot-dev
+curl -s https://albot-dev.vercel.app/api/health | jq  # harus {"environment":"development"}
+```
+
+Production (`@albot_ai_bot` → `https://albot-be.alamaby.com`):
+
+```bash
+APP_ENV=production node scripts/set-telegram-webhook.mjs set "$TELEGRAM_BOT_TOKEN" https://albot-be.alamaby.com/api/telegram/webhook "$TELEGRAM_WEBHOOK_SECRET" --allow-prod
+```
+
+**Penanganan secret (Anti-Exfiltration):**
+
+- JANGAN pernah `echo`, `cat`, atau paste `TELEGRAM_BOT_TOKEN` / `SUPABASE_SECRET_KEY` / `sb_secret_*` ke chat, log, atau issue. Script `set-telegram-webhook.mjs` sengaja tidak pernah mencetak token.
+- Cek env yang ada tanpa nilai: `node -e "console.log('TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? 'set' : 'unset')"`
+- Jika token terlanjur bocor, segera rotasi: @BotFather → `/revoke` → update `.env` + Vercel env (Preview & Production) `TELEGRAM_BOT_TOKEN` + GitHub Secrets + set ulang webhook seperti di atas, lalu `vercel --yes && vercel alias set ...` + `vercel --prod`.
+
 ## Docs
 
 - `docs/architecture.md` — alur prompt → generate + tech stack (diagram mermaid).
