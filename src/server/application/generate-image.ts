@@ -146,9 +146,27 @@ export class GenerateImageUseCase {
       }
     }
 
+    let reasoningProviderLabel: string | null = null;
+    let reasoningModel: string | null = null;
+    if (input.revision.reasoningProviderConfigId) {
+      try {
+        const rcfg = await this.providerConfigRepository.getById(
+          input.revision.reasoningProviderConfigId,
+        );
+        if (rcfg) {
+          reasoningProviderLabel = rcfg.name;
+          reasoningModel = rcfg.model;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     const caption = buildResultCaption({
       attemptNumber: input.attempt.attemptNumber,
       revisionNumber: input.revision.revisionNumber,
+      reasoningProviderLabel,
+      reasoningModel,
     });
     const { resultKeyboardWithModel } = await import("@/server/telegram/keyboards");
     const replyMarkup = resultKeyboardWithModel(input.session.id, selectedCode);
@@ -351,11 +369,28 @@ export class GenerateImageUseCase {
         // before sending the photo. Best-effort: a failed edit (e.g. message
         // deleted) must not block delivery.
         try {
+          let rsLabel: string | null = null;
+          let rsModel: string | null = null;
+          if (revision.reasoningProviderConfigId) {
+            try {
+              const rc = await this.providerConfigRepository.getById(
+                revision.reasoningProviderConfigId,
+              );
+              if (rc) {
+                rsLabel = rc.name;
+                rsModel = rc.model;
+              }
+            } catch {
+              // ignore
+            }
+          }
           await this.editStatusMessage({
             session,
             text: buildGenerationStatusMessage("succeeded", {
               attemptNumber: attempt.attemptNumber,
               revisionNumber: revision.revisionNumber,
+              reasoningProviderLabel: rsLabel,
+              reasoningModel: rsModel,
             }),
           });
         } catch (editError) {

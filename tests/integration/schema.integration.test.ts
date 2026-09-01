@@ -212,7 +212,10 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
 // [constraint-name, fragments that must appear in pg_get_constraintdef]
 const CONSTRAINT_FRAGMENTS: [string, string[]][] = [
   ["provider_configs_capability_check", ["'reasoning'::text", "'image_generation'::text"]],
-  ["provider_configs_selection_strategy_check", ["'priority_failover'::text", "'weighted'::text"]],
+  [
+    "provider_configs_selection_strategy_check",
+    ["'priority_failover'::text", "'weighted'::text", "'round_robin'::text"],
+  ],
   ["provider_configs_priority_check", ["priority >= 0"]],
   ["provider_configs_weight_check", ["weight > 0"]],
   ["provider_configs_config_version_check", ["config_version > 0"]],
@@ -438,6 +441,7 @@ const EXPECTED_MIGRATIONS = [
   "20260829170000",
   "20260829180000",
   "20260830100000",
+  "20260901113116",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

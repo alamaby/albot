@@ -76,6 +76,8 @@ export type EnhancePromptDeps = {
     session: SessionSafe;
     revision: RevisionSafe;
     prompt: EnhancedPromptStructured;
+    reasoningProviderLabel?: string | null;
+    reasoningModel?: string | null;
   }) => Promise<void>;
 };
 
@@ -98,6 +100,8 @@ export class EnhancePromptUseCase {
     session: SessionSafe;
     revision: RevisionSafe;
     prompt: EnhancedPromptStructured;
+    reasoningProviderLabel?: string | null;
+    reasoningModel?: string | null;
   }) => Promise<void>;
 
   constructor(deps: EnhancePromptDeps = {}) {
@@ -120,6 +124,8 @@ export class EnhancePromptUseCase {
     session: SessionSafe;
     revision: RevisionSafe;
     prompt: EnhancedPromptStructured;
+    reasoningProviderLabel?: string | null;
+    reasoningModel?: string | null;
   }): Promise<void> {
     const env = getServerEnv();
     const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
@@ -127,7 +133,24 @@ export class EnhancePromptUseCase {
       await import("@/server/telegram/keyboards");
     const { buildEnhancedPromptMessage } = await import("@/server/telegram/messages");
 
-    // Resolve selected model label from session preferred provider (hybrid)
+    // Resolve reasoning provider/model label (priority: passed-in selected, then revision FK lookup)
+    let reasoningProviderLabel = input.reasoningProviderLabel ?? null;
+    let reasoningModel = input.reasoningModel ?? null;
+    if ((!reasoningProviderLabel || !reasoningModel) && input.revision.reasoningProviderConfigId) {
+      try {
+        const rcfg = await this.providerConfigRepository.getById(
+          input.revision.reasoningProviderConfigId,
+        );
+        if (rcfg) {
+          reasoningProviderLabel = reasoningProviderLabel ?? rcfg.name;
+          reasoningModel = reasoningModel ?? rcfg.model;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // Resolve selected image model label from session preferred provider (hybrid)
     let selectedCode: import("@/server/telegram/keyboards").ModelShortCode | null = null;
     let selectedLabel: string | null = null;
     if (input.session.preferredImageProviderConfigId) {
@@ -169,6 +192,9 @@ export class EnhancePromptUseCase {
           enhancedPrompt: input.prompt.prompt,
           revisionNumber: input.revision.revisionNumber,
           sourcePrompt: input.revision.sourcePrompt,
+          reasoningProviderLabel,
+          reasoningModel,
+          imageModelLabel: selectedLabel,
           selectedModelLabel: selectedLabel,
         }),
         confirmationKeyboardWithModel(input.session.id, selectedCode),
@@ -393,8 +419,10 @@ export class EnhancePromptUseCase {
 
       await this.sendConfirmation({
         session: finalSession,
-        revision,
+        revision: { ...revision, reasoningProviderConfigId: selected.config.id },
         prompt: structured,
+        reasoningProviderLabel: selected.config.name,
+        reasoningModel: selected.config.model,
       });
 
       return { status: "completed", session: finalSession, revision, prompt: structured };

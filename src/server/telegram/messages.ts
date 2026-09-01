@@ -126,6 +126,9 @@ export function buildEnhancedPromptMessage(input: {
   revisionNumber: number;
   sourcePrompt: string;
   selectedModelLabel?: string | null;
+  reasoningProviderLabel?: string | null;
+  reasoningModel?: string | null;
+  imageModelLabel?: string | null;
 }): string {
   const lines = [
     `Prompt yang akan digunakan (revisi ${input.revisionNumber}):`,
@@ -134,11 +137,27 @@ export function buildEnhancedPromptMessage(input: {
     "",
     "—",
   ];
-  if (input.selectedModelLabel) {
-    lines.push("", `Model terpilih: ${input.selectedModelLabel} ✓`);
+  const reasoningLine = formatReasoningLine(input.reasoningProviderLabel, input.reasoningModel);
+  if (reasoningLine) {
+    lines.push("", reasoningLine);
+  }
+  const imageLabel = input.imageModelLabel ?? input.selectedModelLabel ?? null;
+  if (imageLabel) {
+    lines.push("", `Model gambar: ${imageLabel} ✓`);
   }
   lines.push("", "Pilih aksi di bawah untuk melanjutkan.");
   return lines.join("\n");
+}
+
+function formatReasoningLine(providerLabel?: string | null, model?: string | null): string | null {
+  const p = providerLabel?.trim() ?? "";
+  const m = model?.trim() ?? "";
+  if (!p && !m) return null;
+  if (p && m) {
+    if (p === m || p.includes(m)) return `Reasoning: ${p}`;
+    return `Reasoning: ${p} · ${m}`;
+  }
+  return `Reasoning: ${p || m}`;
 }
 
 export function buildModelPickerMessage(selectedLabel?: string | null): string {
@@ -155,8 +174,13 @@ export function buildModelSelectedMessage(label: string, isDefault: boolean): st
 export function buildResultCaption(input: {
   attemptNumber: number;
   revisionNumber: number;
+  reasoningProviderLabel?: string | null;
+  reasoningModel?: string | null;
 }): string {
-  return `Gambar ${input.attemptNumber} dari revisi ${input.revisionNumber}.`;
+  const base = `Gambar ${input.attemptNumber} dari revisi ${input.revisionNumber}.`;
+  const reasoningLine = formatReasoningLine(input.reasoningProviderLabel, input.reasoningModel);
+  if (reasoningLine) return `${base}\n${reasoningLine}`;
+  return base;
 }
 
 // Single persisted status message for image generation: sent once when the
@@ -167,13 +191,25 @@ export type GenerationStatusKind =
 
 export function buildGenerationStatusMessage(
   kind: GenerationStatusKind,
-  input?: { attemptNumber: number; revisionNumber: number },
+  input?: {
+    attemptNumber: number;
+    revisionNumber: number;
+    reasoningProviderLabel?: string | null;
+    reasoningModel?: string | null;
+  },
 ): string {
   switch (kind) {
     case "generating":
       return "Sedang membuat gambar, mohon tunggu...";
-    case "succeeded":
-      return `Gambar ${input?.attemptNumber} dari revisi ${input?.revisionNumber} berhasil dibuat.`;
+    case "succeeded": {
+      const base = `Gambar ${input?.attemptNumber} dari revisi ${input?.revisionNumber} berhasil dibuat.`;
+      const reasoningLine = formatReasoningLine(
+        input?.reasoningProviderLabel ?? null,
+        input?.reasoningModel ?? null,
+      );
+      if (reasoningLine) return `${base}\n${reasoningLine}`;
+      return base;
+    }
     case "succeeded_generic":
       return "Gambar berhasil dibuat.";
     case "failed":
