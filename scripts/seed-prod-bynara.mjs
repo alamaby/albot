@@ -86,8 +86,9 @@ function main() {
     fileEnv.SUPABASE_SECRET_KEY_PROD;
   if (!srk) fail("SUPABASE_SECRET_KEY (or _PROD) missing");
 
-  const encKey = fileEnv.PROVIDER_KEY_ENCRYPTION_KEY;
-  if (!encKey) fail("PROVIDER_KEY_ENCRYPTION_KEY missing in .env");
+  const encKey =
+    fileEnv.PROVIDER_KEY_ENCRYPTION_KEY_PROD ?? fileEnv.PROVIDER_KEY_ENCRYPTION_KEY;
+  if (!encKey) fail("PROVIDER_KEY_ENCRYPTION_KEY (or _PROD) missing in .env");
 
   const bynaraImageKey = fileEnv.BYNARA_API_KEY ?? process.env.BYNARA_API_KEY;
   const bynaraReasoningKey =
