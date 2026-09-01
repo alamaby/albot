@@ -340,7 +340,9 @@ describe("GenerateImageUseCase", () => {
     expect(calls.sendPhoto).toHaveLength(1);
     expect(calls.sendPhoto[0].imageUrl).toBe("https://cdn.mock.example.com/image.png");
     expect(calls.editStatusMessage).toEqual([
-      expect.objectContaining({ text: "Gambar 1 dari revisi 1 berhasil dibuat." }),
+      expect.objectContaining({
+        text: expect.stringContaining("Gambar 1 dari revisi 1 berhasil dibuat."),
+      }),
     ]);
     expect(calls.markAttemptSucceeded).toEqual([{ attemptId: "attempt-1", messageId: 900 }]);
     expect(calls.markProviderRequestSucceeded).toHaveLength(1);

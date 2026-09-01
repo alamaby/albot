@@ -162,11 +162,34 @@ export class GenerateImageUseCase {
       }
     }
 
+    // Resolve image model label for caption — prefer the actual attempt's provider (fallback to preferred)
+    let imageModelLabel: string | null = null;
+    const imageConfigId =
+      (input.attempt as unknown as { imageProviderConfigId?: string | null })
+        .imageProviderConfigId ??
+      input.session.preferredImageProviderConfigId ??
+      null;
+    if (imageConfigId) {
+      try {
+        const icfg = await this.providerConfigRepository.getById(imageConfigId);
+        if (icfg) {
+          const { MODEL_CODE_LABEL } = await import("@/server/telegram/keyboards");
+          const code = ADAPTER_TO_MODEL_CODE[icfg.adapterType] as
+            import("@/server/telegram/keyboards").ModelShortCode | undefined;
+          imageModelLabel = (code ? MODEL_CODE_LABEL[code] : null) ?? icfg.model ?? icfg.name;
+          if (code) selectedCode = code;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     const caption = buildResultCaption({
       attemptNumber: input.attempt.attemptNumber,
       revisionNumber: input.revision.revisionNumber,
       reasoningProviderLabel,
       reasoningModel,
+      imageModelLabel,
     });
     const { resultKeyboardWithModel } = await import("@/server/telegram/keyboards");
     const replyMarkup = resultKeyboardWithModel(input.session.id, selectedCode);
@@ -384,6 +407,18 @@ export class GenerateImageUseCase {
               // ignore
             }
           }
+          // Image model for status — ringkas + fallback
+          let imgLabel: string | null = null;
+          if (selected) {
+            const { MODEL_CODE_LABEL, ADAPTER_TO_MODEL_CODE } =
+              await import("@/server/telegram/keyboards");
+            const code = ADAPTER_TO_MODEL_CODE[selected.config.adapterType] as
+              import("@/server/telegram/keyboards").ModelShortCode | undefined;
+            imgLabel =
+              (code ? MODEL_CODE_LABEL[code] : null) ??
+              selected.config.model ??
+              selected.config.name;
+          }
           await this.editStatusMessage({
             session,
             text: buildGenerationStatusMessage("succeeded", {
@@ -391,6 +426,7 @@ export class GenerateImageUseCase {
               revisionNumber: revision.revisionNumber,
               reasoningProviderLabel: rsLabel,
               reasoningModel: rsModel,
+              imageModelLabel: imgLabel,
             }),
           });
         } catch (editError) {

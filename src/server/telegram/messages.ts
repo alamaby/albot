@@ -160,6 +160,12 @@ function formatReasoningLine(providerLabel?: string | null, model?: string | nul
   return `Reasoning: ${p || m}`;
 }
 
+function formatImageLine(label?: string | null): string | null {
+  const l = label?.trim() ?? "";
+  if (!l) return null;
+  return `Model: ${l}`;
+}
+
 export function buildModelPickerMessage(selectedLabel?: string | null): string {
   if (selectedLabel) return `Pilih model gambar. Saat ini: ${selectedLabel} ✓`;
   return "Pilih model gambar untuk sesi ini. Tap untuk memilih, tap ★ untuk jadikan default.";
@@ -176,11 +182,15 @@ export function buildResultCaption(input: {
   revisionNumber: number;
   reasoningProviderLabel?: string | null;
   reasoningModel?: string | null;
+  imageModelLabel?: string | null;
 }): string {
   const base = `Gambar ${input.attemptNumber} dari revisi ${input.revisionNumber}.`;
+  const lines = [base];
   const reasoningLine = formatReasoningLine(input.reasoningProviderLabel, input.reasoningModel);
-  if (reasoningLine) return `${base}\n${reasoningLine}`;
-  return base;
+  if (reasoningLine) lines.push(reasoningLine);
+  const imageLine = formatImageLine(input.imageModelLabel);
+  if (imageLine) lines.push(imageLine);
+  return lines.join("\n");
 }
 
 // Single persisted status message for image generation: sent once when the
@@ -196,6 +206,7 @@ export function buildGenerationStatusMessage(
     revisionNumber: number;
     reasoningProviderLabel?: string | null;
     reasoningModel?: string | null;
+    imageModelLabel?: string | null;
   },
 ): string {
   switch (kind) {
@@ -203,15 +214,22 @@ export function buildGenerationStatusMessage(
       return "Sedang membuat gambar, mohon tunggu...";
     case "succeeded": {
       const base = `Gambar ${input?.attemptNumber} dari revisi ${input?.revisionNumber} berhasil dibuat.`;
+      const lines = [base];
       const reasoningLine = formatReasoningLine(
         input?.reasoningProviderLabel ?? null,
         input?.reasoningModel ?? null,
       );
-      if (reasoningLine) return `${base}\n${reasoningLine}`;
+      if (reasoningLine) lines.push(reasoningLine);
+      const imageLine = formatImageLine(input?.imageModelLabel ?? null);
+      if (imageLine) lines.push(imageLine);
+      if (lines.length > 1) return lines.join("\n");
       return base;
     }
-    case "succeeded_generic":
+    case "succeeded_generic": {
+      const imageLine = formatImageLine(input?.imageModelLabel ?? null);
+      if (imageLine) return `Gambar berhasil dibuat.\n${imageLine}`;
       return "Gambar berhasil dibuat.";
+    }
     case "failed":
       return "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.";
     case "expired":
