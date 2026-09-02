@@ -389,6 +389,11 @@ const EXPECTED_FUNCTIONS: [string, string, boolean][] = [
     true,
   ],
   ["complete_prompt_session(p_session_id uuid)", "search_path=pg_catalog, public", true],
+  [
+    "recover_stuck_generating_sessions(p_max_sessions integer, p_stuck_minutes integer)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
   ["set_updated_at()", "search_path=pg_catalog, public", false],
 ];
 
@@ -442,6 +447,7 @@ const EXPECTED_MIGRATIONS = [
   "20260829180000",
   "20260830100000",
   "20260901113116",
+  "20260902085338",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];
@@ -563,8 +569,8 @@ describe.skipIf(skip)("schema integration", () => {
               coalesce(p.proconfig, '{}') as proconfig
          from pg_proc p
          join pg_namespace n on n.oid = p.pronamespace
-        where n.nspname = 'public'
-          and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'create_generation_attempt', 'mark_generation_attempt_failed', 'mark_generation_attempt_succeeded', 'complete_prompt_session', 'set_updated_at')`,
+         where n.nspname = 'public'
+           and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'create_generation_attempt', 'mark_generation_attempt_failed', 'mark_generation_attempt_succeeded', 'complete_prompt_session', 'recover_stuck_generating_sessions', 'set_updated_at')`,
     );
     const rows = res.rows.map((r) => ({
       sig: `${r.proname}(${r.args})`,
@@ -610,6 +616,7 @@ describe.skipIf(skip)("schema integration", () => {
       "mark_generation_attempt_failed(uuid, text, text)",
       "mark_generation_attempt_succeeded(uuid, text, bigint)",
       "complete_prompt_session(uuid)",
+      "recover_stuck_generating_sessions(integer, integer)",
     ]) {
       for (const role of API_ROLES) {
         const res = await pool!.query(

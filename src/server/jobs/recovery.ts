@@ -12,7 +12,7 @@ import { RecoveryRepository } from "@/server/repositories/recovery.repository";
 import { JobEventRepository } from "@/server/repositories/job-event.repository";
 import { getServerEnv } from "@/env";
 import { sendMessage } from "@/server/telegram/client";
-import { buildBotMessage } from "@/server/telegram/messages";
+import { buildBotMessage, buildGenerationStatusMessage } from "@/server/telegram/messages";
 import { logStructured } from "@/server/observability/logger";
 import { getCorrelationId } from "@/server/observability/correlation";
 
@@ -20,6 +20,7 @@ export type RecoveryRunResult = {
   recoveredLeases: number;
   deadJobsMarked: number;
   staleSessionsExpired: number;
+  recoveredStuckGenerating: number;
   purgedRows: number;
   promptAuditPurgedRows: number;
   claimedJobs: number;
@@ -31,11 +32,19 @@ export const RECOVERY_BATCH_LEASES = 5;
 export const RECOVERY_BATCH_DEAD = 25;
 export const RECOVERY_BATCH_SESSIONS = 100;
 export const RECOVERY_BATCH_CLAIM = 3;
+export const RECOVERY_BATCH_STUCK_GENERATING = 25;
+export const RECOVERY_STUCK_MINUTES = 15;
 
 export type RecoveryDeps = {
   recoveryRepository?: RecoveryRepository;
   jobEventRepository?: JobEventRepository;
   sendTelegramMessage?: (token: string, chatId: bigint, text: string) => Promise<unknown>;
+  editTelegramMessage?: (
+    token: string,
+    chatId: bigint,
+    messageId: number,
+    text: string,
+  ) => Promise<unknown>;
   processNextJob?: () => Promise<{ status: "processed" | "idle"; jobId?: string }>;
 };
 
@@ -44,6 +53,12 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
   const jobEventRepository = deps.jobEventRepository ?? new JobEventRepository();
   const sendTelegramMessage =
     deps.sendTelegramMessage ?? ((token, chatId, text) => sendMessage(token, chatId, text));
+  const editTelegramMessage =
+    deps.editTelegramMessage ??
+    (async (token, chatId, messageId, text) => {
+      const { editMessageText } = await import("@/server/telegram/client");
+      return editMessageText(token, chatId, messageId, text);
+    });
   const processNextJobFn =
     deps.processNextJob ??
     (async () => {
@@ -62,6 +77,31 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
       eventType: "lease_expired",
       payload: { attemptCount: job.attempt_count, correlationId: getCorrelationId() ?? null },
     });
+  }
+
+  // 1b. Stuck generating recovery (processing >15m) — moves to generation_failed
+  // so the user can Regenerate without manual SQL. Best-effort Telegram edit.
+  const stuckGenerating = await recoveryRepository.recoverStuckGeneratingSessions(
+    RECOVERY_BATCH_STUCK_GENERATING,
+    RECOVERY_STUCK_MINUTES,
+  );
+  for (const session of stuckGenerating) {
+    try {
+      const chatId = BigInt(session.telegram_chat_id);
+      const msgId = session.telegram_status_message_id as unknown as number | null;
+      const text = buildGenerationStatusMessage("failed");
+      if (msgId !== null && msgId !== undefined) {
+        await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, Number(msgId), text);
+      } else {
+        await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, text);
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("warn", "recovery.notify_stuck_failed", {
+        sessionId: session.id,
+        detail,
+      });
+    }
   }
 
   // 1b. Claim due queued/retry_scheduled jobs (Opsi A, cron 20m batch 3).
@@ -121,6 +161,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     recoveredLeases: recoveredLeases.length,
     deadJobsMarked: deadJobs.length,
     staleSessionsExpired: staleSessions.length,
+    recoveredStuckGenerating: stuckGenerating.length,
     purgedRows: purge.purgedRows,
     promptAuditPurgedRows: promptAuditPurge.purgedRows,
     claimedJobs,
@@ -130,6 +171,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     recoveredLeases: result.recoveredLeases,
     deadJobsMarked: result.deadJobsMarked,
     staleSessionsExpired: result.staleSessionsExpired,
+    recoveredStuckGenerating: result.recoveredStuckGenerating,
     purgedRows: result.purgedRows,
     promptAuditPurgedRows: result.promptAuditPurgedRows,
     claimedJobs: result.claimedJobs,

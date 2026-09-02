@@ -43,6 +43,24 @@ export class RecoveryRepository {
     return (data as SessionRow[] | null) ?? [];
   }
 
+  // Recovers generating sessions stuck with a processing attempt older than
+  // p_stuck_minutes (default 15m). Moves them to generation_failed so the
+  // user can Regenerate without manual SQL. Returns the recovered rows.
+  async recoverStuckGeneratingSessions(maxSessions = 25, stuckMinutes = 15): Promise<SessionRow[]> {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await (
+      supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => ReturnType<typeof supabase.rpc>
+    )("recover_stuck_generating_sessions", {
+      p_max_sessions: maxSessions,
+      p_stuck_minutes: stuckMinutes,
+    }).select("*");
+    if (error) throw new Error(`recover stuck generating failed: ${error.message}`);
+    return (data as SessionRow[] | null) ?? [];
+  }
+
   // Deletes terminal metadata older than the retention window.
   async purgeExpiredMetadata(retentionDays = 30, maxRows = 1000): Promise<PurgeResult> {
     const supabase = getSupabaseAdmin();

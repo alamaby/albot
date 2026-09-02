@@ -71,6 +71,8 @@ describe("runRecovery", () => {
       switch (fn) {
         case "expire_job_leases":
           return { select: vi.fn(() => Promise.resolve({ data: [jobRow()], error: null })) };
+        case "recover_stuck_generating_sessions":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
         case "mark_dead_jobs":
           return {
             select: vi.fn(() =>
@@ -110,6 +112,7 @@ describe("runRecovery", () => {
       recoveredLeases: 1,
       deadJobsMarked: 1,
       staleSessionsExpired: 1,
+      recoveredStuckGenerating: 0,
       purgedRows: 7,
       promptAuditPurgedRows: 3,
       claimedJobs: 0,
@@ -141,6 +144,8 @@ describe("runRecovery", () => {
     const rpcMock: (fn: string, args?: unknown) => unknown = (fn: string) => {
       switch (fn) {
         case "expire_job_leases":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stuck_generating_sessions":
           return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
         case "mark_dead_jobs":
           return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
