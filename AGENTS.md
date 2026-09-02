@@ -13,9 +13,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 Setiap migration baru (`supabase/migrations/<timestamp>_*.sql`) WAJIB:
 
 1. **Update `EXPECTED_MIGRATIONS`** di `tests/integration/schema.integration.test.ts` — tambahkan 14-digit timestamp migration baru. Workflow `migrate-development.yml` menjalankan hosted test `records exactly the expected applied migrations`; kalau entry tidak di-update, workflow gagal di step "Run hosted tests" SETELAH migration ter-apply ke dev (sudah terjadi 3×: M3, M6 `534dee3`, dan regresi 2026-08-20).
-2. **Cek type drift**: `npm run db:types:check` — kalau migration mengubah schema (tabel/kolom/RPC), regenerate `src/server/supabase/database.types.ts` dengan `npm run db:types` sebelum commit.
-3. **Verifikasi lokal lengkap sebelum commit**: `npm run db:lint`, `npm run db:check-migrations`, `npm run db:types:check`, `npm run test:unit`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run format:check` — semuanya harus hijau.
-4. Jangan trigger `migrate-development.yml` sebelum semua check hijau dan commit sudah di-push.
+2. **Update `EXPECTED_FUNCTIONS`** di `tests/integration/schema.integration.test.ts` — kalau migration menambah/mengubah RPC (CREATE FUNCTION), tambahkan signature + search_path + prosecdef ke array `EXPECTED_FUNCTIONS`, dan tambahkan nama function ke `IN (...)` list di query `pg_proc` serta ke `has_function_privilege` loop di test "grants execute of atomic functions only to service_role". Tanpa ini, hosted test "has correct function signatures" gagal.
+3. **Regenerate types sebelum commit**: jalankan `npm run db:types` (bukan hanya `db:types:check`) — kalau migration mengubah schema (tabel/kolom/RPC), ini regenerate `src/server/supabase/database.types.ts`. Lalu `npm run db:types:check` untuk verifikasi match. Kalau `db:types:check` gagal di CI ("Fail on generated type drift"), berarti types belum di-regenerate.
+4. **Verifikasi lokal lengkap sebelum commit**: `npm run db:lint`, `npm run db:check-migrations`, `npm run db:types:check`, `npm run test:unit`, `npm run test:hosted` (LAWAN DB DEV LIVE — ini yang dijalankan CI di "Run hosted tests"; jika lokal gagal, CI pasti gagal), `npm run lint`, `npm run typecheck`, `npm run build`, `npm run format:check` — semuanya harus hijau.
+5. Jangan trigger `migrate-development.yml` sebelum semua check hijau dan commit sudah di-push. Hindari push beruntun (multiple pushes = concurrent workflow runs = race condition di hosted tests); gabungkan perubahan ke satu commit sebelum push.
+6. Jika `test:hosted` flaky (timeout/race), rerun workflow `--failed` setelah concurrent run selesai.
 
 # Commit Message Rules
 
