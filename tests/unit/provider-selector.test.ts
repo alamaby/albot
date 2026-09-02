@@ -480,4 +480,55 @@ describe("ProviderSelector", () => {
     expect(low.key.id).toBe("k1");
     expect(high.key.id).toBe("k2");
   });
+
+  it("phantom configs (active but no key) do not bias round_robin rotation", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "cloud", priority: 0, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "phantom-a", priority: 100, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "phantom-b", priority: 101, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "real-a", priority: 200, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "real-b", priority: 201, selectionStrategy: "round_robin" }),
+    ];
+    const keys = new Map<string, ProviderKeySafe[]>([
+      ["cloud", [makeKey({ providerConfigId: "cloud" })]],
+      ["real-a", [makeKey({ providerConfigId: "real-a" })]],
+      ["real-b", [makeKey({ providerConfigId: "real-b" })]],
+    ]);
+
+    // Without the phantom filter, 3 of 5 rotation starts would land on cloud
+    // because phantoms consume slots 1-2 and 4 wrap back to index 0. With the
+    // filter, rotation is uniform over [cloud, real-a, real-b] only.
+    const seen = new Set<string>();
+    for (let i = 0; i < 30; i++) {
+      const r = await selector.selectProvider("reasoning", configs, keys, {
+        seed: `session-${i}`,
+      });
+      expect(["cloud", "real-a", "real-b"]).toContain(r.config.id);
+      expect(["phantom-a", "phantom-b"]).not.toContain(r.config.id);
+      seen.add(r.config.id);
+    }
+    // All three eligible configs should be picked at least once across 30 seeds.
+    expect(seen.size).toBe(3);
+  });
+
+  it("phantom config with only cooling-down keys is excluded from rotation", async () => {
+    const selector = new ProviderSelector();
+    const configs = [
+      makeConfig({ id: "a", priority: 0, selectionStrategy: "round_robin" }),
+      makeConfig({ id: "b", priority: 1, selectionStrategy: "round_robin" }),
+    ];
+    const keys = new Map<string, ProviderKeySafe[]>([
+      // "a" frozen until 2099 — must not consume a rotation slot.
+      ["a", [makeKey({ providerConfigId: "a", cooldownUntil: "2099-01-01T00:00:00Z" })]],
+      ["b", [makeKey({ providerConfigId: "b" })]],
+    ]);
+
+    for (let i = 0; i < 6; i++) {
+      const r = await selector.selectProvider("image_generation", configs, keys, {
+        seed: `session-${i}`,
+      });
+      expect(r.config.id).toBe("b");
+    }
+  });
 });

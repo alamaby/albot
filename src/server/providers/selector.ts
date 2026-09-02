@@ -87,12 +87,26 @@ export class ProviderSelector {
   // strategy groups in priority order (see selectProvider). Returns null when
   // no config has an eligible key, so an active config without keys never
   // blocks one that does.
+  //
+  // Pre-filter: only configs with at least one eligible key enter the
+  // rotation. An active-yet-keyless "phantom" config would otherwise consume a
+  // rotation slot inside its strategy group, only to be skipped by the walk,
+  // which biases the round_robin distribution toward whichever eligible config
+  // happens to land at the rotation anchor (typically the lowest-priority one).
+  // A config whose only keys are cooling down is also filtered out for the
+  // same rotation-fairness reason; it rejoins automatically once cooldown
+  // elapses.
   private pickConfigWithKey(
     active: ProviderConfigSafe[],
     keysByConfig: Map<string, ProviderKeySafe[]>,
     seed?: string,
   ): { config: ProviderConfigSafe; keys: ProviderKeySafe[] } | null {
-    const priorityOrdered = [...active].sort((a, b) => {
+    const withEligibleKey = active.filter((c) =>
+      (keysByConfig.get(c.id) ?? []).some((k) => this.isKeyEligible(k)),
+    );
+    if (withEligibleKey.length === 0) return null;
+
+    const priorityOrdered = [...withEligibleKey].sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.id.localeCompare(b.id);
     });
@@ -109,6 +123,9 @@ export class ProviderSelector {
       i = j;
     }
 
+    // Walk defence-in-depth: every entry has an eligible key by construction,
+    // but a concurrent cooldown could clear a key between the pre-filter and
+    // the walk. Re-check and skip rather than dereferencing an empty list.
     for (const candidate of order) {
       const candidateKeys = keysByConfig.get(candidate.id) ?? [];
       if (candidateKeys.some((k) => this.isKeyEligible(k))) {
