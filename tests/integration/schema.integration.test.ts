@@ -18,6 +18,8 @@ const EXPECTED_TABLES = [
   "job_events",
   "user_image_preferences",
   "prompt_audit",
+  "prompt_configs",
+  "prompt_configs_audit",
 ];
 
 // name: [data_type, is_nullable, column_default]
@@ -209,6 +211,26 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
     error_code: ["text", "YES", null],
     created_at: ["timestamp with time zone", "NO", "now()"],
   },
+  prompt_configs: {
+    id: ["uuid", "NO", "gen_random_uuid()"],
+    key: ["text", "NO", null],
+    body: ["text", "NO", null],
+    version: ["integer", "NO", null],
+    is_active: ["boolean", "NO", "false"],
+    created_by: ["text", "YES", null],
+    created_at: ["timestamp with time zone", "NO", "now()"],
+    updated_at: ["timestamp with time zone", "NO", "now()"],
+  },
+  prompt_configs_audit: {
+    id: ["uuid", "NO", "gen_random_uuid()"],
+    key: ["text", "NO", null],
+    version: ["integer", "NO", null],
+    action: ["text", "NO", null],
+    old_body: ["text", "YES", null],
+    new_body: ["text", "YES", null],
+    actor: ["text", "YES", null],
+    created_at: ["timestamp with time zone", "NO", "now()"],
+  },
 };
 
 // [constraint-name, fragments that must appear in pg_get_constraintdef]
@@ -258,6 +280,13 @@ const CONSTRAINT_FRAGMENTS: [string, string[]][] = [
   ],
   ["job_events_event_type_check", ["'lease_expired'::text", "'cancelled'::text"]],
   ["job_events_payload_object_check", ["jsonb_typeof(payload)", "'object'"]],
+  ["prompt_configs_key_check", ["length(btrim(key)) > 0"]],
+  ["prompt_configs_body_check", ["length(btrim(body)) > 0", "char_length(body) <= 8000"]],
+  ["prompt_configs_version_check", ["version > 0"]],
+  [
+    "prompt_configs_audit_action_check",
+    ["'create'::text", "'activate'::text", "'deactivate'::text", "'rollback'::text"],
+  ],
 ];
 
 // [constraint-name, fragments for FK def (REFERENCES ... ON DELETE ...)]
@@ -357,6 +386,9 @@ const EXPECTED_INDEX_DEF_FRAGMENTS: [string, string[]][] = [
   ["prompt_sessions_status_idx", ["btree (status, updated_at DESC)"]],
   ["provider_requests_config_created_idx", ["btree (provider_config_id, created_at DESC)"]],
   ["callback_events_session_received_idx", ["btree (prompt_session_id, received_at DESC)"]],
+  ["prompt_configs_one_active_idx", ["btree (key)", "WHERE", "is_active"]],
+  ["prompt_configs_key_version_idx", ["btree (key, version DESC)"]],
+  ["prompt_configs_audit_key_created_idx", ["btree (key, created_at DESC)"]],
 ];
 
 const EXPECTED_FUNCTIONS: [string, string, boolean][] = [
@@ -404,6 +436,17 @@ const EXPECTED_FUNCTIONS: [string, string, boolean][] = [
     true,
   ],
   ["set_updated_at()", "search_path=pg_catalog, public", false],
+  ["get_active_prompt_config(p_key text)", "search_path=pg_catalog, public", true],
+  [
+    "upsert_prompt_config(p_key text, p_body text, p_actor text)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
+  [
+    "activate_prompt_config(p_key text, p_version integer, p_actor text)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
 ];
 
 const EXPECTED_TRIGGERS = [
@@ -413,6 +456,7 @@ const EXPECTED_TRIGGERS = [
   "prompt_sessions_set_updated_at",
   "jobs_set_updated_at",
   "user_image_preferences_set_updated_at",
+  "prompt_configs_set_updated_at",
 ];
 
 const EXPECTED_MIGRATIONS = [
@@ -458,6 +502,7 @@ const EXPECTED_MIGRATIONS = [
   "20260901113116",
   "20260902085338",
   "20260902103000",
+  "20260902120000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];
@@ -579,8 +624,8 @@ describe.skipIf(skip)("schema integration", () => {
               coalesce(p.proconfig, '{}') as proconfig
          from pg_proc p
          join pg_namespace n on n.oid = p.pronamespace
-         where n.nspname = 'public'
-           and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'create_generation_attempt', 'mark_generation_attempt_failed', 'mark_generation_attempt_succeeded', 'complete_prompt_session', 'recover_stuck_generating_sessions', 'set_updated_at')`,
+        where n.nspname = 'public'
+          and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'create_generation_attempt', 'mark_generation_attempt_failed', 'mark_generation_attempt_succeeded', 'complete_prompt_session', 'recover_stuck_generating_sessions', 'set_updated_at', 'get_active_prompt_config', 'upsert_prompt_config', 'activate_prompt_config')`,
     );
     const rows = res.rows.map((r) => ({
       sig: `${r.proname}(${r.args})`,
@@ -627,6 +672,9 @@ describe.skipIf(skip)("schema integration", () => {
       "mark_generation_attempt_succeeded(uuid, text, bigint)",
       "complete_prompt_session(uuid)",
       "recover_stuck_generating_sessions(integer, integer)",
+      "get_active_prompt_config(text)",
+      "upsert_prompt_config(text, text, text)",
+      "activate_prompt_config(text, integer, text)",
     ]) {
       for (const role of API_ROLES) {
         const res = await pool!.query(

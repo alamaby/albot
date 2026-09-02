@@ -85,6 +85,8 @@ tetap jalan. Bot production tidak terpengaruh (workflow ini hanya Preview).
 - `POST /api/jobs/process` — internal job processor (Bearer `JOB_PROCESSOR_SECRET`).
 - `POST /api/recovery/run` — internal recovery sweep: lease-expiry recovery, queued claim (batch 3), dead-job marking, session expiry, retention purge. Cron GitHub Actions tiap 20 menit: `recovery-development.yml` (dev, alias `albot-dev.vercel.app`) dan `recovery-production.yml` (prod, `albot-be.alamaby.com`).
 - `GET /api/admin/diagnostics` — internal read-only status operasional (Bearer `JOB_PROCESSOR_SECRET`).
+- `GET /api/admin/prompts` — audit prompt per user/session (`?user_id=&session_id=&since=&until=`).
+- `GET /api/admin/prompt-configs` / `POST /api/admin/prompt-configs` — prompt persona DB-driven: `GET ?key=&audit=1&limit=` list versi/audit; `POST {key,body,actor}` upsert; `POST {key,version,actor}` rollback (Bearer `JOB_PROCESSOR_SECRET`).
 
 ## Provider Keys & Key Selection Strategy
 
@@ -139,6 +141,53 @@ node scripts/seed-provider-config.mjs add <adapter_type> <name> <base_url> <mode
 CPU script tidak mencetak plaintext key (hanya fingerprint prefix). Lihat
 `scripts/add-provider-key.mjs`, `scripts/upsert-provider-key.mjs`, dan
 `scripts/seed-provider-config.mjs` untuk arg lengkap.
+
+## Prompt Configs (DB-driven persona)
+
+System prompt enhancement di-split: persona (editable via DB) + shape JSON immutable di code (`ENHANCEMENT_SYSTEM_PROMPT_SHAPE`). Update persona **tidak perlu deploy**, cukup update tabel `prompt_configs`.
+
+- **Tabel:** `prompt_configs(key, body, version, is_active, created_by, ...)` — satu `is_active` per `key` (`prompt_configs_one_active_idx`). `prompt_configs_audit` menyimpan `create/activate/deactivate/rollback` dengan `actor`.
+- **Key saat ini:** `enhancement_system_persona` (seed v1 di migration `20260902120000`). `get_active_prompt_config(p_key)` dipakai use-case `enhanceOnly`/`execute` dengan cache TTL 60s per instance (single-flight).
+- **Strict-error:** jika tidak ada active row atau DB error, enhancement gagal loud `provider_configuration_invalid` (terminal) / `provider_unknown_error` (retryable) — tidak fallback ke const lama.
+
+### Update via Admin API (tanpa deploy)
+
+Auth: `Bearer $JOB_PROCESSOR_SECRET` (sama seperti `/api/admin/*`).
+
+```bash
+# lihat versi aktif + history
+curl -s -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
+  "https://albot-dev.vercel.app/api/admin/prompt-configs?key=enhancement_system_persona" | jq
+curl -s -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
+  "https://albot-dev.vercel.app/api/admin/prompt-configs?key=enhancement_system_persona&audit=true&limit=20" | jq
+
+# buat versi baru (auto-activate, body 1..8000 char)
+curl -s -X POST -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" -H "Content-Type: application/json" \
+  -d '{"key":"enhancement_system_persona","body":"You are a professional prompt engineer...\nRewrite the user'\''s prompt into a detailed, high-quality image generation prompt. (edit di sini)","actor":"admin@example.com"}' \
+  https://albot-dev.vercel.app/api/admin/prompt-configs | jq
+
+# rollback ke versi lama
+curl -s -X POST -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" -H "Content-Type: application/json" \
+  -d '{"key":"enhancement_system_persona","version":1,"actor":"admin@example.com"}' \
+  https://albot-dev.vercel.app/api/admin/prompt-configs | jq
+```
+
+Efek live ≤60s (cache). Untuk prod ganti host ke `https://albot-be.alamaby.com`.
+
+### Update via SQL langsung (alternatif)
+
+```sql
+-- buat versi baru (via RPC, audit otomatis)
+select upsert_prompt_config('enhancement_system_persona', 'persona baru ...', 'admin@example.com');
+-- rollback
+select activate_prompt_config('enhancement_system_persona', 1, 'admin@example.com');
+-- cek aktif
+select get_active_prompt_config('enhancement_system_persona');
+```
+
+### Menambah key prompt baru
+
+Cukup `upsert_prompt_config('nama_key_baru', 'body...')` — code yang memakai `PromptConfigRepository.getActivePersona('nama_key_baru')` akan otomatis strict-load key tersebut.
 
 ## Telegram Webhook
 

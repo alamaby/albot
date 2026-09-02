@@ -813,6 +813,72 @@ export type Database = {
           },
         ]
       }
+      prompt_configs: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          key: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      prompt_configs_audit: {
+        Row: {
+          action: string
+          actor: string | null
+          created_at: string
+          id: string
+          key: string
+          new_body: string | null
+          old_body: string | null
+          version: number
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          created_at?: string
+          id?: string
+          key: string
+          new_body?: string | null
+          old_body?: string | null
+          version: number
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          created_at?: string
+          id?: string
+          key?: string
+          new_body?: string | null
+          old_body?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1097,6 +1163,18 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      activate_prompt_config: {
+        Args: { p_actor?: string | null; p_key: string; p_version: number }
+        Returns: string
+      }
+      get_active_prompt_config: {
+        Args: { p_key: string }
+        Returns: string
+      }
+      upsert_prompt_config: {
+        Args: { p_actor?: string | null; p_body: string; p_key: string }
+        Returns: string
       }
     }
     Enums: {

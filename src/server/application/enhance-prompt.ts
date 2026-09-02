@@ -31,19 +31,38 @@ import {
 import { SessionRepository, type SessionSafe } from "@/server/repositories/session.repository";
 import type { JobSafe } from "@/server/repositories/job.repository";
 import { PromptAuditRepository } from "@/server/repositories/prompt-audit.repository";
+import {
+  PromptConfigRepository,
+  PROMPT_CONFIG_KEY_ENHANCEMENT_PERSONA,
+} from "@/server/repositories/prompt-config.repository";
 import { redactJson, redactSensitive } from "@/server/observability/redact";
 import { OpenAICompatibleReasoningAdapter } from "@/server/providers/reasoning/openai-compatible.adapter";
 import { isSessionExpired } from "./session-expiry-check";
 
 // The enhancement system prompt instructs the model to answer with a JSON
 // object. Parsing + zod validation lives in prompt-structure.ts.
-export const ENHANCEMENT_SYSTEM_PROMPT = [
+//
+// Split into persona (DB-configurable) + immutable shape tail (code) so prompt
+// tunability does not break structured parsing. The persona is loaded from
+// prompt_configs (strict-error); shape tail is always appended.
+export const ENHANCEMENT_SYSTEM_PROMPT_PERSONA = [
   "You are a professional prompt engineer for an AI image generation bot.",
   "Rewrite the user's prompt into a detailed, high-quality image generation prompt.",
+].join("\n");
+
+export const ENHANCEMENT_SYSTEM_PROMPT_SHAPE = [
   "Respond with a single JSON object and nothing else, using exactly this shape:",
   '{"prompt": "...", "negative_prompt": "...", "aspect_ratio": "..."}',
   '"prompt" is required; "negative_prompt" and "aspect_ratio" are optional strings.',
 ].join("\n");
+
+// Backward-compatible combined prompt (persona + shape). Used as seed value and
+// by existing tests that import the constant.
+export const ENHANCEMENT_SYSTEM_PROMPT = `${ENHANCEMENT_SYSTEM_PROMPT_PERSONA}\n${ENHANCEMENT_SYSTEM_PROMPT_SHAPE}`;
+
+export function buildEnhancementSystemPrompt(persona: string): string {
+  return `${persona.trim()}\n${ENHANCEMENT_SYSTEM_PROMPT_SHAPE}`;
+}
 
 export type EnhancementOutcome =
   | {
@@ -69,6 +88,7 @@ export type EnhancePromptDeps = {
   sessionRepository?: SessionRepository;
   selector?: ProviderSelector;
   promptAuditRepository?: PromptAuditRepository;
+  promptConfigRepository?: PromptConfigRepository;
   now?: () => Date;
   // Best-effort confirmation message with inline keyboard. Injected so tests
   // can stub it; the production default sends via Telegram.
@@ -95,6 +115,7 @@ export class EnhancePromptUseCase {
   private readonly sessionRepository: SessionRepository;
   private readonly selector: ProviderSelector;
   private readonly promptAuditRepository: PromptAuditRepository;
+  private readonly promptConfigRepository: PromptConfigRepository;
   private readonly now: () => Date;
   private readonly sendConfirmation: (input: {
     session: SessionSafe;
@@ -115,6 +136,7 @@ export class EnhancePromptUseCase {
     this.sessionRepository = deps.sessionRepository ?? new SessionRepository();
     this.selector = deps.selector ?? new ProviderSelector();
     this.promptAuditRepository = deps.promptAuditRepository ?? new PromptAuditRepository();
+    this.promptConfigRepository = deps.promptConfigRepository ?? new PromptConfigRepository();
     this.now = deps.now ?? (() => new Date());
     this.sendConfirmation = deps.sendConfirmation ?? this.defaultSendConfirmation;
   }
@@ -208,11 +230,19 @@ export class EnhancePromptUseCase {
     }
   }
 
+  private async resolveSystemPrompt(): Promise<string> {
+    const persona = await this.promptConfigRepository.getActivePersona(
+      PROMPT_CONFIG_KEY_ENHANCEMENT_PERSONA,
+    );
+    return buildEnhancementSystemPrompt(persona);
+  }
+
   // Session-less enhancement for /enhance-prompt: provider select, audit row,
   // adapter call, structured validation. No session/revision writes — the
   // caller owns the job lifecycle and user messaging. Throws ProviderError on
   // failure (caller decides retry).
   async enhanceOnly(input: { jobId: string; sourcePrompt: string }): Promise<EnhanceOnlyOutcome> {
+    const systemPrompt = await this.resolveSystemPrompt();
     const { selected, startedAt } = await this.selectProvider(input.jobId);
 
     const requestId = await this.enhancementRepository.recordProviderRequest({
@@ -227,7 +257,7 @@ export class EnhancePromptUseCase {
 
       const result = await adapter.enhancePrompt({
         sourcePrompt: input.sourcePrompt,
-        systemPrompt: ENHANCEMENT_SYSTEM_PROMPT,
+        systemPrompt,
         options: {
           ...(selected.config.settings["response_format"] !== undefined
             ? { response_format: selected.config.settings["response_format"] }
@@ -313,6 +343,7 @@ export class EnhancePromptUseCase {
     // failed without racing a completed revision.
     await this.enhancementRepository.markRevisionProcessing(revision.id);
 
+    const systemPrompt = await this.resolveSystemPrompt();
     const { selected, startedAt } = await this.selectProvider(session.id);
 
     // Build the audit capture (request messages + model snapshot) before the
@@ -326,7 +357,7 @@ export class EnhancePromptUseCase {
               sourcePrompt: revision.sourcePrompt,
               previousPrompt: revision.previousPrompt ?? undefined,
               revisionInstruction: revision.revisionInstruction ?? undefined,
-              systemPrompt: ENHANCEMENT_SYSTEM_PROMPT,
+              systemPrompt,
               options: {},
             }),
           )
@@ -365,7 +396,7 @@ export class EnhancePromptUseCase {
         sourcePrompt: revision.sourcePrompt,
         previousPrompt: revision.previousPrompt ?? undefined,
         revisionInstruction: revision.revisionInstruction ?? undefined,
-        systemPrompt: ENHANCEMENT_SYSTEM_PROMPT,
+        systemPrompt,
         options: {
           ...(selected.config.settings["response_format"] !== undefined
             ? { response_format: selected.config.settings["response_format"] }
