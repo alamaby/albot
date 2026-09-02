@@ -386,6 +386,72 @@ export type Database = {
         }
         Relationships: []
       }
+      prompt_configs: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          key: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      prompt_configs_audit: {
+        Row: {
+          action: string
+          actor: string | null
+          created_at: string
+          id: string
+          key: string
+          new_body: string | null
+          old_body: string | null
+          version: number
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          created_at?: string
+          id?: string
+          key: string
+          new_body?: string | null
+          old_body?: string | null
+          version: number
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          created_at?: string
+          id?: string
+          key?: string
+          new_body?: string | null
+          old_body?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       prompt_revisions: {
         Row: {
           aspect_ratio: string | null
@@ -813,77 +879,15 @@ export type Database = {
           },
         ]
       }
-      prompt_configs: {
-        Row: {
-          body: string
-          created_at: string
-          created_by: string | null
-          id: string
-          is_active: boolean
-          key: string
-          updated_at: string
-          version: number
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          key: string
-          updated_at?: string
-          version: number
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          key?: string
-          updated_at?: string
-          version?: number
-        }
-        Relationships: []
-      }
-      prompt_configs_audit: {
-        Row: {
-          action: string
-          actor: string | null
-          created_at: string
-          id: string
-          key: string
-          new_body: string | null
-          old_body: string | null
-          version: number
-        }
-        Insert: {
-          action: string
-          actor?: string | null
-          created_at?: string
-          id?: string
-          key: string
-          new_body?: string | null
-          old_body?: string | null
-          version: number
-        }
-        Update: {
-          action?: string
-          actor?: string | null
-          created_at?: string
-          id?: string
-          key?: string
-          new_body?: string | null
-          old_body?: string | null
-          version?: number
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      activate_prompt_config: {
+        Args: { p_actor?: string; p_key: string; p_version: number }
+        Returns: string
+      }
       claim_job: {
         Args: { p_lease_seconds?: number; p_worker_id: string }
         Returns: {
@@ -996,6 +1000,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_active_prompt_config: { Args: { p_key: string }; Returns: string }
       increment_provider_key_failure: {
         Args: {
           p_key_id: string
@@ -1164,16 +1169,8 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      activate_prompt_config: {
-        Args: { p_actor?: string | null; p_key: string; p_version: number }
-        Returns: string
-      }
-      get_active_prompt_config: {
-        Args: { p_key: string }
-        Returns: string
-      }
       upsert_prompt_config: {
-        Args: { p_actor?: string | null; p_body: string; p_key: string }
+        Args: { p_actor?: string; p_body: string; p_key: string }
         Returns: string
       }
     }
