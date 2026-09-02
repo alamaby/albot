@@ -46,6 +46,7 @@ export class RecoveryRepository {
   // Recovers generating sessions stuck with a processing attempt older than
   // p_stuck_minutes (default 15m). Moves them to generation_failed so the
   // user can Regenerate without manual SQL. Returns the recovered rows.
+  // Best-effort: returns [] if the RPC does not exist yet (prod before migration).
   async recoverStuckGeneratingSessions(maxSessions = 25, stuckMinutes = 15): Promise<SessionRow[]> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await (
@@ -57,7 +58,15 @@ export class RecoveryRepository {
       p_max_sessions: maxSessions,
       p_stuck_minutes: stuckMinutes,
     }).select("*");
-    if (error) throw new Error(`recover stuck generating failed: ${error.message}`);
+    if (error) {
+      if (
+        error.message.includes("does not exist") ||
+        error.message.includes("recover_stuck_generating_sessions")
+      ) {
+        return [];
+      }
+      throw new Error(`recover stuck generating failed: ${error.message}`);
+    }
     return (data as SessionRow[] | null) ?? [];
   }
 

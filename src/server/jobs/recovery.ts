@@ -81,10 +81,19 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
 
   // 1b. Stuck generating recovery (processing >15m) — moves to generation_failed
   // so the user can Regenerate without manual SQL. Best-effort Telegram edit.
-  const stuckGenerating = await recoveryRepository.recoverStuckGeneratingSessions(
-    RECOVERY_BATCH_STUCK_GENERATING,
-    RECOVERY_STUCK_MINUTES,
-  );
+  // Wrapped in try/catch so prod before migration (RPC missing) does not abort recovery.
+  let stuckGenerating: Awaited<ReturnType<RecoveryRepository["recoverStuckGeneratingSessions"]>> =
+    [];
+  try {
+    stuckGenerating = await recoveryRepository.recoverStuckGeneratingSessions(
+      RECOVERY_BATCH_STUCK_GENERATING,
+      RECOVERY_STUCK_MINUTES,
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown";
+    logStructured("warn", "recovery.stuck_recover_failed", { detail });
+    stuckGenerating = [];
+  }
   for (const session of stuckGenerating) {
     try {
       const chatId = BigInt(session.telegram_chat_id);
