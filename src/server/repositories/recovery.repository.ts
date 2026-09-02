@@ -49,15 +49,12 @@ export class RecoveryRepository {
   // Best-effort: returns [] if the RPC does not exist yet (prod before migration).
   async recoverStuckGeneratingSessions(maxSessions = 25, stuckMinutes = 15): Promise<SessionRow[]> {
     const supabase = getSupabaseAdmin();
-    const { data, error } = await (
-      supabase.rpc as unknown as (
-        fn: string,
-        args: Record<string, unknown>,
-      ) => ReturnType<typeof supabase.rpc>
-    )("recover_stuck_generating_sessions", {
-      p_max_sessions: maxSessions,
-      p_stuck_minutes: stuckMinutes,
-    }).select("*");
+    const { data, error } = await supabase
+      .rpc("recover_stuck_generating_sessions", {
+        p_max_sessions: maxSessions,
+        p_stuck_minutes: stuckMinutes,
+      })
+      .select("*");
     if (error) {
       if (
         error.message.includes("does not exist") ||
