@@ -3,7 +3,13 @@
 // Usage (run from repo root, secrets via environment or arguments):
 //   node scripts/seed-provider-config.mjs add <adapter_type> <name> <base_url> <model> \
 //       <selection_strategy> <priority> <weight> --key <plaintext_key> [--label <label>] \
-//       [--capability <reasoning|image_generation>]
+//       [--capability <reasoning|image_generation>] \
+//       [--key-strategy <priority|round_robin>] [--key-priority <n>]
+//
+// --key-strategy sets provider_configs.key_selection_strategy (NULL = inherit
+//   the config-level selection_strategy for key selection).
+// --key-priority sets provider_keys.priority for the seeded key (default 100,
+//   lower = higher precedence for the "priority" key strategy).
 //
 // Reads SUPABASE_URL / SUPABASE_SECRET_KEY / PROVIDER_KEY_ENCRYPTION_KEY from
 // the environment (same as the server). Inserts a provider_configs row
@@ -42,6 +48,7 @@ const ADAPTERS_BY_CAPABILITY = {
 };
 const CAPABILITIES = ["reasoning", "image_generation"];
 const STRATEGIES = ["priority_failover", "weighted", "round_robin"];
+const KEY_STRATEGIES = ["priority", "round_robin"];
 
 function fail(message) {
   console.error(`[error] ${message}`);
@@ -137,6 +144,21 @@ async function main() {
   if (!Number.isInteger(weightNum) || weightNum <= 0) fail("weight must be a positive integer");
   if (!/^https:\/\//i.test(baseUrl ?? "")) fail("base_url must start with https://");
 
+  // Optional per-config key selection strategy (NULL = inherit).
+  const keyStrategyIndex = process.argv.indexOf("--key-strategy");
+  const keyStrategy = keyStrategyIndex !== -1 ? process.argv[keyStrategyIndex + 1] : null;
+  if (keyStrategy !== null && !KEY_STRATEGIES.includes(keyStrategy)) {
+    fail(`key-strategy must be one of: ${KEY_STRATEGIES.join(", ")}`);
+  }
+
+  // Optional key priority (default 100; lower = higher precedence).
+  const keyPriorityIndex = process.argv.indexOf("--key-priority");
+  const keyPriorityRaw = keyPriorityIndex !== -1 ? process.argv[keyPriorityIndex + 1] : null;
+  const keyPriority = keyPriorityRaw !== null ? Number(keyPriorityRaw) : 100;
+  if (!Number.isInteger(keyPriority) || keyPriority < 0) {
+    fail("key-priority must be a non-negative integer");
+  }
+
   const keyIndex = process.argv.indexOf("--key");
   const envKeyIndex = process.argv.indexOf("--env-key");
   // Precedence: --key arg > --env-key <NAME> > PROVIDER_KEY env.
@@ -188,6 +210,7 @@ async function main() {
       model: model || null,
       settings: {},
       selection_strategy: strategy,
+      key_selection_strategy: keyStrategy,
       priority: priorityNum,
       weight: weightNum,
       is_active: true,
@@ -209,6 +232,7 @@ async function main() {
       key_fingerprint: encrypted.key_fingerprint,
       label: label,
       weight: weightNum,
+      priority: keyPriority,
       is_active: true,
     })
     .select("id, key_fingerprint")

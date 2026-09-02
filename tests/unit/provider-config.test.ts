@@ -44,4 +44,22 @@ describe("validateProviderConfigInput", () => {
   it("rejects a negative priority", () => {
     expect(() => validateProviderConfigInput({ ...validInput, priority: -1 })).toThrow();
   });
+
+  it("accepts a null key selection strategy (inherit)", () => {
+    const parsed = validateProviderConfigInput({ ...validInput, keySelectionStrategy: null });
+    expect(parsed.keySelectionStrategy).toBeNull();
+  });
+
+  it("accepts explicit key selection strategies", () => {
+    for (const strategy of ["priority", "round_robin"] as const) {
+      const parsed = validateProviderConfigInput({ ...validInput, keySelectionStrategy: strategy });
+      expect(parsed.keySelectionStrategy).toBe(strategy);
+    }
+  });
+
+  it("rejects an invalid key selection strategy", () => {
+    expect(() =>
+      validateProviderConfigInput({ ...validInput, keySelectionStrategy: "weighted_round_robin" }),
+    ).toThrow();
+  });
 });

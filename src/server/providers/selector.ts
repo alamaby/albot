@@ -6,9 +6,8 @@
 
 import type {
   ProviderCapability,
-  ProviderSelectionStrategy,
   ProviderKeySelectionStrategy,
-  ProviderStrategy,
+  ProviderSelectionStrategy,
 } from "@/server/domain/provider";
 import type { ProviderConfigSafe } from "@/server/repositories/provider-config.repository";
 import type { ProviderKeySafe } from "@/server/repositories/provider-key.repository";
@@ -78,6 +77,7 @@ export class ProviderSelector {
     const key = this.selectKey(
       eligible,
       selected.selectionStrategy,
+      selected.keySelectionStrategy,
       this.keySeed(selected, options?.seed),
     );
     return { config: selected, key };
@@ -142,16 +142,63 @@ export class ProviderSelector {
     return true;
   }
 
-  // Key selection honors the config-level strategy that is reachable from a DB
-  // row: `weighted` draws keys by their own `weight` (cumulative prefix), while
-  // `priority_failover` picks the least-recently-used eligible key. The
-  // `weighted_round_robin` branch is kept for explicit key-level strategy use.
+  // Key selection honours an explicit per-config key strategy
+  // (provider_configs.key_selection_strategy) when set, otherwise inherits the
+  // behaviour that would be derived from the config-level selection_strategy:
+  //   - keySelectionStrategy = "priority"    : keys ordered by priority ASC
+  //                                             then last_used_at ASC NULLS FIRST
+  //                                             (priority failover: the lowest-
+  //                                              priority key is used first; a
+  //                                              failed key enters cooldown via
+  //                                              the existing RPC after 3
+  //                                              failures, then the next key in
+  //                                              priority order is used)
+  //   - keySelectionStrategy = "round_robin" : keys ordered by last_used_at ASC
+  //                                             NULLS FIRST (LRU rotation: a
+  //                                             successful call bumps
+  //                                             last_used_at via markSuccess,
+  //                                             moving that key to the back of
+  //                                             the queue on the next selection)
+  //   - keySelectionStrategy = null          : inherit: "weighted" config draws
+  //                                             keys by their own weight; any
+  //                                             other config picks the first
+  //                                             eligible key (least-recently-
+  //                                             used; provider_keys.priority is
+  //                                             a no-op tie-breaker here).
   private selectKey(
     keys: ProviderKeySafe[],
-    strategy: ProviderStrategy,
+    configStrategy: ProviderSelectionStrategy,
+    keyStrategy: ProviderKeySelectionStrategy | null,
     seed: string,
   ): ProviderKeySafe {
-    if (strategy === "weighted" || strategy === "weighted_round_robin") {
+    if (keys.length === 0) {
+      // selectProvider guards against an empty eligible list, but keep a
+      // defensive fallback so a future caller cannot dereference undefined.
+      throw makeNonRetryable(
+        "provider_key_unavailable",
+        "no eligible provider key for selected config",
+      );
+    }
+
+    if (keyStrategy === "priority") {
+      // Explicit priority failover: lowest priority first, then LRU.
+      return [...keys].sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        return lastUsedCmp(a, b) ?? idCmp(a, b);
+      })[0];
+    }
+
+    if (keyStrategy === "round_robin") {
+      // Explicit LRU rotation: least-recently-used first, then id tie-break.
+      return [...keys].sort((a, b) => lastUsedCmp(a, b) ?? idCmp(a, b))[0];
+    }
+
+    // Inherited behaviour (null key strategy). The "weighted" config strategy
+    // draws keys by their own weight via a cumulative-prefix seed draw; every
+    // other config strategy picks the first eligible key, which listSafeKeys
+    // already orders as LRU (priority is a no-op tie-breaker under the default
+    // priority=100).
+    if (configStrategy === "weighted") {
       const totalWeight = keys.reduce((sum, k) => sum + k.weight, 0);
       if (totalWeight <= 0) return keys[0];
       const point = Math.abs(this.hashString(seed)) % totalWeight;
@@ -162,7 +209,6 @@ export class ProviderSelector {
       }
       return keys[keys.length - 1];
     }
-    // Priority failover / round-robin by last use: first eligible key.
     return keys[0];
   }
 
@@ -215,4 +261,22 @@ export class ProviderSelector {
     }
     return h;
   }
+}
+
+// Comparator helpers for explicit key strategies. lastUsedCmp returns null
+// when both last_used_at values are present (so callers can fall through to a
+// stable tie-breaker like idCmp).
+function lastUsedCmp(a: ProviderKeySafe, b: ProviderKeySafe): number | null {
+  const aT = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : null;
+  const bT = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : null;
+  // NULLS FIRST: a key that has never been used sorts before any used key.
+  if (aT === null && bT === null) return null;
+  if (aT === null) return -1;
+  if (bT === null) return 1;
+  if (aT === bT) return null;
+  return aT - bT;
+}
+
+function idCmp(a: ProviderKeySafe, b: ProviderKeySafe): number {
+  return a.id.localeCompare(b.id);
 }

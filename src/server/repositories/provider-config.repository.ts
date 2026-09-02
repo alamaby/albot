@@ -4,14 +4,18 @@
 
 import { getSupabaseAdmin } from "@/server/supabase/admin";
 import { validateProviderConfigInput } from "@/server/providers/config";
-import type { ProviderCapability, ProviderSelectionStrategy } from "@/server/domain/provider";
+import type {
+  ProviderCapability,
+  ProviderKeySelectionStrategy,
+  ProviderSelectionStrategy,
+} from "@/server/domain/provider";
 import type { Database } from "@/server/supabase/database.types";
 
 type Supabase = Database["public"]["Tables"];
 
 // Single source of truth for the safe projection (M2).
 const SAFE_COLUMNS =
-  "id, capability, adapter_type, name, base_url, model, settings, selection_strategy, priority, weight, is_active, config_version, activated_at, created_at, updated_at";
+  "id, capability, adapter_type, name, base_url, model, settings, selection_strategy, key_selection_strategy, priority, weight, is_active, config_version, activated_at, created_at, updated_at";
 
 export type ProviderConfigInput = {
   capability: "reasoning" | "image_generation";
@@ -21,6 +25,7 @@ export type ProviderConfigInput = {
   model?: string;
   settings: Record<string, unknown>;
   selectionStrategy: ProviderSelectionStrategy;
+  keySelectionStrategy?: ProviderKeySelectionStrategy | null;
   priority: number;
   weight: number;
   isActive: boolean;
@@ -35,6 +40,7 @@ export type ProviderConfigSafe = {
   model: string;
   settings: Record<string, unknown>;
   selectionStrategy: ProviderSelectionStrategy;
+  keySelectionStrategy: ProviderKeySelectionStrategy | null;
   priority: number;
   weight: number;
   isActive: boolean;
@@ -57,6 +63,8 @@ function mapRow(row: ProviderConfigRow): ProviderConfigSafe {
     model: row.model ?? "",
     settings: (row.settings as Record<string, unknown> | null) ?? {},
     selectionStrategy: row.selection_strategy as ProviderSelectionStrategy,
+    keySelectionStrategy:
+      (row.key_selection_strategy as ProviderKeySelectionStrategy | null) ?? null,
     priority: row.priority,
     weight: row.weight,
     isActive: row.is_active,
@@ -110,6 +118,7 @@ export class ProviderConfigRepository {
         model: validated.model ?? null,
         settings: validated.settings,
         selection_strategy: validated.selectionStrategy,
+        key_selection_strategy: validated.keySelectionStrategy ?? null,
         priority: validated.priority,
         weight: validated.weight,
         is_active: validated.isActive,

@@ -43,6 +43,7 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
     model: ["text", "YES", null],
     settings: ["jsonb", "NO", "'{}'::jsonb"],
     selection_strategy: ["text", "NO", "'priority_failover'::text"],
+    key_selection_strategy: ["text", "YES", null],
     priority: ["integer", "NO", "100"],
     weight: ["integer", "NO", "1"],
     config_version: ["integer", "NO", "1"],
@@ -60,6 +61,7 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
     key_fingerprint: ["text", "NO", null],
     label: ["text", "YES", null],
     weight: ["integer", "NO", "1"],
+    priority: ["integer", "NO", "100"],
     is_active: ["boolean", "NO", "true"],
     failure_count: ["integer", "NO", "0"],
     cooldown_until: ["timestamp with time zone", "YES", null],
@@ -216,12 +218,17 @@ const CONSTRAINT_FRAGMENTS: [string, string[]][] = [
     "provider_configs_selection_strategy_check",
     ["'priority_failover'::text", "'weighted'::text", "'round_robin'::text"],
   ],
+  [
+    "provider_configs_key_selection_strategy_check",
+    ["key_selection_strategy", "'priority'", "'round_robin'"],
+  ],
   ["provider_configs_priority_check", ["priority >= 0"]],
   ["provider_configs_weight_check", ["weight > 0"]],
   ["provider_configs_config_version_check", ["config_version > 0"]],
   ["provider_configs_settings_object_check", ["jsonb_typeof(settings)", "'object'"]],
   ["provider_keys_ciphertext_check", ["length(btrim(key_ciphertext)) > 0"]],
   ["provider_keys_weight_check", ["weight > 0"]],
+  ["provider_keys_priority_check", ["priority >= 0"]],
   ["prompt_sessions_status_check", ["'awaiting_confirmation'::text", "'completed'::text"]],
   ["prompt_sessions_expires_at_check", ["expires_at > created_at"]],
   ["prompt_revisions_source_prompt_check", ["length(btrim(source_prompt)) > 0"]],
@@ -320,7 +327,9 @@ const EXPECTED_INDEX_DEF_FRAGMENTS: [string, string[]][] = [
   ["provider_configs_selection_idx", ["btree (capability, is_active, priority, id)"]],
   [
     "provider_keys_selection_idx",
-    ["btree (provider_config_id, is_active, cooldown_until, last_used_at, id)"],
+    [
+      "btree (provider_config_id, is_active, priority, cooldown_until, last_used_at NULLS FIRST, id)",
+    ],
   ],
   ["prompt_sessions_active_lookup_idx", ["btree (telegram_user_id, status, updated_at DESC)"]],
   ["generation_attempts_session_status_idx", ["btree (session_id, status, created_at DESC)"]],
@@ -448,6 +457,7 @@ const EXPECTED_MIGRATIONS = [
   "20260830100000",
   "20260901113116",
   "20260902085338",
+  "20260902103000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

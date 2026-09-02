@@ -543,6 +543,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          key_selection_strategy: string | null
           model: string | null
           name: string
           priority: number
@@ -560,6 +561,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          key_selection_strategy?: string | null
           model?: string | null
           name: string
           priority?: number
@@ -577,6 +579,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          key_selection_strategy?: string | null
           model?: string | null
           name?: string
           priority?: number
@@ -600,6 +603,7 @@ export type Database = {
           key_iv: string
           label: string | null
           last_used_at: string | null
+          priority: number
           provider_config_id: string
           updated_at: string
           weight: number
@@ -616,6 +620,7 @@ export type Database = {
           key_iv: string
           label?: string | null
           last_used_at?: string | null
+          priority?: number
           provider_config_id: string
           updated_at?: string
           weight?: number
@@ -632,6 +637,7 @@ export type Database = {
           key_iv?: string
           label?: string | null
           last_used_at?: string | null
+          priority?: number
           provider_config_id?: string
           updated_at?: string
           weight?: number
@@ -942,6 +948,7 @@ export type Database = {
           key_iv: string
           label: string | null
           last_used_at: string | null
+          priority: number
           provider_config_id: string
           updated_at: string
           weight: number

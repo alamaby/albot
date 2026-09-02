@@ -86,6 +86,60 @@ tetap jalan. Bot production tidak terpengaruh (workflow ini hanya Preview).
 - `POST /api/recovery/run` — internal recovery sweep: lease-expiry recovery, queued claim (batch 3), dead-job marking, session expiry, retention purge. Cron GitHub Actions tiap 20 menit: `recovery-development.yml` (dev, alias `albot-dev.vercel.app`) dan `recovery-production.yml` (prod, `albot-be.alamaby.com`).
 - `GET /api/admin/diagnostics` — internal read-only status operasional (Bearer `JOB_PROCESSOR_SECRET`).
 
+## Provider Keys & Key Selection Strategy
+
+Setiap `provider_configs` row bisa punya **lebih dari satu** `provider_keys` row.
+Kolom `provider_configs.key_selection_strategy` mengatur cara selector memilih
+key antar multiple keys untuk config tersebut:
+
+| `key_selection_strategy` | Perilaku key selection                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NULL` (default)         | Inherit: config `weighted` → weighted key draw by `weight`; lainnya → first eligible by `last_used_at`. Backward compat untuk semua config existing.                             |
+| `'priority'`             | Fallback: keys diurutkan by `priority ASC, last_used_at ASC`. Primary key dipakai duluan; setelah 3 failure (threshold dipertahankan) key cooldown → retry pakai key berikutnya. |
+| `'round_robin'`          | Rotasi LRU: keys diurutkan by `last_used_at ASC`. Setiap `markSuccess` update `last_used_at`, jadi request berikutnya otomatis pilih key lain.                                   |
+
+Kolom `provider_keys.priority` (integer, default 100, lower = higher precedence)
+hanya relevan untuk strategi `'priority'`. Untuk `'round_robin'` dan `NULL`
+diabaikan (tie-break by `last_used_at`).
+
+### Menambah key kedua untuk provider existing (multi-key)
+
+Script `add-provider-key.mjs` insert key **tanpa** hapus key existing
+(kontras `upsert-provider-key.mjs` yang replace-all):
+
+```bash
+# Pixazo Flux: primary (priority 1) + backup (priority 200), strategy 'priority'
+psql ... -c "UPDATE provider_configs SET key_selection_strategy = 'priority'
+             WHERE adapter_type = 'pixazo_flux_schnell' AND capability = 'image_generation';"
+
+node scripts/add-provider-key.mjs pixazo_flux_schnell flux-1-schnell \
+  --capability image_generation --priority 200 \
+  --env-key PIXAZO_BACKUP_API_KEY --label "backup"
+```
+
+```bash
+# OpenRouter free: 2 key round-robin per request
+psql ... -c "UPDATE provider_configs SET key_selection_strategy = 'round_robin'
+             WHERE adapter_type LIKE 'openrouter_%' AND capability = 'reasoning';"
+
+node scripts/add-provider-key.mjs openrouter_free openrouter/free \
+  --capability reasoning --priority 100 \
+  --env-key OPENROUTER_BACKUP_API_KEY --label "secondary"
+```
+
+### Seed config baru dengan key strategy + priority
+
+```bash
+node scripts/seed-provider-config.mjs add <adapter_type> <name> <base_url> <model> \
+  <selection_strategy> <priority> <weight> \
+  --key <plaintext_key> --capability <reasoning|image_generation> \
+  --key-strategy <priority|round_robin> --key-priority <n>
+```
+
+CPU script tidak mencetak plaintext key (hanya fingerprint prefix). Lihat
+`scripts/add-provider-key.mjs`, `scripts/upsert-provider-key.mjs`, dan
+`scripts/seed-provider-config.mjs` untuk arg lengkap.
+
 ## Telegram Webhook
 
 Dev bot (`Albot Dev`) harus menunjuk ke `https://albot-dev.vercel.app/api/telegram/webhook`. Setelah `vercel` (preview) yang menggeser deployment, alias bisa tertinggal di deployment lama — update manual:

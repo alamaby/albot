@@ -16,6 +16,7 @@ export const providerConfigInputSchema = z.object({
   model: z.string().min(1).optional(),
   settings: z.record(z.string(), z.unknown()),
   selectionStrategy: z.enum(["priority_failover", "weighted", "round_robin"]),
+  keySelectionStrategy: z.enum(["priority", "round_robin"]).nullable().optional(),
   priority: z.number().int().min(0),
   weight: z.number().int().positive(),
   isActive: z.boolean(),

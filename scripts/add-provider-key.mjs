@@ -1,29 +1,29 @@
-// Provider key upsert helper (development/production).
+// Provider key add helper (development/production).
 //
-// Replaces the encrypted key for an existing provider_configs row.
-// Looks up the config by (adapter_type, model, capability) — the natural
-// identifier from the seed migration — then DELETEs all existing
-// provider_keys rows for that config and INSERTs a freshly-encrypted one.
+// Inserts an additional encrypted provider_key for an existing provider_configs
+// row WITHOUT deleting existing keys. Use this to enable multi-key per config
+// (e.g. a primary + backup key for the priority key strategy, or multiple keys
+// for the round_robin key strategy).
+//
+// Contrast with upsert-provider-key.mjs, which DELETES all existing keys for
+// the config before inserting the new one (single-key replace).
 //
 // Usage:
-//   node scripts/upsert-provider-key.mjs <adapter_type> <model> \
+//   node scripts/add-provider-key.mjs <adapter_type> <model> \
 //       [--capability <reasoning|image_generation>] \
 //       [--key <plaintext>] [--env-key <ENV_VAR_NAME>] \
 //       [--label <label>] [--weight <n>] [--priority <n>]
 //
 // Key precedence: --key <plaintext> > --env-key <NAME> > PROVIDER_KEY env.
 // --weight defaults to 1 (used by the inherited "weighted" config strategy).
-// --priority defaults to 100 (used by the explicit "priority" key strategy).
-// For multi-key support use scripts/add-provider-key.mjs instead, which
-// inserts without deleting existing keys.
-//
-// Idempotency: deletes any existing keys for the config before inserting
-// (callers should not run this on a config that is in active use mid-flight).
-// Prints config id, key id, and key fingerprint prefix; never prints the
-// plaintext key.
+// --priority defaults to 100 (used by the explicit "priority" key strategy;
+//   lower = higher precedence). For the "round_robin" key strategy, priority
+//   is ignored.
 //
 // Reads SUPABASE_URL / SUPABASE_SECRET_KEY /
 // PROVIDER_KEY_ENCRYPTION_KEY from environment (same as the seed script).
+// Prints config id, key id, and key fingerprint prefix; never prints the
+// plaintext key.
 
 import { createClient } from "@supabase/supabase-js";
 import { createCipheriv, createHash, randomBytes } from "node:crypto";
@@ -106,9 +106,10 @@ async function main() {
   const [adapterType, model] = process.argv.slice(2);
   if (!adapterType || !model) {
     fail(
-      "usage: node scripts/upsert-provider-key.mjs <adapter_type> <model> " +
+      "usage: node scripts/add-provider-key.mjs <adapter_type> <model> " +
         "[--capability <reasoning|image_generation>] " +
-        "[--key <plaintext>] [--env-key <ENV_VAR_NAME>] [--label <label>] [--weight <n>]",
+        "[--key <plaintext>] [--env-key <ENV_VAR_NAME>] [--label <label>] " +
+        "[--weight <n>] [--priority <n>]",
     );
   }
 
@@ -166,7 +167,7 @@ async function main() {
 
   const { data: config, error: configError } = await admin
     .from("provider_configs")
-    .select("id, adapter_type, model, capability")
+    .select("id, adapter_type, model, capability, key_selection_strategy")
     .eq("adapter_type", adapterType)
     .eq("model", model)
     .eq("capability", capability)
@@ -179,13 +180,19 @@ async function main() {
   }
   const configId = config.id;
   console.log(`[info] resolved config ${configId}`);
+  if (config.key_selection_strategy) {
+    console.log(`[info] config key_selection_strategy = ${config.key_selection_strategy}`);
+  } else {
+    console.log(`[info] config key_selection_strategy = NULL (inherit)`);
+  }
 
-  // Replace all existing keys for this config with a single new key.
-  const { error: delError } = await admin
+  // Show how many keys already exist for this config (informational; no delete).
+  const { count: existingCount, error: countError } = await admin
     .from("provider_keys")
-    .delete()
+    .select("id", { count: "exact", head: true })
     .eq("provider_config_id", configId);
-  if (delError) fail(`provider key delete failed: ${delError.message}`);
+  if (countError) fail(`provider key count failed: ${countError.message}`);
+  console.log(`[info] existing keys for config: ${existingCount ?? 0}`);
 
   const encrypted = encryptKey(plaintextKey, rootKey, configId);
   const { data: keyRow, error: keyError } = await admin
@@ -201,12 +208,20 @@ async function main() {
       priority: priority,
       is_active: true,
     })
-    .select("id, key_fingerprint")
+    .select("id, key_fingerprint, priority")
     .single();
-  if (keyError) fail(`provider key insert failed: ${keyError.message}`);
+  if (keyError) {
+    if (keyError.code === "23505") {
+      fail(
+        `provider key insert failed: duplicate key fingerprint for this config ` +
+          `(the same plaintext key is already registered). ${keyError.message}`,
+      );
+    }
+    fail(`provider key insert failed: ${keyError.message}`);
+  }
 
   console.log(
-    `[ok] provider key ${keyRow.id} fingerprint ${keyRow.key_fingerprint.slice(0, 12)}...`,
+    `[ok] provider key ${keyRow.id} priority ${keyRow.priority} fingerprint ${keyRow.key_fingerprint.slice(0, 12)}...`,
   );
   console.log("[ok] plaintext key never printed");
 }
