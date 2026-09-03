@@ -23,14 +23,14 @@ Izinkan `Ganti Model` saat status `Sedang membuat gambar, mohon tunggu.` (`gener
 - [x] Task 2 — `cancelAndRegenerateWithModel`: query `jobs` queued/processing/retry_scheduled limit 5, update ke `cancelled` (model_switched), fail `processing` attempt via `mark_generation_attempt_failed` / `queued` via update, `insertGenerateImageJob` origin `model_switch_generating`, `dispatchToProcessor`, edit `telegram_status_message_id` + ack
 - [x] Task 3 — Reasoning: `handleReasoningPicker`/`handleReasoningPicked` izinkan `generating`; saat `generating` hanya save + ack `Disimpan: {label} (untuk revise berikutnya)`
 - [x] Task 4 — Commit awal `feat(callback): allow model switch during generating with cancel and regenerate` (329e6a7)
-  - [x] Task 5 — Review findings hardening (this plan)
+- [x] Task 5 — Review findings hardening (this plan)
   - [x] F1 — Reorder insert-before-cancel agar gagal insert tidak strand `generating` tanpa job
   - [x] F2 — Hapus param unused `_newProviderConfigId` / rapikan signature
   - [x] F3 — Pastikan `handleModelPickerBack`/`reshowContextWithPickers` konsisten saat `generating` (saat ini tanpa guard — pertahankan, dokumentasikan)
   - [x] F4 — Tambah unit tests untuk `generating` picker (model + reasoning) + switch queue length 1
   - [x] F5 — Pastikan `dispatchToProcessor` origin fallback tidak kosong
   - [x] F6 — Verifikasi lint/typecheck/test:unit + hosted jika tersedia
-- [ ] Task 6 — Commit fix + push
+- [x] Task 6 — Commit fix + push (`4accdd1`, push `9fef500..4accdd1`)
 
 ## Risks
 - Stale worker race: worker lama masih `processing` saat job di-cancel → `mark_generation_attempt_*` kedua akan log warn `not in processing` (ditangani best-effort). Mitigasi: update `jobs` set `locked_by=null` agar `markFailed` staled tidak match.
@@ -42,6 +42,7 @@ Izinkan `Ganti Model` saat status `Sedang membuat gambar, mohon tunggu.` (`gener
 - 2026-09-04 — Riset prod session `2f6797c2` `generating` + 429 Aichixia `retry_scheduled` → guard picker 819/927 blokir. Implementasi switch-cancel-regenerate + reasoning save-only, commit 329e6a7, typecheck ok, lint 0 error, unit 329 passed.
 - 2026-09-04 — Review findings F1-F6 dibuat, plan file ini disusun sebelum hardening kedua.
 - 2026-09-04 03:20 — Hardening F1/F2/F5: insert-before-cancel, hapus `_newProviderConfigId`, `dispatchToProcessor` origin fallback `https://model-switch`, keep newest queued job. F4 test generating picker. Fixes.
+- 2026-09-04 03:30 — `typecheck` ok, `lint` 0 error, `test:unit` 330 passed (1 test baru generating picker), `build` gagal lokal Windows (symlink EPERM `onBuildComplete` — pre-existing, `typecheck` hijau). Commits `329e6a7` + `4accdd1` pushed `9fef500..4accdd1`.
 
 ## Notes
 - Keputusan user: (1) Batalkan job & regenerate langsung (bukan save-only), (2) Ya izinkan reasoning di generating. Implementasi sesuai.
