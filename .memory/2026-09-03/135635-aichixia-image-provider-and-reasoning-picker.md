@@ -59,10 +59,9 @@ User minta provider image generation baru **Aichixia** (`POST https://www.aichix
 
 ## Open items (follow-up user)
 
-1. **Provisioning key aichixia** (belum dijalankan — butuh `AICHIXIA_API_KEY` di `.env`, jangan bocorkan):
-   `node scripts/upsert-provider-key.mjs aichixia_flux2 flux-2-dev --capability image_generation --env-key AICHIXIA_API_KEY` (ulangi `aichixia_lucid lucid-origin`, `aichixia_phoenix phoenix-1.0`, `aichixia_gemini gemini-3-pro-image`).
-2. **Commit** aichixia (di-scope ke file task ini saja; hindari file bot-dev removal yang belum di-commit di working tree).
-3. Verifikasi live Aichixia envelope setelah key ter-provision (b64_json vs url, field `revised_prompt`).
+1. **Push + prod provisioning** — commit `d6f2b23` (Aichixia) + `cf427f9` (T7a auto-prod) sudah di-local, **belum di-push** (main ahead 2). Urutan: (a) `git push origin main` → auto `migrate-development` + `migrate-production` (prod 43→46, config Aichixia masuk); (b) tunggu `migrate-production` sukses; (c) `node scripts/seed-prod-aichixia.mjs` → 4 key prod. Dev sudah di-provision (4/4, fingerprint 43658ea80bdf...).
+2. Verifikasi live Aichixia envelope setelah key ter-provision (b64_json vs url, field `revised_prompt`).
+3. T8 (Vercel Preview cleanup) + T9 (verifikasi chain auto-prod) — manual, milik plan T7a.
 
 ## Conventional Commit proposal
 
