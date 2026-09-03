@@ -220,6 +220,7 @@ export class CallbackStateMachine {
           callbackQueryId,
           false,
           undefined,
+          origin,
         );
       case "model_picked_default":
         return this.handleModelPicked(
@@ -228,6 +229,7 @@ export class CallbackStateMachine {
           callbackQueryId,
           true,
           undefined,
+          origin,
         );
       case "reasoning_picker":
         return this.handleReasoningPicker(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
@@ -472,6 +474,182 @@ export class CallbackStateMachine {
       const detail = error instanceof Error ? error.message : "unknown";
       logStructured("warn", "callback.cleanup_stuck_attempt_error", { sessionId, detail });
     }
+  }
+
+  // Cancel any in-flight job/attempt for a generating session and enqueue a
+  // fresh generate_image job with the newly picked model (preferred provider
+  // already set). The old job/attempt is best-effort marked cancelled/failed
+  // so the stale worker cannot reuse it; the session stays generating.
+  private async cancelAndRegenerateWithModel(
+    input: { sessionId: string; session: SessionSafe },
+    _newProviderConfigId: string,
+    token: string,
+    callbackQueryId: string,
+    webhookOrigin: string,
+    label: string,
+  ): Promise<CallbackOutcome> {
+    const revisionId = input.session.activeRevisionId;
+    if (!revisionId) {
+      await this.ack(token, callbackQueryId, "Belum ada revisi aktif.");
+      return { status: "rejected_state" };
+    }
+
+    const { getSupabaseAdmin } = await import("@/server/supabase/admin");
+    const supabase = getSupabaseAdmin();
+
+    // Best-effort: cancel any queued/processing/retry_scheduled generate_image
+    // job for this session so the stale worker does not retry with the old model.
+    try {
+      const { data: jobs } = await supabase
+        .from("jobs")
+        .select("id, status")
+        .eq("prompt_session_id", input.sessionId)
+        .eq("job_type", "generate_image")
+        .in("status", ["queued", "processing", "retry_scheduled"])
+        .limit(5);
+      const rows = (jobs ?? []) as Array<{ id: string; status: string }>;
+      for (const row of rows) {
+        try {
+          await supabase
+            .from("jobs")
+            .update({
+              status: "cancelled",
+              locked_at: null,
+              locked_by: null,
+              lease_expires_at: null,
+              last_error_code: "model_switched",
+              last_error_message_redacted: "cancelled due to model switch during generating",
+              completed_at: new Date().toISOString(),
+            } as never)
+            .eq("id", row.id)
+            .in("status", ["queued", "processing", "retry_scheduled"]);
+        } catch (e) {
+          const detail = e instanceof Error ? e.message : "unknown";
+          logStructured("warn", "callback.model_switch_cancel_job_failed", {
+            sessionId: input.sessionId,
+            jobId: row.id,
+            detail,
+          });
+        }
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("warn", "callback.model_switch_cancel_jobs_error", {
+        sessionId: input.sessionId,
+        detail,
+      });
+    }
+
+    // Best-effort: mark processing attempt as failed (user_cancelled) so
+    // create_generation_attempt guard (queued|processing) does not block the
+    // new attempt. Also handle stuck queued attempt.
+    try {
+      const { data: stuck } = await supabase
+        .from("generation_attempts")
+        .select("id, status")
+        .eq("session_id", input.sessionId)
+        .in("status", ["processing", "queued"])
+        .limit(1)
+        .maybeSingle();
+      const stuckRow = stuck as { id: string; status: string } | null;
+      if (stuckRow?.id) {
+        if (stuckRow.status === "processing") {
+          const { error } = await supabase.rpc("mark_generation_attempt_failed", {
+            p_attempt_id: stuckRow.id,
+            p_error_code: "user_cancelled_model_switch",
+            p_error_message_redacted: "cancelled due to model switch during generating",
+          } as never);
+          if (error) {
+            logStructured("warn", "callback.model_switch_cleanup_attempt_failed", {
+              sessionId: input.sessionId,
+              attemptId: stuckRow.id,
+              detail: error.message,
+            });
+          }
+        } else {
+          await supabase
+            .from("generation_attempts")
+            .update({
+              status: "cancelled" as never,
+              error_code: "user_cancelled_model_switch",
+              error_message_redacted: "cancelled due to model switch during generating",
+              completed_at: new Date().toISOString(),
+            } as never)
+            .eq("id", stuckRow.id)
+            .eq("status", "queued");
+        }
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("warn", "callback.model_switch_cleanup_attempt_error", {
+        sessionId: input.sessionId,
+        detail,
+      });
+    }
+
+    // Enqueue a fresh generation with the new preferred provider (selector will
+    // honor preferredImageProviderConfigId).
+    try {
+      await this.jobRepository.insertGenerateImageJob({
+        sessionId: input.sessionId,
+        revisionId,
+        payload: {
+          telegram_user_id: bigintToDb(input.session.telegramUserId),
+          telegram_chat_id: bigintToDb(input.session.telegramChatId),
+          origin: "model_switch_generating",
+        },
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.model_switch_job_insert_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
+      await this.ack(token, callbackQueryId, "Gagal memulai ulang dengan model baru. Coba lagi.");
+      return { status: "rejected_state" };
+    }
+
+    try {
+      await this.dispatchToProcessor(webhookOrigin, getServerEnv().JOB_PROCESSOR_SECRET, {
+        sessionOrigin: "model_switch_generating",
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.model_switch_dispatch_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
+    }
+
+    // Update status message + toast
+    try {
+      const { getSupabaseAdmin: getAdmin2 } = await import("@/server/supabase/admin");
+      const admin2 = getAdmin2();
+      const { data: sess } = await admin2
+        .from("prompt_sessions")
+        .select("telegram_status_message_id, telegram_chat_id")
+        .eq("id", input.sessionId)
+        .maybeSingle();
+      const row = sess as { telegram_status_message_id?: number | null } | null;
+      if (row?.telegram_status_message_id) {
+        const { editMessageText } = await import("@/server/telegram/client");
+        await editMessageText(
+          token,
+          input.session.telegramChatId,
+          row.telegram_status_message_id,
+          `Membatalkan percobaan sebelumnya, memulai ulang dengan ${label}...`,
+        );
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("warn", "callback.model_switch_status_edit_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
+    }
+
+    await this.ack(token, callbackQueryId, `Dibatalkan, memulai ulang dengan ${label}...`);
+    return { status: "accepted" };
   }
 
   private async handleRevise(
@@ -792,6 +970,7 @@ export class CallbackStateMachine {
       session: SessionSafe;
       telegramUserId: bigint;
       callbackQueryId: string;
+      origin: string;
     },
     rawData: string,
     token: string,
@@ -805,9 +984,23 @@ export class CallbackStateMachine {
     if (parsed.action === "model_picker_back")
       return this.handleModelPickerBack(input as never, token, callbackQueryId);
     if (parsed.action === "model_picked")
-      return this.handleModelPicked(input as never, token, callbackQueryId, false, parsed.code);
+      return this.handleModelPicked(
+        input as never,
+        token,
+        callbackQueryId,
+        false,
+        parsed.code,
+        (input as { origin: string }).origin,
+      );
     if (parsed.action === "model_picked_default")
-      return this.handleModelPicked(input as never, token, callbackQueryId, true, parsed.code);
+      return this.handleModelPicked(
+        input as never,
+        token,
+        callbackQueryId,
+        true,
+        parsed.code,
+        (input as { origin: string }).origin,
+      );
     return null;
   }
 
@@ -819,7 +1012,8 @@ export class CallbackStateMachine {
     if (
       input.session.status !== "awaiting_confirmation" &&
       input.session.status !== "result_ready" &&
-      input.session.status !== "generation_failed"
+      input.session.status !== "generation_failed" &&
+      input.session.status !== "generating"
     ) {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
@@ -918,16 +1112,25 @@ export class CallbackStateMachine {
   }
 
   private async handleModelPicked(
-    input: { sessionId: string; session: SessionSafe; telegramUserId: bigint },
+    input: {
+      sessionId: string;
+      session: SessionSafe;
+      telegramUserId: bigint;
+      callbackQueryId: string;
+      origin: string;
+    },
     token: string,
     callbackQueryId: string,
     asDefault: boolean,
     code?: ModelShortCode,
+    webhookOrigin?: string,
   ): Promise<CallbackOutcome> {
+    const wasGenerating = input.session.status === "generating";
     if (
       input.session.status !== "awaiting_confirmation" &&
       input.session.status !== "result_ready" &&
-      input.session.status !== "generation_failed"
+      input.session.status !== "generation_failed" &&
+      !wasGenerating
     ) {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
@@ -1011,6 +1214,18 @@ export class CallbackStateMachine {
         });
       }
 
+      if (wasGenerating) {
+        const switchResult = await this.cancelAndRegenerateWithModel(
+          input,
+          matched.id,
+          token,
+          callbackQueryId,
+          webhookOrigin ?? (input as { origin?: string }).origin ?? "",
+          label,
+        );
+        return switchResult;
+      }
+
       await this.ack(token, callbackQueryId, asDefault ? `Default: ${label}` : label);
       return { status: "accepted" };
     } catch (error) {
@@ -1069,7 +1284,7 @@ export class CallbackStateMachine {
 
   // The reasoning model only affects future enhance/revise runs, so the picker
   // is also available from enhancement_failed (pick a different model, then
-  // retry) — unlike the image picker which needs a revision to generate from.
+  // retry) and from generating (save for next revise only — no cancel).
   private async handleReasoningPicker(
     input: { sessionId: string; session: SessionSafe },
     token: string,
@@ -1079,7 +1294,8 @@ export class CallbackStateMachine {
       input.session.status !== "awaiting_confirmation" &&
       input.session.status !== "result_ready" &&
       input.session.status !== "generation_failed" &&
-      input.session.status !== "enhancement_failed"
+      input.session.status !== "enhancement_failed" &&
+      input.session.status !== "generating"
     ) {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
@@ -1133,11 +1349,13 @@ export class CallbackStateMachine {
     asDefault: boolean,
     code?: ReasoningShortCode,
   ): Promise<CallbackOutcome> {
+    const wasGenerating = input.session.status === "generating";
     if (
       input.session.status !== "awaiting_confirmation" &&
       input.session.status !== "result_ready" &&
       input.session.status !== "generation_failed" &&
-      input.session.status !== "enhancement_failed"
+      input.session.status !== "enhancement_failed" &&
+      !wasGenerating
     ) {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
@@ -1228,6 +1446,11 @@ export class CallbackStateMachine {
           sessionId: input.session.id,
           detail,
         });
+      }
+
+      if (wasGenerating) {
+        await this.ack(token, callbackQueryId, `Disimpan: ${label} (untuk revise berikutnya)`);
+        return { status: "accepted" };
       }
 
       await this.ack(token, callbackQueryId, asDefault ? `Default: ${label}` : label);
