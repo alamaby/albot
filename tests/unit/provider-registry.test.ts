@@ -43,6 +43,25 @@ describe("ProviderRegistry", () => {
     expect(typeof provider.generateImage).toBe("function");
   });
 
+  it("resolves aichixia image adapters (4 models)", () => {
+    const registry = getProviderRegistry();
+    for (const [type, model] of [
+      ["aichixia_flux2", "flux-2-dev"],
+      ["aichixia_lucid", "lucid-origin"],
+      ["aichixia_phoenix", "phoenix-1.0"],
+      ["aichixia_gemini", "gemini-3-pro-image"],
+    ] as const) {
+      const provider = registry.createImageProvider(
+        type,
+        { base_url: "https://www.aichixia.xyz/api/v1", model },
+        "test-api-key",
+      );
+      expect(provider).toBeDefined();
+      expect(typeof provider.generateImage).toBe("function");
+      expect(registry.getCapability(type)).toBe("image_generation");
+    }
+  });
+
   it("throws for unknown adapter type", () => {
     const registry = getProviderRegistry();
     expect(() => registry.createReasoningProvider("unknown_adapter", {}, "key")).toThrow(

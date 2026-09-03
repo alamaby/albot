@@ -106,10 +106,13 @@ export class JobRepository {
   // Creates a session-less enhance_only job (/enhance-prompt). The raw prompt
   // travels in the payload; there is no session or revision row. The handler
   // replies with the enhanced prompt as plain text.
+  // `preferredReasoningConfigId` is the user's default reasoning preference
+  // (resolved by the webhook) so the session-less flow honors it.
   async insertEnhanceOnlyJob(input: {
     telegramUserId: bigint;
     telegramChatId: bigint;
     sourcePrompt: string;
+    preferredReasoningConfigId?: string | null;
   }): Promise<string> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
@@ -123,6 +126,9 @@ export class JobRepository {
           telegram_user_id: bigintToDb(input.telegramUserId),
           telegram_chat_id: bigintToDb(input.telegramChatId),
           source_prompt: input.sourcePrompt,
+          ...(input.preferredReasoningConfigId
+            ? { preferred_reasoning_config_id: input.preferredReasoningConfigId }
+            : {}),
         },
       } as Database["public"]["Tables"]["jobs"]["Insert"])
       .select("id")

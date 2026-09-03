@@ -551,10 +551,25 @@ async function handleEnhanceOnlyCommand(
     return;
   }
 
+  // Resolve the user's default reasoning preference so the session-less
+  // enhance flow honors the model chosen in the reasoning picker. Best-effort:
+  // a lookup failure falls back to the selector default.
+  let preferredReasoningConfigId: string | null = null;
+  try {
+    const { UserReasoningPreferenceRepository } =
+      await import("@/server/repositories/user-reasoning-preference.repository");
+    const pref = await new UserReasoningPreferenceRepository().getByTelegramUserId(message.userId);
+    preferredReasoningConfigId = pref?.preferredProviderConfigId ?? null;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown";
+    logStructured("warn", "webhook.enhance_only_preference_lookup_failed", { detail });
+  }
+
   await deps.jobRepository.insertEnhanceOnlyJob({
     telegramUserId: message.userId,
     telegramChatId: message.chatId,
     sourcePrompt: args,
+    preferredReasoningConfigId,
   });
 
   const dispatchResult = await deps.dispatchToProcessor(origin, env.JOB_PROCESSOR_SECRET, {

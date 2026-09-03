@@ -10,7 +10,7 @@ import type { Database } from "@/server/supabase/database.types";
 type SessionRow = Database["public"]["Tables"]["prompt_sessions"]["Row"];
 
 const SESSION_COLUMNS =
-  "id, telegram_user_id, telegram_chat_id, status, active_revision_id, active_generation_attempt_id, preferred_image_provider_config_id, telegram_status_message_id, created_at, updated_at, expires_at, completed_at";
+  "id, telegram_user_id, telegram_chat_id, status, active_revision_id, active_generation_attempt_id, preferred_image_provider_config_id, preferred_reasoning_provider_config_id, telegram_status_message_id, created_at, updated_at, expires_at, completed_at";
 
 export type SessionSafe = {
   id: string;
@@ -20,6 +20,7 @@ export type SessionSafe = {
   activeRevisionId: string | null;
   activeGenerationAttemptId: string | null;
   preferredImageProviderConfigId: string | null;
+  preferredReasoningProviderConfigId: string | null;
   telegramStatusMessageId: number | null;
   createdAt: string;
   updatedAt: string;
@@ -36,6 +37,7 @@ function mapRow(row: WideSessionRow): SessionSafe {
     activeRevisionId: row.active_revision_id,
     activeGenerationAttemptId: row.active_generation_attempt_id,
     preferredImageProviderConfigId: row.preferred_image_provider_config_id ?? null,
+    preferredReasoningProviderConfigId: row.preferred_reasoning_provider_config_id ?? null,
     telegramStatusMessageId:
       row.telegram_status_message_id === null ? null : Number(row.telegram_status_message_id),
     createdAt: row.created_at,
@@ -56,6 +58,7 @@ type WideSessionRow = Omit<
   telegram_chat_id: number | string;
   telegram_status_message_id: number | string | null;
   preferred_image_provider_config_id: string | null;
+  preferred_reasoning_provider_config_id: string | null;
 };
 
 export class SessionRepository {
@@ -116,6 +119,18 @@ export class SessionRepository {
       .update({ preferred_image_provider_config_id: providerConfigId })
       .eq("id", sessionId);
     if (error) throw new Error(`set preferred image provider failed: ${error.message}`);
+  }
+
+  async setPreferredReasoningProvider(
+    sessionId: string,
+    providerConfigId: string | null,
+  ): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase
+      .from("prompt_sessions")
+      .update({ preferred_reasoning_provider_config_id: providerConfigId })
+      .eq("id", sessionId);
+    if (error) throw new Error(`set preferred reasoning provider failed: ${error.message}`);
   }
 
   async cancelActiveSession(sessionId: string, expectedStatus: string): Promise<boolean> {

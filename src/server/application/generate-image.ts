@@ -146,6 +146,23 @@ export class GenerateImageUseCase {
       }
     }
 
+    // Resolve reasoning code for the result keyboard's reasoning picker row
+    // (the model that produced this revision's enhancement).
+    let reasoningCode: import("@/server/telegram/keyboards").ReasoningShortCode | null = null;
+    if (input.revision.reasoningProviderConfigId) {
+      try {
+        const rcfg = await this.providerConfigRepository.getById(
+          input.revision.reasoningProviderConfigId,
+        );
+        if (rcfg) {
+          const { REASONING_ADAPTER_TO_CODE } = await import("@/server/telegram/keyboards");
+          reasoningCode = REASONING_ADAPTER_TO_CODE[rcfg.adapterType] ?? null;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     let reasoningProviderLabel: string | null = null;
     let reasoningModel: string | null = null;
     if (input.revision.reasoningProviderConfigId) {
@@ -192,7 +209,7 @@ export class GenerateImageUseCase {
       imageModelLabel,
     });
     const { resultKeyboardWithModel } = await import("@/server/telegram/keyboards");
-    const replyMarkup = resultKeyboardWithModel(input.session.id, selectedCode);
+    const replyMarkup = resultKeyboardWithModel(input.session.id, selectedCode, reasoningCode);
 
     if (input.imageBytes) {
       const { sendPhotoByBytes } = await import("@/server/telegram/client");

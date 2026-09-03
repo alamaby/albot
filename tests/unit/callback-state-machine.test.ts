@@ -59,6 +59,7 @@ function session(overrides: Partial<SessionSafe> = {}): SessionSafe {
     activeRevisionId: "revision-1",
     activeGenerationAttemptId: null,
     preferredImageProviderConfigId: null,
+    preferredReasoningProviderConfigId: null,
     telegramStatusMessageId: null,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
@@ -538,5 +539,142 @@ describe("CallbackStateMachine", () => {
 
     expect(outcome.status).toBe("rejected_state");
     expect(acks.some((a) => a.text?.includes("Gagal mengirim permintaan"))).toBe(true);
+  });
+});
+
+describe("CallbackStateMachine - reasoning picker", () => {
+  it("reasoning_picked persists the session preference and notifies", async () => {
+    withEnv();
+    const setPreferredReasoningProvider = vi.fn(async () => undefined);
+    const providerConfigRepository = {
+      listActive: vi.fn(async () => [
+        { id: "cfg-by", adapterType: "bynara", priority: 160, isActive: true },
+      ]),
+      getById: vi.fn(async (id: string) => ({ id, adapterType: "bynara" })),
+    } as unknown as CallbackStateMachineDeps["providerConfigRepository"];
+    const { machine, sentMessages, acks } = buildMachine({
+      sessionRepository: {
+        setPreferredImageProvider: vi.fn(async () => undefined),
+        setPreferredReasoningProvider,
+      } as unknown as CallbackStateMachineDeps["sessionRepository"],
+      providerConfigRepository,
+    });
+
+    const outcome = await machine.handle({
+      action: "reasoning_picked",
+      sessionId: "session-1",
+      session: session(),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rp-1",
+      origin: "https://test.origin",
+      rawData: "reasoning_picked:session-1:byn",
+    });
+
+    expect(outcome.status).toBe("accepted");
+    expect(setPreferredReasoningProvider).toHaveBeenCalledWith("session-1", "cfg-by");
+    expect(sentMessages.some((m) => m.text.includes("Reasoning diatur"))).toBe(true);
+    expect(acks.some((a) => a.text === "Bynara laguna-s-2.1")).toBe(true);
+  });
+
+  it("reasoning_default also upserts the per-user preference", async () => {
+    withEnv();
+    const upsert = vi.fn(async () => undefined);
+    const providerConfigRepository = {
+      listActive: vi.fn(async () => [
+        { id: "cfg-orF", adapterType: "openrouter_free", priority: 200, isActive: true },
+      ]),
+      getById: vi.fn(async (id: string) => ({ id, adapterType: "openrouter_free" })),
+    } as unknown as CallbackStateMachineDeps["providerConfigRepository"];
+    const { machine } = buildMachine({
+      sessionRepository: {
+        setPreferredImageProvider: vi.fn(async () => undefined),
+        setPreferredReasoningProvider: vi.fn(async () => undefined),
+      } as unknown as CallbackStateMachineDeps["sessionRepository"],
+      providerConfigRepository,
+      userReasoningPreferenceRepository: {
+        upsert,
+      } as unknown as CallbackStateMachineDeps["userReasoningPreferenceRepository"],
+    });
+
+    const outcome = await machine.handle({
+      action: "reasoning_default",
+      sessionId: "session-1",
+      session: session(),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rpd-1",
+      origin: "https://test.origin",
+      rawData: "reasoning_default:session-1:orF",
+    });
+
+    expect(outcome.status).toBe("accepted");
+    expect(upsert).toHaveBeenCalledWith(123n, "cfg-orF");
+  });
+
+  it("rejects reasoning_picked for an adapter_type without an active config", async () => {
+    withEnv();
+    const providerConfigRepository = {
+      listActive: vi.fn(async () => []),
+      getById: vi.fn(async () => null),
+    } as unknown as CallbackStateMachineDeps["providerConfigRepository"];
+    const { machine, acks } = buildMachine({ providerConfigRepository });
+
+    const outcome = await machine.handle({
+      action: "reasoning_picked",
+      sessionId: "session-1",
+      session: session(),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rp-2",
+      origin: "https://test.origin",
+      rawData: "reasoning_picked:session-1:cf0",
+    });
+
+    expect(outcome.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("tidak tersedia"))).toBe(true);
+  });
+
+  it("reasoning_picker is allowed from enhancement_failed but not from enhancing", async () => {
+    withEnv();
+    const providerConfigRepository = {
+      listActive: vi.fn(async () => []),
+      getById: vi.fn(async () => null),
+    } as unknown as CallbackStateMachineDeps["providerConfigRepository"];
+    const { machine, acks } = buildMachine({ providerConfigRepository });
+
+    const ok = await machine.handle({
+      action: "reasoning_picker",
+      sessionId: "session-1",
+      session: session({ status: "enhancement_failed" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rpk-1",
+      origin: "https://test.origin",
+    });
+    expect(ok.status).toBe("accepted");
+
+    const denied = await machine.handle({
+      action: "reasoning_picker",
+      sessionId: "session-1",
+      session: session({ status: "enhancing" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rpk-2",
+      origin: "https://test.origin",
+    });
+    expect(denied.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("diproses"))).toBe(true);
+  });
+
+  it("unknown code in reasoning picker callback data is rejected", async () => {
+    withEnv();
+    const { machine, acks } = buildMachine();
+    const outcome = await machine.handle({
+      action: "reasoning_picked",
+      sessionId: "session-1",
+      session: session(),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-rp-3",
+      origin: "https://test.origin",
+      rawData: "reasoning_picked:session-1:zzz",
+    });
+    expect(outcome.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("tidak valid"))).toBe(true);
   });
 });

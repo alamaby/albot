@@ -125,6 +125,10 @@ export const CALLBACK_ACTIONS = [
   "model_picked",
   "model_picked_default",
   "model_picker_back",
+  "reasoning_picker",
+  "reasoning_picked",
+  "reasoning_default",
+  "reasoning_picker_back",
 ] as const;
 
 export type CallbackAction = (typeof CALLBACK_ACTIONS)[number];

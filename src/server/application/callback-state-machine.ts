@@ -17,7 +17,11 @@ import {
   ADAPTER_TO_MODEL_CODE,
   MODEL_CODE_TO_ADAPTER,
   MODEL_CODE_LABEL,
+  REASONING_CODE_TO_ADAPTER,
+  REASONING_CODE_LABEL,
+  REASONING_ADAPTER_TO_CODE,
   type ModelShortCode,
+  type ReasoningShortCode,
 } from "@/server/telegram/keyboards";
 
 export type CallbackAction =
@@ -30,7 +34,11 @@ export type CallbackAction =
   | "model_picker"
   | "model_picked"
   | "model_picked_default"
-  | "model_picker_back";
+  | "model_picker_back"
+  | "reasoning_picker"
+  | "reasoning_picked"
+  | "reasoning_default"
+  | "reasoning_picker_back";
 
 export type CallbackOutcome =
   | { status: "accepted" }
@@ -67,6 +75,9 @@ export type CallbackStateMachineDeps = {
   userImagePreferenceRepository?: {
     upsert(telegramUserId: bigint, preferredProviderConfigId: string): Promise<unknown>;
   };
+  userReasoningPreferenceRepository?: {
+    upsert(telegramUserId: bigint, preferredProviderConfigId: string): Promise<unknown>;
+  };
   sendMessageWithKeyboard?: (
     token: string,
     chatId: bigint,
@@ -97,6 +108,7 @@ export class CallbackStateMachine {
   private readonly saveStatusMessageId: (sessionId: string, messageId: number) => Promise<void>;
   private readonly providerConfigRepository: CallbackStateMachineDeps["providerConfigRepository"];
   private readonly userImagePreferenceRepository: CallbackStateMachineDeps["userImagePreferenceRepository"];
+  private readonly userReasoningPreferenceRepository: CallbackStateMachineDeps["userReasoningPreferenceRepository"];
   private readonly sendMessageWithKeyboard: CallbackStateMachineDeps["sendMessageWithKeyboard"];
 
   constructor(deps: CallbackStateMachineDeps = {}) {
@@ -131,6 +143,7 @@ export class CallbackStateMachine {
       });
     this.providerConfigRepository = deps.providerConfigRepository;
     this.userImagePreferenceRepository = deps.userImagePreferenceRepository;
+    this.userReasoningPreferenceRepository = deps.userReasoningPreferenceRepository;
     this.sendMessageWithKeyboard = deps.sendMessageWithKeyboard;
   }
 
@@ -170,6 +183,13 @@ export class CallbackStateMachine {
         callbackQueryId,
       );
       if (parsed) return parsed;
+      const parsedReasoning = await this.handleReasoningPickerRaw(
+        input,
+        rawData,
+        env.TELEGRAM_BOT_TOKEN,
+        callbackQueryId,
+      );
+      if (parsedReasoning) return parsedReasoning;
     }
     if (rawData && rawData.length > 64) {
       logStructured("warn", "callback.data_too_long", { sessionId: input.sessionId });
@@ -203,6 +223,26 @@ export class CallbackStateMachine {
         );
       case "model_picked_default":
         return this.handleModelPicked(
+          input,
+          env.TELEGRAM_BOT_TOKEN,
+          callbackQueryId,
+          true,
+          undefined,
+        );
+      case "reasoning_picker":
+        return this.handleReasoningPicker(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
+      case "reasoning_picker_back":
+        return this.handleReasoningPickerBack(input, env.TELEGRAM_BOT_TOKEN, callbackQueryId);
+      case "reasoning_picked":
+        return this.handleReasoningPicked(
+          input,
+          env.TELEGRAM_BOT_TOKEN,
+          callbackQueryId,
+          false,
+          undefined,
+        );
+      case "reasoning_default":
+        return this.handleReasoningPicked(
           input,
           env.TELEGRAM_BOT_TOKEN,
           callbackQueryId,
@@ -822,8 +862,19 @@ export class CallbackStateMachine {
     token: string,
     callbackQueryId: string,
   ): Promise<CallbackOutcome> {
-    // Re-show confirmation or result context
+    return this.reshowContextWithPickers(input, token, callbackQueryId, "Kembali");
+  }
+
+  // Re-show the confirmation or result context with BOTH picker rows (image +
+  // reasoning) so the user returns to the same context they left.
+  private async reshowContextWithPickers(
+    input: { sessionId: string; session: SessionSafe },
+    token: string,
+    callbackQueryId: string,
+    ackText: string,
+  ): Promise<CallbackOutcome> {
     const selected = await this.resolveSelectedCode(input.session);
+    const reasoningCode = await this.resolveSelectedReasoningCode(input.session);
     try {
       const { confirmationKeyboardWithModel, resultKeyboardWithModel } =
         await import("@/server/telegram/keyboards");
@@ -847,8 +898,8 @@ export class CallbackStateMachine {
           : "Pilih aksi untuk melanjutkan.";
       const keyboard =
         input.session.status === "result_ready"
-          ? resultKeyboardWithModel(input.session.id, selected)
-          : confirmationKeyboardWithModel(input.session.id, selected);
+          ? resultKeyboardWithModel(input.session.id, selected, reasoningCode)
+          : confirmationKeyboardWithModel(input.session.id, selected, reasoningCode);
       if (this.sendMessageWithKeyboard) {
         await this.sendMessageWithKeyboard(token, input.session.telegramChatId, text, keyboard);
       } else {
@@ -862,7 +913,7 @@ export class CallbackStateMachine {
         detail,
       });
     }
-    await this.ack(token, callbackQueryId, "Kembali");
+    await this.ack(token, callbackQueryId, ackText);
     return { status: "accepted" };
   }
 
@@ -984,6 +1035,244 @@ export class CallbackStateMachine {
       const cfg = await cfgRepo.getById(session.preferredImageProviderConfigId);
       if (!cfg) return null;
       return ADAPTER_TO_MODEL_CODE[cfg.adapterType] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  // ---- Reasoning (enhance/revise) picker ----
+
+  private async handleReasoningPickerRaw(
+    input: {
+      sessionId: string;
+      session: SessionSafe;
+      telegramUserId: bigint;
+      callbackQueryId: string;
+    },
+    rawData: string,
+    token: string,
+    callbackQueryId: string,
+  ): Promise<CallbackOutcome | null> {
+    const { parseReasoningPickerData } = await import("@/server/telegram/keyboards");
+    const parsed = parseReasoningPickerData(rawData);
+    if (!parsed) return null;
+    if (parsed.action === "reasoning_picker")
+      return this.handleReasoningPicker(input as never, token, callbackQueryId);
+    if (parsed.action === "reasoning_picker_back")
+      return this.handleReasoningPickerBack(input as never, token, callbackQueryId);
+    if (parsed.action === "reasoning_picked")
+      return this.handleReasoningPicked(input as never, token, callbackQueryId, false, parsed.code);
+    if (parsed.action === "reasoning_default")
+      return this.handleReasoningPicked(input as never, token, callbackQueryId, true, parsed.code);
+    return null;
+  }
+
+  // The reasoning model only affects future enhance/revise runs, so the picker
+  // is also available from enhancement_failed (pick a different model, then
+  // retry) — unlike the image picker which needs a revision to generate from.
+  private async handleReasoningPicker(
+    input: { sessionId: string; session: SessionSafe },
+    token: string,
+    callbackQueryId: string,
+  ): Promise<CallbackOutcome> {
+    if (
+      input.session.status !== "awaiting_confirmation" &&
+      input.session.status !== "result_ready" &&
+      input.session.status !== "generation_failed" &&
+      input.session.status !== "enhancement_failed"
+    ) {
+      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      return { status: "rejected_state" };
+    }
+    const selected = await this.resolveSelectedReasoningCode(input.session);
+    try {
+      const { reasoningPickerKeyboard } = await import("@/server/telegram/keyboards");
+      const { buildReasoningPickerMessage } = await import("@/server/telegram/messages");
+      const label = selected ? REASONING_CODE_LABEL[selected] : null;
+      const keyboard = reasoningPickerKeyboard(input.session.id, selected);
+      if (this.sendMessageWithKeyboard) {
+        await this.sendMessageWithKeyboard(
+          token,
+          input.session.telegramChatId,
+          buildReasoningPickerMessage(label),
+          keyboard,
+        );
+      } else {
+        const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
+        await sendMessageWithKeyboard(
+          token,
+          input.session.telegramChatId,
+          buildReasoningPickerMessage(label),
+          keyboard,
+        );
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.reasoning_picker_send_failed", {
+        sessionId: input.session.id,
+        detail,
+      });
+    }
+    await this.ack(token, callbackQueryId, "Pilih model reasoning");
+    return { status: "accepted" };
+  }
+
+  private async handleReasoningPickerBack(
+    input: { sessionId: string; session: SessionSafe },
+    token: string,
+    callbackQueryId: string,
+  ): Promise<CallbackOutcome> {
+    // Same context re-show as the image picker back (both picker rows visible).
+    return this.reshowContextWithPickers(input, token, callbackQueryId, "Kembali");
+  }
+
+  private async handleReasoningPicked(
+    input: { sessionId: string; session: SessionSafe; telegramUserId: bigint },
+    token: string,
+    callbackQueryId: string,
+    asDefault: boolean,
+    code?: ReasoningShortCode,
+  ): Promise<CallbackOutcome> {
+    if (
+      input.session.status !== "awaiting_confirmation" &&
+      input.session.status !== "result_ready" &&
+      input.session.status !== "generation_failed" &&
+      input.session.status !== "enhancement_failed"
+    ) {
+      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      return { status: "rejected_state" };
+    }
+    if (!code) {
+      await this.ack(token, callbackQueryId, "Model tidak valid.");
+      return { status: "rejected_state" };
+    }
+    const adapterType = REASONING_CODE_TO_ADAPTER[code];
+    try {
+      // Resolve provider config by adapter_type among active configs. An
+      // adapter_type may map to several active configs (e.g. openai_compatible
+      // for Cloudflare + other OpenAI-compatible endpoints); the picker
+      // resolves to the highest-priority active one, matching selector order.
+      const { ProviderConfigRepository } =
+        await import("@/server/repositories/provider-config.repository");
+      const repo = this.providerConfigRepository as unknown as
+        InstanceType<typeof ProviderConfigRepository> | undefined;
+      const cfgRepo = repo ?? new ProviderConfigRepository();
+      const configs = (await cfgRepo.listActive("reasoning")) as Array<{
+        id: string;
+        adapterType: string;
+        priority: number;
+        isActive: boolean;
+      }>;
+      const matched = configs
+        .filter((c) => c.adapterType === adapterType && c.isActive)
+        .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))[0];
+      if (!matched) {
+        await this.ack(token, callbackQueryId, "Model tidak tersedia. Pilih lain.");
+        return { status: "rejected_state" };
+      }
+      // Validate key eligibility (at least one eligible key)
+      const { ProviderKeyRepository } =
+        await import("@/server/repositories/provider-key.repository");
+      const { parseEncryptionKey } = await import("@/server/security/encryption");
+      const { getServerEnv: getEnv } = await import("@/env");
+      let eligible = true;
+      try {
+        const keyRepo = new ProviderKeyRepository(
+          parseEncryptionKey(getEnv().PROVIDER_KEY_ENCRYPTION_KEY),
+        );
+        const keys = await keyRepo.listSafeKeys(matched.id);
+        eligible = keys.some(
+          (k) =>
+            k.isActive && (!k.cooldownUntil || new Date(k.cooldownUntil).getTime() <= Date.now()),
+        );
+        if (!eligible && keys.length === 0) eligible = false;
+      } catch {
+        // If check fails, still allow selection (generation will fallback)
+        eligible = true;
+      }
+      if (!eligible) {
+        await this.ack(token, callbackQueryId, "Model sedang cooldown, pilih lain.");
+        return { status: "rejected_state" };
+      }
+
+      await this.sessionRepository.setPreferredReasoningProvider(input.session.id, matched.id);
+
+      if (asDefault) {
+        try {
+          const prefRepo =
+            this.userReasoningPreferenceRepository ??
+            new (
+              await import("@/server/repositories/user-reasoning-preference.repository")
+            ).UserReasoningPreferenceRepository();
+          await prefRepo.upsert(input.telegramUserId, matched.id);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "unknown";
+          logStructured("error", "callback.reasoning_default_upsert_failed", {
+            sessionId: input.session.id,
+            detail,
+          });
+        }
+      }
+
+      const label = REASONING_CODE_LABEL[code];
+      const { buildReasoningSelectedMessage } = await import("@/server/telegram/messages");
+      try {
+        await this.sendTelegramMessage(
+          token,
+          input.session.telegramChatId,
+          buildReasoningSelectedMessage(label, asDefault),
+        );
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "unknown";
+        logStructured("error", "callback.reasoning_picked_notify_failed", {
+          sessionId: input.session.id,
+          detail,
+        });
+      }
+
+      await this.ack(token, callbackQueryId, asDefault ? `Default: ${label}` : label);
+      return { status: "accepted" };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.reasoning_picked_failed", {
+        sessionId: input.session.id,
+        detail,
+      });
+      await this.ack(token, callbackQueryId, "Gagal mengatur model reasoning. Coba lagi.");
+      return { status: "rejected_state" };
+    }
+  }
+
+  // Resolves the reasoning code to display on the picker row: the session
+  // preference wins; otherwise the provider that produced the active revision
+  // (so the picker reflects the model actually used for this enhancement).
+  private async resolveSelectedReasoningCode(
+    session: SessionSafe,
+  ): Promise<ReasoningShortCode | null> {
+    const byConfigId = async (configId: string | null): Promise<ReasoningShortCode | null> => {
+      if (!configId) return null;
+      try {
+        const { ProviderConfigRepository } =
+          await import("@/server/repositories/provider-config.repository");
+        const repo = this.providerConfigRepository as unknown as
+          InstanceType<typeof ProviderConfigRepository> | undefined;
+        const cfgRepo = repo ?? new ProviderConfigRepository();
+        const cfg = await cfgRepo.getById(configId);
+        if (!cfg) return null;
+        return REASONING_ADAPTER_TO_CODE[cfg.adapterType] ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    const preferred = await byConfigId(session.preferredReasoningProviderConfigId);
+    if (preferred) return preferred;
+    if (!session.activeRevisionId) return null;
+    try {
+      const { EnhancementRepository } =
+        await import("@/server/repositories/enhancement.repository");
+      const rev = await new EnhancementRepository().getRevisionById(session.activeRevisionId);
+      return await byConfigId(rev?.reasoningProviderConfigId ?? null);
     } catch {
       return null;
     }

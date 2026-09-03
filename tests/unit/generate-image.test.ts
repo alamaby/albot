@@ -63,6 +63,7 @@ function session(overrides: Partial<SessionSafe> = {}): SessionSafe {
     activeRevisionId: "revision-1",
     activeGenerationAttemptId: null,
     preferredImageProviderConfigId: null,
+    preferredReasoningProviderConfigId: null,
     telegramStatusMessageId: 777,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",

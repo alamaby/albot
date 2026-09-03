@@ -17,6 +17,7 @@ const EXPECTED_TABLES = [
   "callback_events",
   "job_events",
   "user_image_preferences",
+  "user_reasoning_preferences",
   "prompt_audit",
   "prompt_configs",
   "prompt_configs_audit",
@@ -80,6 +81,7 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
     active_revision_id: ["uuid", "YES", null],
     active_generation_attempt_id: ["uuid", "YES", null],
     preferred_image_provider_config_id: ["uuid", "YES", null],
+    preferred_reasoning_provider_config_id: ["uuid", "YES", null],
     created_at: ["timestamp with time zone", "NO", "now()"],
     updated_at: ["timestamp with time zone", "NO", "now()"],
     expires_at: ["timestamp with time zone", "NO", null],
@@ -190,6 +192,12 @@ const COLUMN_SPECS: Record<string, Record<string, ColSpec>> = {
     created_at: ["timestamp with time zone", "NO", "now()"],
     updated_at: ["timestamp with time zone", "NO", "now()"],
   },
+  user_reasoning_preferences: {
+    telegram_user_id: ["bigint", "NO", null],
+    preferred_provider_config_id: ["uuid", "NO", null],
+    created_at: ["timestamp with time zone", "NO", "now()"],
+    updated_at: ["timestamp with time zone", "NO", "now()"],
+  },
   prompt_audit: {
     id: ["uuid", "NO", "gen_random_uuid()"],
     session_id: ["uuid", "YES", null],
@@ -276,6 +284,10 @@ const CONSTRAINT_FRAGMENTS: [string, string[]][] = [
       "'model_picked'::text",
       "'model_picked_default'::text",
       "'model_picker_back'::text",
+      "'reasoning_picker'::text",
+      "'reasoning_picked'::text",
+      "'reasoning_default'::text",
+      "'reasoning_picker_back'::text",
     ],
   ],
   ["job_events_event_type_check", ["'lease_expired'::text", "'cancelled'::text"]],
@@ -349,6 +361,18 @@ const FK_FRAGMENTS: [string, string[]][] = [
   [
     "prompt_sessions_preferred_image_provider_config_id_fkey",
     ["REFERENCES public.provider_configs(id)", "ON DELETE RESTRICT"],
+  ],
+  [
+    "prompt_sessions_preferred_reasoning_provider_config_id_fkey",
+    ["REFERENCES public.provider_configs(id)", "ON DELETE RESTRICT"],
+  ],
+  [
+    "user_reasoning_preferences_config_fkey",
+    ["REFERENCES public.provider_configs(id)", "ON DELETE RESTRICT"],
+  ],
+  [
+    "user_reasoning_preferences_user_fkey",
+    ["REFERENCES public.bot_users(telegram_user_id)", "ON DELETE CASCADE"],
   ],
 ];
 
@@ -456,6 +480,7 @@ const EXPECTED_TRIGGERS = [
   "prompt_sessions_set_updated_at",
   "jobs_set_updated_at",
   "user_image_preferences_set_updated_at",
+  "user_reasoning_preferences_set_updated_at",
   "prompt_configs_set_updated_at",
 ];
 
@@ -503,6 +528,14 @@ const EXPECTED_MIGRATIONS = [
   "20260902085338",
   "20260902103000",
   "20260902120000",
+  // Aichixia image + reasoning preference. These files are named after the
+  // UTC apply-time versions recorded on hosted development by MCP
+  // apply_migration (which does not use the file timestamp). 052207 = Aichixia
+  // provider_configs, 052614 = reasoning preference DDL, 060043 = no-op marker
+  // for the reasoning_default action-check re-apply.
+  "20260903052207",
+  "20260903052614",
+  "20260903060043",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

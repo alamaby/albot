@@ -8,6 +8,7 @@ import { OpenAICompatibleReasoningAdapter } from "./reasoning/openai-compatible.
 import { PixazoImageAdapter } from "./image/pixazo.adapter";
 import { PollinationsImageAdapter } from "./image/pollinations.adapter";
 import { BynaraImageAdapter } from "./image/bynara.adapter";
+import { AichixiaImageAdapter } from "./image/aichixia.adapter";
 
 const registry = getProviderRegistry();
 
@@ -201,6 +202,55 @@ registry.registerImage("bynara_nbn", (config, apiKey) => {
     {
       baseUrl: (config["base_url"] as string) ?? "https://api-images.bynara.id/v1",
       model: (config["model"] as string) ?? "nano-banana-pro",
+      timeoutMs: (config["timeout_ms"] as number) ?? 55000,
+    },
+    apiKey,
+  );
+});
+
+// Aichixia image generation (www.aichixia.xyz) - one adapter_type per model so
+// the Telegram model picker can route by adapter_type. OpenAI-style endpoint
+// returning b64_json by default. Priority sits between Pixazo (0/5) and
+// Pollinations/Bynara (150+) per provider_configs rows (110-113).
+const AICHIXIA_BASE_URL = "https://www.aichixia.xyz/api/v1";
+registry.registerImage("aichixia_flux2", (config, apiKey) => {
+  return new AichixiaImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? AICHIXIA_BASE_URL,
+      model: (config["model"] as string) ?? "flux-2-dev",
+      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
+    },
+    apiKey,
+  );
+});
+
+registry.registerImage("aichixia_lucid", (config, apiKey) => {
+  return new AichixiaImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? AICHIXIA_BASE_URL,
+      model: (config["model"] as string) ?? "lucid-origin",
+      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
+    },
+    apiKey,
+  );
+});
+
+registry.registerImage("aichixia_phoenix", (config, apiKey) => {
+  return new AichixiaImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? AICHIXIA_BASE_URL,
+      model: (config["model"] as string) ?? "phoenix-1.0",
+      timeoutMs: (config["timeout_ms"] as number) ?? 40000,
+    },
+    apiKey,
+  );
+});
+
+registry.registerImage("aichixia_gemini", (config, apiKey) => {
+  return new AichixiaImageAdapter(
+    {
+      baseUrl: (config["base_url"] as string) ?? AICHIXIA_BASE_URL,
+      model: (config["model"] as string) ?? "gemini-3-pro-image",
       timeoutMs: (config["timeout_ms"] as number) ?? 55000,
     },
     apiKey,

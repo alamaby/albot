@@ -100,14 +100,23 @@ export const COMMAND_HELP_TEXT = [
   "/help — bantuan",
 ].join("\n");
 
-// Enhance-only result: the enhanced prompt as plain copyable text.
-export function buildEnhanceOnlyMessage(prompt: EnhancedPromptStructured): string {
+// Enhance-only result: the enhanced prompt as plain copyable text. The
+// optional `reasoningLine` (e.g. "Reasoning: Cloudflare gpt-oss-120b ✓") shows
+// which enhance/revise provider produced the result — the session-less
+// /enhance-prompt flow has no picker, so this is the only provider info shown.
+export function buildEnhanceOnlyMessage(
+  prompt: EnhancedPromptStructured,
+  reasoningLine?: string | null,
+): string {
   const lines = ["✨ Prompt hasil penyempurnaan:", "", prompt.prompt];
   if (prompt.negative_prompt) {
     lines.push("", `Negative prompt: ${prompt.negative_prompt}`);
   }
   if (prompt.aspect_ratio) {
     lines.push("", `Aspect ratio: ${prompt.aspect_ratio}`);
+  }
+  if (reasoningLine) {
+    lines.push("", reasoningLine);
   }
   lines.push(
     "",
@@ -174,6 +183,17 @@ export function buildModelPickerMessage(selectedLabel?: string | null): string {
 export function buildModelSelectedMessage(label: string, isDefault: boolean): string {
   if (isDefault) return `Model diatur ke ${label} dan disimpan sebagai default ✓`;
   return `Model diatur ke ${label} ✓`;
+}
+
+export function buildReasoningPickerMessage(selectedLabel?: string | null): string {
+  if (selectedLabel) return `Pilih model reasoning (enhance/revise). Saat ini: ${selectedLabel} ✓`;
+  return "Pilih model reasoning untuk enhance/revise prompt. Tap untuk memilih, tap ★ untuk jadikan default.";
+}
+
+export function buildReasoningSelectedMessage(label: string, isDefault: boolean): string {
+  if (isDefault)
+    return `Reasoning diatur ke ${label} dan disimpan sebagai default ✓ (dipakai untuk enhance/revise berikutnya)`;
+  return `Reasoning diatur ke ${label} ✓ (dipakai untuk enhance/revise berikutnya)`;
 }
 
 // Caption for a generated image. Shows which attempt produced which revision.

@@ -23,7 +23,27 @@ export const MODEL_PICKER_ACTIONS = [
 ] as const;
 export type ModelPickerAction = (typeof MODEL_PICKER_ACTIONS)[number];
 
-export const MODEL_SHORT_CODES = ["flux", "a20f", "a21f", "nbn"] as const;
+// Reasoning (enhance/revise) model picker actions.
+// NOTE: "reasoning_default" (not "reasoning_picked_default") keeps the callback
+// data under Telegram's 64-byte limit: `reasoning_default:<uuid>:orM3` = 59.
+export const REASONING_PICKER_ACTIONS = [
+  "reasoning_picker",
+  "reasoning_picked",
+  "reasoning_default",
+  "reasoning_picker_back",
+] as const;
+export type ReasoningPickerAction = (typeof REASONING_PICKER_ACTIONS)[number];
+
+export const MODEL_SHORT_CODES = [
+  "flux",
+  "a20f",
+  "a21f",
+  "nbn",
+  "axf2",
+  "axlc",
+  "axph",
+  "axgm",
+] as const;
 export type ModelShortCode = (typeof MODEL_SHORT_CODES)[number];
 
 export const MODEL_CODE_TO_ADAPTER: Record<ModelShortCode, string> = {
@@ -31,6 +51,10 @@ export const MODEL_CODE_TO_ADAPTER: Record<ModelShortCode, string> = {
   a20f: "bynara_a20f",
   a21f: "bynara_a21f",
   nbn: "bynara_nbn",
+  axf2: "aichixia_flux2",
+  axlc: "aichixia_lucid",
+  axph: "aichixia_phoenix",
+  axgm: "aichixia_gemini",
 };
 
 export const ADAPTER_TO_MODEL_CODE: Record<string, ModelShortCode> = {
@@ -38,6 +62,10 @@ export const ADAPTER_TO_MODEL_CODE: Record<string, ModelShortCode> = {
   bynara_a20f: "a20f",
   bynara_a21f: "a21f",
   bynara_nbn: "nbn",
+  aichixia_flux2: "axf2",
+  aichixia_lucid: "axlc",
+  aichixia_phoenix: "axph",
+  aichixia_gemini: "axgm",
 };
 
 export const MODEL_CODE_LABEL: Record<ModelShortCode, string> = {
@@ -45,10 +73,64 @@ export const MODEL_CODE_LABEL: Record<ModelShortCode, string> = {
   a20f: "Agnes 2.0 Flash",
   a21f: "Agnes 2.1 Flash",
   nbn: "Nano Banana Pro",
+  axf2: "Aichixia Flux 2 Dev",
+  axlc: "Aichixia Lucid Origin",
+  axph: "Aichixia Phoenix 1.0",
+  axgm: "Aichixia Gemini 3 Pro",
+};
+
+// Reasoning (enhance/revise) model picker. One short code per reasoning
+// adapter_type. The "reasoning_default" action (rather than a longer
+// "_picked_default" name) keeps the callback data under the 64-byte limit:
+// `reasoning_default:<uuid>:orM3` = 59 bytes.
+export const REASONING_SHORT_CODES = [
+  "cf0",
+  "poll",
+  "byn",
+  "orF",
+  "orIn",
+  "orLa",
+  "orGl",
+  "orM3",
+] as const;
+export type ReasoningShortCode = (typeof REASONING_SHORT_CODES)[number];
+
+export const REASONING_CODE_TO_ADAPTER: Record<ReasoningShortCode, string> = {
+  cf0: "openai_compatible",
+  poll: "pollinations",
+  byn: "bynara",
+  orF: "openrouter_free",
+  orIn: "openrouter_ing",
+  orLa: "openrouter_laguna",
+  orGl: "openrouter_glm",
+  orM3: "openrouter_m3",
+};
+
+export const REASONING_ADAPTER_TO_CODE: Record<string, ReasoningShortCode> = {
+  openai_compatible: "cf0",
+  pollinations: "poll",
+  bynara: "byn",
+  openrouter_free: "orF",
+  openrouter_ing: "orIn",
+  openrouter_laguna: "orLa",
+  openrouter_glm: "orGl",
+  openrouter_m3: "orM3",
+};
+
+export const REASONING_CODE_LABEL: Record<ReasoningShortCode, string> = {
+  cf0: "Cloudflare gpt-oss-120b",
+  poll: "Pollinations gpt-oss",
+  byn: "Bynara laguna-s-2.1",
+  orF: "OpenRouter Free Router",
+  orIn: "OpenRouter Ling Flash",
+  orLa: "OpenRouter Laguna",
+  orGl: "OpenRouter GLM",
+  orM3: "OpenRouter MiniMax M3",
 };
 
 export function buildCallbackData(
-  action: ConfirmationAction | ResultAction | RetryAction | ModelPickerAction,
+  action:
+    ConfirmationAction | ResultAction | RetryAction | ModelPickerAction | ReasoningPickerAction,
   sessionId: string,
 ): string {
   return `${action}:${sessionId}`;
@@ -65,6 +147,19 @@ export function buildModelPickedCallback(
 
 export function buildModelPickerCallback(sessionId: string): string {
   return `model_picker:${sessionId}`;
+}
+
+export function buildReasoningPickedCallback(
+  code: ReasoningShortCode,
+  sessionId: string,
+  asDefault = false,
+): string {
+  const action = asDefault ? "reasoning_default" : "reasoning_picked";
+  return `${action}:${sessionId}:${code}`;
+}
+
+export function buildReasoningPickerCallback(sessionId: string): string {
+  return `reasoning_picker:${sessionId}`;
 }
 
 // Returns the action and session id from callback data, or null when the data
@@ -110,11 +205,14 @@ export function confirmationKeyboard(sessionId: string): {
 export function confirmationKeyboardWithModel(
   sessionId: string,
   selectedCode: ModelShortCode | null,
+  reasoningCode: ReasoningShortCode | null = null,
 ): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
   const modelLabel = selectedCode ? MODEL_CODE_LABEL[selectedCode] : null;
   const pickerText = modelLabel ? `Model: ${modelLabel} ✓` : "Pilih Model";
+  const reasoningLabel = reasoningCode ? REASONING_CODE_LABEL[reasoningCode] : null;
+  const reasoningPickerText = reasoningLabel ? `Reasoning: ${reasoningLabel} ✓` : "Pilih Reasoning";
   return {
     inline_keyboard: [
       [
@@ -123,6 +221,7 @@ export function confirmationKeyboardWithModel(
         { text: "Batal", callback_data: buildCallbackData("cancel", sessionId) },
       ],
       [{ text: pickerText, callback_data: buildModelPickerCallback(sessionId) }],
+      [{ text: reasoningPickerText, callback_data: buildReasoningPickerCallback(sessionId) }],
     ],
   };
 }
@@ -157,6 +256,38 @@ export function modelPickerKeyboard(
   };
 }
 
+// Reasoning model picker: choose the enhance/revise provider for this session,
+// or set it as the per-user default (★). Same layout as the image picker.
+export function reasoningPickerKeyboard(
+  sessionId: string,
+  selectedCode: ReasoningShortCode | null,
+): {
+  inline_keyboard: { text: string; callback_data: string }[][];
+} {
+  const rows = chunked(
+    REASONING_SHORT_CODES.map((code) => {
+      const isSelected = code === selectedCode;
+      const label = REASONING_CODE_LABEL[code] + (isSelected ? " ✓" : "");
+      return { text: label, callback_data: buildReasoningPickedCallback(code, sessionId, false) };
+    }),
+    2,
+  );
+  const defaultRows = chunked(
+    REASONING_SHORT_CODES.map((code) => ({
+      text: `${REASONING_CODE_LABEL[code]} ★`,
+      callback_data: buildReasoningPickedCallback(code, sessionId, true),
+    })),
+    2,
+  );
+  return {
+    inline_keyboard: [
+      ...rows,
+      ...defaultRows,
+      [{ text: "Kembali", callback_data: `reasoning_picker_back:${sessionId}` }],
+    ],
+  };
+}
+
 function chunked<T>(items: T[], size: number): T[][] {
   const result: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
@@ -177,11 +308,14 @@ export function resultKeyboard(sessionId: string): {
 export function resultKeyboardWithModel(
   sessionId: string,
   selectedCode: ModelShortCode | null,
+  reasoningCode: ReasoningShortCode | null = null,
 ): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
   const modelLabel = selectedCode ? MODEL_CODE_LABEL[selectedCode] : null;
   const pickerText = modelLabel ? `Model: ${modelLabel} ✓` : "Ganti Model";
+  const reasoningLabel = reasoningCode ? REASONING_CODE_LABEL[reasoningCode] : null;
+  const reasoningPickerText = reasoningLabel ? `Reasoning: ${reasoningLabel} ✓` : "Ganti Reasoning";
   return {
     inline_keyboard: [
       [
@@ -190,6 +324,7 @@ export function resultKeyboardWithModel(
         { text: "Selesai", callback_data: buildCallbackData("complete", sessionId) },
       ],
       [{ text: pickerText, callback_data: buildModelPickerCallback(sessionId) }],
+      [{ text: reasoningPickerText, callback_data: buildReasoningPickerCallback(sessionId) }],
     ],
   };
 }
@@ -219,6 +354,38 @@ export function parseModelPickerData(
   ) {
     const code = parts[2] as ModelShortCode;
     if (!MODEL_SHORT_CODES.includes(code)) return null;
+    return { action, code, sessionId: parts[1] };
+  }
+  return null;
+}
+
+// Strict parser for reasoning-picker callback data (reasoning_picker /
+// reasoning_picked / reasoning_default / reasoning_picker_back).
+export function parseReasoningPickerData(
+  data: string | undefined,
+):
+  | { action: "reasoning_picker"; sessionId: string }
+  | { action: "reasoning_picked"; code: ReasoningShortCode; sessionId: string }
+  | { action: "reasoning_default"; code: ReasoningShortCode; sessionId: string }
+  | { action: "reasoning_picker_back"; sessionId: string }
+  | null {
+  if (!data || data.length > 64) return null;
+  const parts = data.split(":");
+  const action = parts[0];
+  if (action === "reasoning_picker" && parts.length === 2 && parts[1]) {
+    return { action: "reasoning_picker", sessionId: parts[1] };
+  }
+  if (action === "reasoning_picker_back" && parts.length === 2 && parts[1]) {
+    return { action: "reasoning_picker_back", sessionId: parts[1] };
+  }
+  if (
+    (action === "reasoning_picked" || action === "reasoning_default") &&
+    parts.length === 3 &&
+    parts[1] &&
+    parts[2]
+  ) {
+    const code = parts[2] as ReasoningShortCode;
+    if (!REASONING_SHORT_CODES.includes(code)) return null;
     return { action, code, sessionId: parts[1] };
   }
   return null;

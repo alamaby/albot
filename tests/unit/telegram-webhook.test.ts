@@ -618,6 +618,9 @@ describe("handleTelegramUpdate - slash enhance-prompt", () => {
       telegramUserId: 123n,
       telegramChatId: 456n,
       sourcePrompt: "kucing oren",
+      // The user default reasoning preference lookup fails gracefully in this
+      // unit test (no DB), so the job carries an explicit null.
+      preferredReasoningConfigId: null,
     });
     expect(deps.dispatchToProcessor).toHaveBeenCalledTimes(1);
     expect(deps.initialSessionRepository.create).not.toHaveBeenCalled();
@@ -708,6 +711,7 @@ describe("handleTelegramUpdate - slash cancel", () => {
       activeRevisionId: "rev-1",
       activeGenerationAttemptId: null,
       preferredImageProviderConfigId: null,
+      preferredReasoningProviderConfigId: null,
       telegramStatusMessageId: null,
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
@@ -744,6 +748,7 @@ describe("handleTelegramUpdate - slash cancel", () => {
       activeRevisionId: "rev-1",
       activeGenerationAttemptId: null,
       preferredImageProviderConfigId: null,
+      preferredReasoningProviderConfigId: null,
       telegramStatusMessageId: null,
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
@@ -797,6 +802,7 @@ describe("handleTelegramUpdate - slash cancel", () => {
       activeRevisionId: "rev-1",
       activeGenerationAttemptId: null,
       preferredImageProviderConfigId: null,
+      preferredReasoningProviderConfigId: null,
       telegramStatusMessageId: null,
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
@@ -832,6 +838,7 @@ describe("handleTelegramUpdate - slash cancel", () => {
       activeRevisionId: "rev-1",
       activeGenerationAttemptId: null,
       preferredImageProviderConfigId: null,
+      preferredReasoningProviderConfigId: null,
       telegramStatusMessageId: null,
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",

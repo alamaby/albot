@@ -151,14 +151,21 @@ export class EnhancePromptUseCase {
   }): Promise<void> {
     const env = getServerEnv();
     const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
-    const { confirmationKeyboardWithModel, ADAPTER_TO_MODEL_CODE, MODEL_CODE_LABEL } =
-      await import("@/server/telegram/keyboards");
+    const {
+      confirmationKeyboardWithModel,
+      ADAPTER_TO_MODEL_CODE,
+      MODEL_CODE_LABEL,
+      REASONING_ADAPTER_TO_CODE,
+    } = await import("@/server/telegram/keyboards");
     const { buildEnhancedPromptMessage } = await import("@/server/telegram/messages");
 
     // Resolve reasoning provider/model label (priority: passed-in selected, then revision FK lookup)
     let reasoningProviderLabel = input.reasoningProviderLabel ?? null;
     let reasoningModel = input.reasoningModel ?? null;
-    if ((!reasoningProviderLabel || !reasoningModel) && input.revision.reasoningProviderConfigId) {
+    // Reasoning picker code = the adapter of the provider that actually
+    // produced this enhancement (displayed as "Reasoning: X ✓" on the picker row).
+    let reasoningCode: import("@/server/telegram/keyboards").ReasoningShortCode | null = null;
+    if (input.revision.reasoningProviderConfigId) {
       try {
         const rcfg = await this.providerConfigRepository.getById(
           input.revision.reasoningProviderConfigId,
@@ -166,6 +173,7 @@ export class EnhancePromptUseCase {
         if (rcfg) {
           reasoningProviderLabel = reasoningProviderLabel ?? rcfg.name;
           reasoningModel = reasoningModel ?? rcfg.model;
+          reasoningCode = REASONING_ADAPTER_TO_CODE[rcfg.adapterType] ?? null;
         }
       } catch {
         // ignore
@@ -219,7 +227,7 @@ export class EnhancePromptUseCase {
           imageModelLabel: selectedLabel,
           selectedModelLabel: selectedLabel,
         }),
-        confirmationKeyboardWithModel(input.session.id, selectedCode),
+        confirmationKeyboardWithModel(input.session.id, selectedCode, reasoningCode),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
@@ -240,10 +248,20 @@ export class EnhancePromptUseCase {
   // Session-less enhancement for /enhance-prompt: provider select, audit row,
   // adapter call, structured validation. No session/revision writes — the
   // caller owns the job lifecycle and user messaging. Throws ProviderError on
-  // failure (caller decides retry).
-  async enhanceOnly(input: { jobId: string; sourcePrompt: string }): Promise<EnhanceOnlyOutcome> {
+  // failure (caller decides retry). `preferredConfigId` (from the job payload,
+  // set via the user's default reasoning preference) is honored when eligible;
+  // otherwise the selector fallback applies.
+  async enhanceOnly(input: {
+    jobId: string;
+    sourcePrompt: string;
+    preferredConfigId?: string | null;
+    telegramUserId?: bigint;
+  }): Promise<EnhanceOnlyOutcome> {
     const systemPrompt = await this.resolveSystemPrompt();
-    const { selected, startedAt } = await this.selectProvider(input.jobId);
+    const { selected, startedAt } = await this.selectProvider(input.jobId, {
+      preferredConfigId: input.preferredConfigId ?? null,
+      telegramUserId: input.telegramUserId,
+    });
 
     const requestId = await this.enhancementRepository.recordProviderRequest({
       jobId: input.jobId,
@@ -344,7 +362,10 @@ export class EnhancePromptUseCase {
     await this.enhancementRepository.markRevisionProcessing(revision.id);
 
     const systemPrompt = await this.resolveSystemPrompt();
-    const { selected, startedAt } = await this.selectProvider(session.id);
+    const { selected, startedAt } = await this.selectProvider(session.id, {
+      preferredConfigId: session.preferredReasoningProviderConfigId,
+      telegramUserId: session.telegramUserId,
+    });
 
     // Build the audit capture (request messages + model snapshot) before the
     // outbound call so even a network failure leaves a record. redactJson
@@ -499,6 +520,7 @@ export class EnhancePromptUseCase {
 
   private async selectProvider(
     sessionId: string,
+    options?: { preferredConfigId?: string | null; telegramUserId?: bigint },
   ): Promise<{ selected: SelectedProvider; startedAt: number }> {
     const configs = await this.providerConfigRepository.listActive("reasoning");
     const keysByConfig = new Map<
@@ -508,10 +530,64 @@ export class EnhancePromptUseCase {
     for (const config of configs) {
       keysByConfig.set(config.id, await this.providerKeyRepository.listSafeKeys(config.id));
     }
+
+    // Hybrid: honor the per-session preferred reasoning provider (set via the
+    // Telegram reasoning picker) when it is active and has an eligible key;
+    // otherwise fall back to the per-user default, then the selector.
+    const tryPreferredId =
+      options?.preferredConfigId ??
+      (options?.telegramUserId
+        ? await this.getUserDefaultPreferredId(options.telegramUserId)
+        : null);
+
+    if (tryPreferredId) {
+      const preferredConfig = configs.find((c) => c.id === tryPreferredId && c.isActive);
+      if (!preferredConfig && tryPreferredId) {
+        logStructured("warn", "enhance.preferred_reasoning_inactive", {
+          sessionId,
+          preferredConfigId: tryPreferredId,
+        });
+      }
+      if (preferredConfig) {
+        const keys = keysByConfig.get(preferredConfig.id) ?? [];
+        const hasEligibleKey = keys.some(
+          (k) =>
+            k.isActive && (!k.cooldownUntil || new Date(k.cooldownUntil).getTime() <= Date.now()),
+        );
+        if (hasEligibleKey) {
+          const selected = await this.selector.selectProvider(
+            "reasoning",
+            [preferredConfig],
+            new Map([[preferredConfig.id, keys]]),
+            { seed: sessionId },
+          );
+          return { selected, startedAt: Date.now() };
+        }
+        logStructured("warn", "enhance.preferred_reasoning_not_eligible", {
+          sessionId,
+          preferredConfigId: tryPreferredId,
+        });
+      }
+    }
+
     const selected = await this.selector.selectProvider("reasoning", configs, keysByConfig, {
       seed: sessionId,
     });
     return { selected, startedAt: Date.now() };
+  }
+
+  private async getUserDefaultPreferredId(telegramUserId: bigint): Promise<string | null> {
+    try {
+      const { UserReasoningPreferenceRepository } =
+        await import("@/server/repositories/user-reasoning-preference.repository");
+      const repo = new UserReasoningPreferenceRepository();
+      const pref = await repo.getByTelegramUserId(telegramUserId);
+      return pref?.preferredProviderConfigId ?? null;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("warn", "enhance.user_default_lookup_failed", { detail });
+      return null;
+    }
   }
 
   // Adapter factories read base_url/model from the config payload; merge the
