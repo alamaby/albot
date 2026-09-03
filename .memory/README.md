@@ -1,13 +1,14 @@
 # Project Memory
 
-Last updated: 2026-09-03 13:56 (Aichixia image provider + reasoning model picker diimplementasi; detail di `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md`)
+Last updated: 2026-09-03 16:40 (Aichixia: prod ter-keyed + insiden CI — `VERCEL_TOKEN` production kosong blokir deploy; detail di `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md`)
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
 - Status: semua milestone M0–M7 CLOSED; pasca-M7 berjalan iterasi fitur/fix: command expansion (26 Ags), content-policy refusal fix + regenerate-after-failure (27 Ags), Bynara providers + timeout clamp + `SUPABASE_SECRET_KEY` rename (28 Ags), OpenRouter free models + `round_robin` + `prompt_audit` audit 180d + CI auto-pipeline (29–30 Ags). Backfill memory untuk 27–30 Ags dilakukan 30 Ags.
 - Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (**46 migrations** — 43 repo lama + 3 Aichixia/reasoning-pref 03 Sep; dev mengikuti versi file 1:1, `migration list` no pending), prod `pcexxtckvwmiquseznaz` (**39 migrations — migrate-production run `33345671587` sukses 2026-08-31 di `0a83769`**; prod BELUM dapat migrasi 43–46, harus migrate-production sebelum push fitur berschema)
-- Production topology: Vercel `albot-be.alamaby.com`, webhook `@albot_ai_bot`, allowlist `83540732`, provider reasoning: Cloudflare gpt-oss-120b (0) → Pollinations gpt-oss (150) → OpenRouter free ×5 (200–230, round_robin); image: Pixazo 0/5 → **Aichixia flux2/lucid/phoenix/gemini (110–113, dev ter-keyed 03 Sep; prod menunggu push + `scripts/seed-prod-aichixia.mjs`)** → Pollinations flux (151) → Bynara 160-180 → picker 200-203. Picker Telegram: 8 model image + 8 model reasoning (per-sesi + default per-user). Kunci provider terenkripsi AES-256-GCM via `upsert-provider-key.mjs`.
+- Production topology: Vercel `albot-be.alamaby.com`, webhook `@albot_ai_bot`, allowlist `83540732`, provider reasoning: Cloudflare gpt-oss-120b (0) → Pollinations gpt-oss (150) → OpenRouter free ×5 (200–230, round_robin); image: Pixazo 0/5 → **Aichixia flux2/lucid/phoenix/gemini (110–113; dev & prod ter-keyed 03 Sep — fingerprint 43658ea80bdf...)** → Pollinations flux (151) → Bynara 160-180 → picker 200-203. Picker Telegram: 8 model image + 8 model reasoning (per-sesi + default per-user). Kunci provider terenkripsi AES-256-GCM via `upsert-provider-key.mjs`.
+- **Prod DB 46 migrations (03 Sep, migrate-production run 33733416461 sukses); kode prod masih versi lama** — `deploy-production` run 33733536728 GAGAL: `VERCEL_TOKEN` kosong di environment `production` (auto-created tanpa secret). Tunggu user isi secret + re-run deploy. `validate` run 33733416521 gagal prettier (fix commit `777ce23`, tunggu push).
 - **Prod auto-deploy dari main via Vercel Git integration** (terbukti dari E2E prod 27 Ags tanpa deploy manual) — push main = kode prod baru; DB prod harus selalu mendahului.
 - Health endpoint: readiness probe — HTTP 200 `status:ok` saat DB reachable, 503 `status:degraded` sebaliknya, `Cache-Control: no-store`
 - CI: `validate` (PR+push), `migrate-development` + `deploy-development` (auto on push main — pipeline baru 29 Ags), `migrate-production` (manual attestation-gated), `recovery-*` cron */20 (dev & prod hijau; deploy-development menunggu user ganti `VERCEL_TOKEN` — lihat Open Blockers)
@@ -28,6 +29,9 @@ Last updated: 2026-09-03 13:56 (Aichixia image provider + reasoning model picker
 
 ## Open Blockers
 
+- **`VERCEL_TOKEN` GitHub environment `production` kosong** (terungkap 2026-09-03 saat push pertama auto-prod): `deploy-production` run 33733536728 gagal di `Pull Vercel project settings` (probe HTTP 403, `No existing credentials`). Konsekuensi: kode prod belum dapat deploy Aichixia/picker + T7a (DB prod sudah schema 46 + key Aichixia — additive, aman). Fix: Settings → Environments → production → isi `VERCEL_TOKEN` (team-scoped, org `team_7caBsxNQrtdtkzQGbPBAFYKe`), lalu re-run `deploy-production` via workflow_dispatch. (Pelajaran lama terkonfirmasi: environment auto-created = KOSONG tanpa secret.)
+- **Commit `777ce23` (fix prettier `seed-prod-aichixia.mjs`) belum di-push** — `validate` run 33733416521 gagal di step `Format check`.
+
 - **Pooled image provider (ai.pooled.dev) — PARKED 2026-09-03, menunggu pihak pooled**: endpoint `/v1/images/generations` 404 (route tidak ada), `/v1/models` hanya LLM chat. Key `POOLED_API_KEY` valid tapi chat-only di `.env` lokal. Blueprint reaktivasi ada di `2026-09-03/093100-pooled-image-provider-cancelled.md`.
 
 - **deploy-development**: **CLOSED via pivot 2026-08-31**. Workflow `deploy-development.yml` di-rename ke `.yml.disabled` (commit `43b32cb`). Deploy manual via Vercel CLI (`npx vercel@47 deploy --yes`); runbook `docs/runbooks/manual-deploy.md`. Root cause build trace failure: Next.js 16 pakai adapter API baru; fixed via `@next-community/adapter-vercel@0.0.1-beta.29` + `adapterPath` di `next.config.ts` (`bb4c885` + `f150b01`).
@@ -38,7 +42,7 @@ Last updated: 2026-09-03 13:56 (Aichixia image provider + reasoning model picker
 
 ## Recent Entries
 
-- `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md` — Aichixia image (4 model, priority 110–113) + picker reasoning enhance/revise (8 model, per-sesi+default); lesson MCP versioning; unit 329 + contract 107 + hosted 142/142; dev ter-keyed, prod via `scripts/seed-prod-aichixia.mjs` post-push; commit `d6f2b23`+`cf427f9`+`a5e37a5` (belum push)
+- `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md` — Aichixia image (4 model, priority 110–113) + picker reasoning enhance/revise (8 model, per-sesi+default); lesson MCP versioning; unit 329 + contract 107 + hosted 142/142; **dev & prod ter-keyed** (prod via `scripts/seed-prod-aichixia.mjs` post migrate-production 33733416461); open: `VERCEL_TOKEN` prod kosong → deploy-production gagal 33733536728 + prettier fix `777ce23`
 - `2026-09-03/093100-pooled-image-provider-cancelled.md` — Pooled ai.pooled.dev dibatalkan: `/v1/images/generations` 404, `/v1/models` hanya LLM chat; key valid (chat-only); rantai failover image tidak berubah
 - `2026-08-31/153144-manual-deploy-pivot.md` — Next.js 16 Vercel adapter + disable deploy-development CI; manual deploy via `vercel` CLI
 - `2026-08-31/105212-fix-deploy-development-node-22.md` — Repo guardrail `engines.node: "22.x"` push `6a961ea`; superseded oleh pivot manual deploy

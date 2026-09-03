@@ -59,9 +59,10 @@ User minta provider image generation baru **Aichixia** (`POST https://www.aichix
 
 ## Open items (follow-up user)
 
-1. **Push + prod provisioning** — commit `d6f2b23` (Aichixia) + `cf427f9` (T7a auto-prod) sudah di-local, **belum di-push** (main ahead 2). Urutan: (a) `git push origin main` → auto `migrate-development` + `migrate-production` (prod 43→46, config Aichixia masuk); (b) tunggu `migrate-production` sukses; (c) `node scripts/seed-prod-aichixia.mjs` → 4 key prod. Dev sudah di-provision (4/4, fingerprint 43658ea80bdf...).
-2. Verifikasi live Aichixia envelope setelah key ter-provision (b64_json vs url, field `revised_prompt`).
-3. T8 (Vercel Preview cleanup) + T9 (verifikasi chain auto-prod) — manual, milik plan T7a.
+1. **VERCEL_TOKEN production** — `deploy-production` run 33733536728 gagal: `VERCEL_TOKEN` kosong di GitHub environment `production` (env auto-created tanpa secret; probe HTTP 403, `No existing credentials`). Fix: Settings → Environments → production → isi `VERCEL_TOKEN` (team-scoped), lalu re-run `deploy-production` (workflow_dispatch). DB prod sudah schema 46 + 4 key Aichixia; kode prod masih versi lama sampai deploy sukses (failover aman).
+2. **Push commit `777ce23`** (fix prettier `seed-prod-aichixia.mjs`) — `validate` run 33733416521 gagal di `Format check`; fix sudah di-commit lokal.
+3. Verifikasi live Aichixia envelope setelah deploy sukses (b64_json vs url, field `revised_prompt`).
+4. T8 (Vercel Preview cleanup) + T9 (verifikasi chain auto-prod) — manual, milik plan T7a.
 
 ## Conventional Commit proposal
 
