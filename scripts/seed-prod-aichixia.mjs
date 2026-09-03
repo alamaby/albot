@@ -68,8 +68,10 @@ function main() {
   // Prefer the explicit _PROD value from .env (deterministic target), falling
   // back to a shell-provided SUPABASE_URL_* — never to a bare process.env
   // SUPABASE_URL, which on this machine is a junk Vercel snapshot in .env.local.
-  const supabaseUrl = fileEnv.SUPABASE_URL_PROD ?? process.env.SUPABASE_URL_PROD ?? process.env.SUPABASE_URL;
-  if (!supabaseUrl) fail("SUPABASE_URL_PROD missing in .env (and no SUPABASE_URL_PROD in environment)");
+  const supabaseUrl =
+    fileEnv.SUPABASE_URL_PROD ?? process.env.SUPABASE_URL_PROD ?? process.env.SUPABASE_URL;
+  if (!supabaseUrl)
+    fail("SUPABASE_URL_PROD missing in .env (and no SUPABASE_URL_PROD in environment)");
 
   if (supabaseUrl !== PROD_HOST) {
     const ref = supabaseUrl.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
