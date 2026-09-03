@@ -4,8 +4,8 @@ Telegram image bot. Spesifikasi lengkap ada di `plans/2026-08-07-telegram-image-
 
 Status: **Post-M7 iterasi** (M0–M7 closed; tracking fitur lanjutan di `TODO.md`).
 
-- Production: `https://albot-be.alamaby.com` (bot `@albot_ai_bot`, Supabase prod `pcexxtckvwmiquseznaz`; jumlah migration live lihat `supabase migration list` — file migration repo di `supabase/migrations/`)
-- Development: `https://albot-dev.vercel.app` (Supabase dev `ceqcitzbosqzxpbtlpfn`)
+- Production: `https://albot-be.alamaby.com` (bot `@albot_ai_bot` — production only, Supabase prod `pcexxtckvwmiquseznaz`; jumlah migration live lihat `supabase migration list` — file migration repo di `supabase/migrations/`)
+- Staging (migration-only): Supabase dev `ceqcitzbosqzxpbtlpfn` (bot dev dihapus `plans/2026-09-02-bot-dev-removal-and-auto-prod-plan.md`; tidak ada alias `albot-dev.vercel.app`)
 - Runbook produksi: `docs/runbooks/production-handoff.md`
 
 ## Stack
@@ -32,58 +32,50 @@ npm test
 npm run build
 ```
 
-## Production Deployment
+## Production Deployment (auto, schema before code)
 
 ```bash
 # 1. Lokal green (wajib sebelum push, lihat AGENTS.md)
 npm run db:lint && npm run db:check-migrations && npm run db:types:check \
  && npm run test:unit && npm run lint && npm run typecheck && npm run build && npm run format:check
 
-# 2. Push main → trigger migrate-development (auto)
+# 2. Push main → trigger otomatis:
+#    validate.yml → migrate-development (staging, parallel) → migrate-production (prod pcexxtckvwmiquseznaz, auto) → deploy-production (vercel --prod, needs migrate-production)
 git push origin main
-# tunggu Actions → migrate-development → success (hosted tests)
+# tunggu Actions → migrate-production → deploy-production → success
 
-# 3. Trigger migrate-production (manual, butuh approval production environment)
-# GitHub → Actions → migrate-production → Run workflow
-#   confirm_project_ref: pcexxtckvwmiquseznaz
-#   development_run_id: <run ID dari migrate-development untuk commit yang sama>
-
-# 4. Seed provider keys ke prod (bila ada provider baru)
+# 3. Seed provider keys ke prod (bila ada provider baru)
 node scripts/seed-prod-bynara.mjs  # baca .env (BYNARA_*_API_KEY) → upsert 6 rows prod (hanya fingerprint di log)
 
-# 5. Deploy Vercel production (auto via push main, atau manual)
-vercel deploy --prod
-# verifikasi
+# 4. Verifikasi
 curl -s https://albot-be.alamaby.com/api/health | jq
 curl -s "https://albot-be.alamaby.com/api/health?include=readiness" -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" | jq
 # test bot @albot_ai_bot
 ```
 
+> Bot development dihapus (plan `plans/2026-09-02-bot-dev-removal-and-auto-prod-plan.md`): alias `albot-dev.vercel.app`, workflow `recovery-development` & `deploy-development` dihapus; `migrate-development` tetap sebagai staging warning; Vercel Preview env dihapus; Vercel Git Integration dimatikan — deploy prod hanya via `deploy-production.yml`.
+
 ## CI/CD Otomatis (push main)
 
-Setiap push ke `main` memicu 2 workflow otomatis:
+Setiap push ke `main` memicu pipeline otomatis (Opsi C + T7a):
 
-1. **`migrate-development`** (`.github/workflows/migrate-development.yml`) — apply
-   migration ke Supabase dev + hosted tests (dulu manual `workflow_dispatch`,
-   sekarang otomatis; dispatch tetap tersedia untuk pin commit tertentu).
-2. **`deploy-development`** (`.github/workflows/deploy-development.yml`) —
-   deploy Vercel Preview + re-point alias `albot-dev.vercel.app`, menunggu
-   `migrate-development` sukses dulu (schema sebelum code).
+1. **`validate`** — lint/typecheck/test/build + `db:lint`/`db:check-migrations` + secret scan
+2. **`migrate-development`** (`.github/workflows/migrate-development.yml`) — apply migration ke Supabase dev `ceqcitzbosqzxpbtlpfn` + hosted tests (staging, parallel, tidak gate prod)
+3. **`migrate-production`** (`.github/workflows/migrate-production.yml`) — apply migration ke Supabase prod `pcexxtckvwmiquseznaz` (auto on push, standalone `EXPECTED_REF` check)
+4. **`deploy-production`** (`.github/workflows/deploy-production.yml`) — `vercel build` + `vercel deploy --prod` ke `albot-be.alamaby.com`, `needs` via `workflow_run` setelah `migrate-production` success (T7a, `schema before code` terjamin)
 
-**Secrets GitHub yang dibutuhkan** (Environment `development`):
+**Secrets GitHub yang dibutuhkan** (Environment `production`):
 
 - `VERCEL_TOKEN` — personal token Vercel (Vercel → Settings → Tokens).
-- `VERCEL_ORG_ID` — team id Vercel (`.vercel/repo.json` → `orgId`).
-- `VERCEL_PROJECT_ID` — project id (`.vercel/repo.json` → `projects[0].id`).
+- `SUPABASE_*` prod — `SUPABASE_PROJECT_REF=pcexxtckvwmiquseznaz`, `SUPABASE_DB_PASSWORD`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_URL`/`SECRET_KEY` prod
 
-Tanpa ketiganya, `deploy-development` gagal di step `vercel pull`; migration
-tetap jalan. Bot production tidak terpengaruh (workflow ini hanya Preview).
+Bot development dihapus — tidak ada lagi Preview alias. Vercel Git Integration dimatikan (deploy hanya via `deploy-production.yml`).
 
 ## Routes
 
 - `GET /api/health` — health check dengan DB reachability yang sanitized. Tambahkan `?include=readiness` untuk snapshot operasional (job counts, dead jobs, session expiry, key cooldown) tanpa biaya provider.
 - `POST /api/jobs/process` — internal job processor (Bearer `JOB_PROCESSOR_SECRET`).
-- `POST /api/recovery/run` — internal recovery sweep: lease-expiry recovery, queued claim (batch 3), dead-job marking, session expiry, retention purge. Cron GitHub Actions tiap 20 menit: `recovery-development.yml` (dev, alias `albot-dev.vercel.app`) dan `recovery-production.yml` (prod, `albot-be.alamaby.com`).
+- `POST /api/recovery/run` — internal recovery sweep: lease-expiry recovery, queued claim (batch 3), dead-job marking, session expiry, retention purge. Cron GitHub Actions tiap 20 menit: `recovery-production.yml` (prod `albot-be.alamaby.com`; dev recovery dihapus bersama bot dev).
 - `GET /api/admin/diagnostics` — internal read-only status operasional (Bearer `JOB_PROCESSOR_SECRET`).
 - `GET /api/admin/prompts` — audit prompt per user/session (`?user_id=&session_id=&since=&until=`).
 - `GET /api/admin/prompt-configs` / `POST /api/admin/prompt-configs` — prompt persona DB-driven: `GET ?key=&audit=1&limit=` list versi/audit; `POST {key,body,actor}` upsert; `POST {key,version,actor}` rollback (Bearer `JOB_PROCESSOR_SECRET`).
@@ -155,24 +147,24 @@ System prompt enhancement di-split: persona (editable via DB) + shape JSON immut
 Auth: `Bearer $JOB_PROCESSOR_SECRET` (sama seperti `/api/admin/*`).
 
 ```bash
-# lihat versi aktif + history
+# lihat versi aktif + history (prod host)
 curl -s -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
-  "https://albot-dev.vercel.app/api/admin/prompt-configs?key=enhancement_system_persona" | jq
+  "https://albot-be.alamaby.com/api/admin/prompt-configs?key=enhancement_system_persona" | jq
 curl -s -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
-  "https://albot-dev.vercel.app/api/admin/prompt-configs?key=enhancement_system_persona&audit=true&limit=20" | jq
+  "https://albot-be.alamaby.com/api/admin/prompt-configs?key=enhancement_system_persona&audit=true&limit=20" | jq
 
 # buat versi baru (auto-activate, body 1..8000 char)
 curl -s -X POST -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" -H "Content-Type: application/json" \
   -d '{"key":"enhancement_system_persona","body":"You are a professional prompt engineer...\nRewrite the user'\''s prompt into a detailed, high-quality image generation prompt. (edit di sini)","actor":"admin@example.com"}' \
-  https://albot-dev.vercel.app/api/admin/prompt-configs | jq
+  https://albot-be.alamaby.com/api/admin/prompt-configs | jq
 
 # rollback ke versi lama
 curl -s -X POST -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" -H "Content-Type: application/json" \
   -d '{"key":"enhancement_system_persona","version":1,"actor":"admin@example.com"}' \
-  https://albot-dev.vercel.app/api/admin/prompt-configs | jq
+  https://albot-be.alamaby.com/api/admin/prompt-configs | jq
 ```
 
-Efek live ≤60s (cache). Untuk prod ganti host ke `https://albot-be.alamaby.com`.
+Efek live ≤60s (cache).
 
 ### Update via SQL langsung (alternatif)
 
@@ -189,22 +181,7 @@ select get_active_prompt_config('enhancement_system_persona');
 
 Cukup `upsert_prompt_config('nama_key_baru', 'body...')` — code yang memakai `PromptConfigRepository.getActivePersona('nama_key_baru')` akan otomatis strict-load key tersebut.
 
-## Telegram Webhook
-
-Dev bot (`Albot Dev`) harus menunjuk ke `https://albot-dev.vercel.app/api/telegram/webhook`. Setelah `vercel` (preview) yang menggeser deployment, alias bisa tertinggal di deployment lama — update manual:
-
-```bash
-# cek webhook saat ini (jangan paste nilai token, pakai env)
-node scripts/set-telegram-webhook.mjs get "$TELEGRAM_BOT_TOKEN"
-
-# set ulang ke alias dev (development, tanpa --allow-prod)
-node scripts/set-telegram-webhook.mjs set "$TELEGRAM_BOT_TOKEN" https://albot-dev.vercel.app/api/telegram/webhook "$TELEGRAM_WEBHOOK_SECRET"
-
-# jika albot-dev.vercel.app masih menunjuk deployment lama, pindahkan alias ke preview terbaru
-vercel alias set https://<preview-deployment>.vercel.app albot-dev.vercel.app
-vercel alias ls | grep albot-dev
-curl -s https://albot-dev.vercel.app/api/health | jq  # harus {"environment":"development"}
-```
+## Telegram Webhook (production only — bot dev dihapus)
 
 Production (`@albot_ai_bot` → `https://albot-be.alamaby.com`):
 
@@ -216,7 +193,7 @@ APP_ENV=production node scripts/set-telegram-webhook.mjs set "$TELEGRAM_BOT_TOKE
 
 - JANGAN pernah `echo`, `cat`, atau paste `TELEGRAM_BOT_TOKEN` / `SUPABASE_SECRET_KEY` / `sb_secret_*` ke chat, log, atau issue. Script `set-telegram-webhook.mjs` sengaja tidak pernah mencetak token.
 - Cek env yang ada tanpa nilai: `node -e "console.log('TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? 'set' : 'unset')"`
-- Jika token terlanjur bocor, segera rotasi: @BotFather → `/revoke` → update `.env` + Vercel env (Preview & Production) `TELEGRAM_BOT_TOKEN` + GitHub Secrets + set ulang webhook seperti di atas, lalu `vercel --yes && vercel alias set ...` + `vercel --prod`.
+- Jika token terlanjur bocor, segera rotasi: @BotFather → `/revoke` → update `.env` + Vercel Production env `TELEGRAM_BOT_TOKEN` + GitHub Environment `production` + set ulang webhook prod seperti di atas, lalu redeploy prod.
 
 ## Docs
 

@@ -1,21 +1,21 @@
 # Manual Deploy via Vercel CLI
 
-Per keputusan 2026-08-31: workflow `deploy-development.yml` di-disable
-(rename ke `.yml.disabled`, GitHub Actions abaikan non-`.yml`). Deploy ke
-Vercel dilakukan **manual** via Vercel CLI dari workstation. Skema DB tetap
-otomatis via `migrate-development` CI setiap push ke main.
+Per `plans/2026-09-02-bot-dev-removal-and-auto-prod-plan.md` (Opsi C + T7a): bot development
+dihapus, Preview `albot-dev.vercel.app` + workflow `deploy-development.yml` + `recovery-development.yml`
+dihapus. Pipeline prod kini otomatis via CI: `push main → migrate-production (auto) → deploy-production (auto)`.
+Dokumen ini dipertahankan untuk deploy manual darurat; untuk alur normal, lihat `README.md` Production Deployment.
 
-## Topologi
+## Topologi (production only — bot dev dihapus)
 
-| Komponen       | Nilai                                                              |
-| -------------- | ------------------------------------------------------------------ |
-| Vercel dev     | `https://albot-dev.vercel.app` (alias stabil, project dev)         |
-| Vercel prod    | `https://albot-be.alamaby.com` (project prod)                      |
-| Vercel dev ID  | `prj_joLciwdA37o6er3DKRSkiWlOhgJs`                                 |
-| Vercel team ID | `team_7caBsxNQrtdtkzQGbPBAFYKe`                                    |
-| Supabase dev   | `ceqcitzbosqzxpbtlpfn` (auto-migrate via CI `migrate-development`) |
-| Supabase prod  | `pcexxtckvwmiquseznaz` (manual migrate via `migrate-production`)   |
-| Bot            | `@albot_ai_bot`                                                    |
+| Komponen       | Nilai                                                                         |
+| -------------- | ----------------------------------------------------------------------------- |
+| Vercel prod    | `https://albot-be.alamaby.com` (project prod, T7a `deploy-production.yml`)    |
+| Vercel team ID | `team_7caBsxNQrtdtkzQGbPBAFYKe`                                               |
+| Supabase dev   | `ceqcitzbosqzxpbtlpfn` (staging migration-only, `migrate-development` retain) |
+| Supabase prod  | `pcexxtckvwmiquseznaz` (auto-migrate via CI `migrate-production` Opsi C)      |
+| Bot            | `@albot_ai_bot` (production only)                                             |
+
+> Vercel Preview / `albot-dev.vercel.app` dihapus (T7a). Vercel Git Integration dimatikan — deploy prod hanya via `deploy-production.yml` (`workflow_run` setelah `migrate-production` success) agar urutan `schema before code` terjamin.
 
 ## Prerequisites (per workstation)
 
@@ -31,8 +31,7 @@ otomatis via `migrate-development` CI setiap push ke main.
 # dari root repo, branch main
 npx vercel@47 link --yes
 # Pilih scope: team_7caBsxNQrtdtkzQGbPBAFYKe (alamby's projects)
-# Pilih project: prj_joLciwdA37o6er3DKRSkiWlOhgJs (albot-dev) untuk dev
-#                 atau project prod untuk prod
+# Pilih project prod (bukan albot-dev — Preview dihapus)
 # Hasil: .vercel/project.json (gitignored) terisi projectId + orgId
 ```
 
@@ -40,28 +39,26 @@ npx vercel@47 link --yes
 
 ### Env vars
 
-Env vars **sudah di Vercel dashboard** (per environment: Development / Preview / Production). Untuk inspeksi:
+Env vars ada di Vercel dashboard — Production only (Preview dihapus). Untuk inspeksi:
 
 ```bash
-# Pull env ke .env.local untuk verifikasi (JANGAN commit)
-npx vercel@47 env pull .env.local --environment=development
-# atau production
+# Pull env prod ke .env.local untuk verifikasi (JANGAN commit)
 npx vercel@47 env pull .env.local --environment=production
 ```
 
 Env utama yang harus ada (lihat `docs/environment-variables.md` untuk lengkap):
 
 - `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (rename dari SERVICE_ROLE 28 Ags `e54550f`)
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET`
-- `APP_ENV` (development / preview / production)
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `JOB_PROCESSOR_SECRET` (prod only)
+- `APP_ENV` (production)
 - `PROVIDER_APP_URL`, `PROVIDER_APP_NAME` (28 Ags; untuk attribution OpenRouter)
 - `PROVIDER_KEY_ENCRYPTION_KEY` (untuk decrypt `provider_keys` di runtime)
 
 ## Pre-deploy Checklist
 
-1. **Schema sinkron**: pastikan workflow `migrate-development` di GitHub Actions
+1. **Schema sinkron**: pastikan workflow `migrate-production` di GitHub Actions
    hijau untuk HEAD terbaru. Cek:
-   `https://github.com/alamaby/albot/actions/workflows/migrate-development.yml`
+   `https://github.com/alamaby/albot/actions/workflows/migrate-production.yml`
 2. **Local gate** (opsional, kalau ada perubahan kode):
    ```bash
    npm ci
@@ -78,23 +75,11 @@ Env utama yang harus ada (lihat `docs/environment-variables.md` untuk lengkap):
 
 ## Deploy
 
-### Preview (alias `albot-dev.vercel.app`)
+### Production (`albot-be.alamaby.com`) — otomatis via CI (normal)
 
-```bash
-npx vercel@47 deploy --yes
-# atau shorthand:
-npx vercel@47 --yes
-# Output: URL preview baru + auto-set alias albot-dev (jika dikonfigurasi di project)
-```
+Push ke `main` otomatis: `migrate-production` → `deploy-production`. Tidak perlu manual.
 
-Vercel akan auto-generate URL preview acak (`<branch>-<hash>-<team>.vercel.app`).
-Untuk point `albot-dev.vercel.app` ke deployment ini:
-
-```bash
-npx vercel@47 alias set <deployment-url> albot-dev.vercel.app
-```
-
-### Production (`albot-be.alamaby.com`)
+### Production manual darurat
 
 ```bash
 npx vercel@47 deploy --prod --yes
@@ -105,10 +90,6 @@ npx vercel@47 --prod --yes
 ## Verify
 
 ```bash
-# Health dev
-curl -s https://albot-dev.vercel.app/api/health | jq
-# {"status":"ok","environment":"production","database":"reachable"}
-
 # Health prod
 curl -s https://albot-be.alamaby.com/api/health | jq
 
@@ -138,8 +119,7 @@ Atau via dashboard: Project → Deployments → klik deployment sebelumnya →
 
 ## Schema migration manual (prod)
 
-Untuk production, schema migration **tidak otomatis** (CI `migrate-production`
-perlu attestation-gated). Cara manual:
+Untuk production, schema migration **otomatis** via `migrate-production` (Opsi C, hapus gate `development_run_id`). Cara manual darurat:
 
 ```bash
 # Link Supabase prod (sekali)
@@ -205,10 +185,7 @@ Next.js 16 masih 0.0.1-beta untuk adapter. Cek changelog:
 
 ## Catatan
 
-- **Vercel Git integration (prod)** masih auto-deploy dari main (di luar workflow
-  `deploy-development.yml` ini). Jadi prod sebenernya deploy via Git integration
-  - manual via CLI; dua jalur. Gunakan CLI untuk kontrol lebih (rollout
-    selektif, alias manual, dst).
+- **Deploy prod kini via `deploy-production.yml` (T7a, `workflow_run` setelah `migrate-production`)** — Vercel Git Integration dimatikan agar tidak race; manual `vercel --prod` tetap tersedia darurat.
 - **Vercel CLI 47 + Next.js 16** kadang tidak auto-inject adapter (auto-inject
   hanya di Vercel platform Git integration build). Konfigurasi `adapterPath`
   di `next.config.ts` (commit `f150b01`) memastikan build bekerja baik di CLI

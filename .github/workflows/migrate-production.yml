@@ -1,16 +1,9 @@
 name: migrate-production
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      confirm_project_ref:
-        description: "Expected production project ref (must match the repository-reviewed ref)"
-        type: string
-        required: true
-      development_run_id:
-        description: "GitHub Actions run ID of a successful migrate-development run on this exact commit"
-        type: string
-        required: true
 
 concurrency:
   group: migrate-production
@@ -18,13 +11,11 @@ concurrency:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   migrate-production:
     name: Apply migrations to hosted production
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     environment: production
     timeout-minutes: 30
     steps:
@@ -37,48 +28,16 @@ jobs:
       - name: Verify production target (independent repository-reviewed ref)
         env:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          CONFIRM_REF: ${{ inputs.confirm_project_ref }}
         run: |
           # Non-secret, repository-reviewed production project ref (documented in
           # docs/environment-variables.md). Independent of the secret value so a
           # misconfigured secret cannot silently retarget the workflow.
           EXPECTED_REF="pcexxtckvwmiquseznaz"
           echo "configured=$SUPABASE_PROJECT_REF expected=$EXPECTED_REF"
-          if [ "$SUPABASE_PROJECT_REF" != "$EXPECTED_REF" ] || [ "$CONFIRM_REF" != "$EXPECTED_REF" ]; then
+          if [ "$SUPABASE_PROJECT_REF" != "$EXPECTED_REF" ]; then
             echo "::error::production project ref does not match repository-reviewed ref"
             exit 1
           fi
-
-      - name: Verify development attestation for this exact commit
-        id: attestation
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RUN_ID="${{ inputs.development_run_id }}"
-          echo "checking development run $RUN_ID"
-          RESP="$(curl -s -f -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID")" || {
-              echo "::error::cannot query development run $RUN_ID"
-              exit 1
-          }
-          NAME="$(echo "$RESP" | jq -r '.name')"
-          CONCLUSION="$(echo "$RESP" | jq -r '.conclusion')"
-          HEAD_SHA="$(echo "$RESP" | jq -r '.head_sha')"
-          echo "name=$NAME conclusion=$CONCLUSION head_sha=$HEAD_SHA"
-          if [ "$NAME" != "migrate-development" ]; then
-            echo "::error::run $RUN_ID is not a migrate-development run"
-            exit 1
-          fi
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "::error::development run $RUN_ID did not succeed"
-            exit 1
-          fi
-          if [ "$HEAD_SHA" != "${{ github.sha }}" ]; then
-            echo "::error::development run $RUN_ID did not run on this commit"
-            exit 1
-          fi
-          echo "verified=true" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -106,8 +65,7 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: npx --no-install supabase migration list
 
-      - name: Apply pending migrations (attestation required)
-        if: steps.attestation.outputs.verified == 'true'
+      - name: Apply pending migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -124,6 +82,11 @@ jobs:
             echo "::error::pending migrations remain after production push"
             exit 1
           fi
+
+      - name: Fail on generated type drift (no tracked-file mutation)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: npm run db:types:check
 
       - name: Upload sanitized evidence artifact
         if: always()

@@ -11,8 +11,7 @@ adalah metadata teks (prompt, job, event, audit).
 - **Sasaran:** hanya metadata milik sesi terminal (`completed`, `cancelled`,
   `expired`) yang `created_at`-nya lebih tua dari window.
 - **Kapan:** setiap run recovery (`/api/recovery/run`, dijadwalkan tiap 20 menit
-  oleh workflow `recovery-development.yml` (dev) dan `recovery-production.yml`
-  (prod)), batch maksimal 1000 baris per tabel
+  oleh workflow `recovery-production.yml` prod-only — `recovery-development.yml` dihapus bersama bot dev), batch maksimal 1000 baris per tabel
   per run — ringan dan idempotent.
 - **Tidak pernah dihapus:**
   - `bot_users` (allowlist permanen) — hanya `last_seen_at` yang boleh di-reset.

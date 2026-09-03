@@ -1,0 +1,88 @@
+name: deploy-production
+
+# Auto-deploy main to Vercel Production after migrate-production succeeds.
+# Guarantees schema-before-code (unlike Vercel Git Integration which races).
+# Disable Vercel Git Integration auto-deploy (Project Settings → Git) when this is active.
+
+on:
+  workflow_run:
+    workflows: ["migrate-production"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-production:
+    name: Deploy Vercel production
+    runs-on: ubuntu-latest
+    # Only run if the triggering migrate-production succeeded (workflow_run) or manual dispatch.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Vercel CLI (pinned)
+        run: npm install --no-save vercel@47.0.2
+
+      - name: Pull Vercel project settings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # Org/project IDs are non-secret identifiers (they also live in the
+          # local .vercel/repo.json). Hardcoding them avoids a mismatch with
+          # the environment secrets.
+          VERCEL_ORG_ID: team_7caBsxNQrtdtkzQGbPBAFYKe
+          VERCEL_PROJECT_ID: prj_joLciwdA37o6er3DKRSkiWlOhgJs
+        run: |
+          rm -rf .vercel
+          mkdir -p .vercel
+          printf '{"projectId":"%s","orgId":"%s"}\n' \
+            "$VERCEL_PROJECT_ID" "$VERCEL_ORG_ID" > .vercel/project.json
+          CODE="$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")"
+          echo "vercel api projects probe: HTTP $CODE"
+          npx vercel pull --yes --scope "$VERCEL_ORG_ID" \
+            --environment=production --token "$VERCEL_TOKEN"
+
+      - name: Build (production target)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_7caBsxNQrtdtkzQGbPBAFYKe
+        run: npx vercel build --yes --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+      - name: Deploy to Vercel (production)
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_7caBsxNQrtdtkzQGbPBAFYKe
+        run: |
+          URL="$(npx vercel deploy --prebuilt --yes --scope "$VERCEL_ORG_ID" \
+            --token "$VERCEL_TOKEN" --prod)"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "deployed: $URL"
+
+      - name: Health check
+        run: |
+          sleep 10
+          STATUS="$(curl -s https://albot-be.alamaby.com/api/health || true)"
+          echo "health: $STATUS"
+          if ! echo "$STATUS" | grep -q '"status":"ok"'; then
+            echo "::warning::health not ok yet (may need warm-up): $STATUS"
+          fi

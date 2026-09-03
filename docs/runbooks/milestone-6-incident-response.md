@@ -6,7 +6,7 @@ provider dan tidak membocorkan secret.
 
 ## Prasyarat
 
-- `JOB_PROCESSOR_SECRET` (environment development/Preview).
+- `JOB_PROCESSOR_SECRET` (environment production).
 - Endpoint internal:
   - `POST /api/recovery/run` — sweep recovery (lease, dead job, session, purge).
   - `GET /api/admin/diagnostics` — snapshot read-only status operasional.
@@ -16,7 +16,7 @@ Contoh panggilan:
 
 ```bash
 curl -H "Authorization: Bearer $JOB_PROCESSOR_SECRET" \
-  https://albot-dev.vercel.app/api/admin/diagnostics
+  https://albot-be.alamaby.com/api/admin/diagnostics
 ```
 
 ## 1. Provider key invalid (401/403)
@@ -48,8 +48,7 @@ atau `provider_authorization_failed`; `provider_keys.failure_count` naik.
 
 1. `node scripts/set-telegram-webhook.mjs get <TOKEN>` — periksa URL, secret,
    `allowed_updates`, `last_error`.
-2. Pastikan URL webhook adalah alias stabil (`https://albot-dev.vercel.app/api/telegram/webhook`),
-   bukan URL deployment acak, dan Deployment Protection Preview dimatikan.
+2. Pastikan URL webhook adalah `https://albot-be.alamaby.com/api/telegram/webhook` (prod only, bot dev dihapus), bukan URL deployment acak.
 3. Jika URL salah: `set` ulang dengan secret yang sama (secret harus cocok
    dengan `TELEGRAM_WEBHOOK_SECRET` di Vercel).
 4. Cek log Vercel: `webhook.malformed_json` / `webhook.invalid_update` /
@@ -84,7 +83,7 @@ atau HTTP 500 dari provider upstream.
    menerima).
 3. Trigger manual: `curl -X POST -H "Authorization: Bearer $JOB_PROCESSOR_SECRET"
 -H "Content-Type: application/json" -d '{}'
-https://albot-dev.vercel.app/api/jobs/process`. Processor claim 1 job per
+https://albot-be.alamaby.com/api/jobs/process`. Processor claim 1 job per
    call; backlog habis dalam ±N invocation.
 4. Jika dispatcher masih swallow (versi lama ter-deploy), deploy ulang commit
    terbaru dan tunggu sampai ada log `webhook.dispatcher_returned_error` di
@@ -100,7 +99,7 @@ tinggi dan tidak turun.
 1. Cek `available_at`: job `retry_scheduled` dengan `available_at` di masa depan
    adalah normal (backoff + jitter). Diagnostics `leaseExpired` > 0 berarti ada
    worker crash.
-2. Jalankan recovery manual: `POST /api/recovery/run` (atau tunggu cron 20 menit — `recovery-development.yml` di dev, `recovery-production.yml` di prod).
+2. Jalankan recovery manual: `POST /api/recovery/run` (atau tunggu cron 20 menit — `recovery-production.yml` prod-only, `recovery-development.yml` dihapus).
 3. Jika job `failed` dengan `last_error_code = dead_job`:
    - `attempt_count >= max_attempts` → ekspektasi; sesi sudah terminal
      (`generation_failed`/`enhancement_failed`).
@@ -140,15 +139,13 @@ user tidak bisa mulai sesi baru (karena index one-active).
 
 ## 6. Recovery cron gagal (workflow GitHub Actions)
 
-**Gejala:** workflow `recovery-development` merah; job summary menampilkan
+**Gejala:** workflow `recovery-production` merah; job summary menampilkan
 HTTP non-200 atau curl error.
 
 **Langkah:**
 
-1. Cek URL target: alias stabil Preview; pastikan deployment terbaru sudah
-   ter-deploy ke alias itu.
-2. Pastikan `JOB_PROCESSOR_SECRET` di GitHub Environment `development` sama
-   dengan yang di Vercel Preview.
+1. Cek URL target: `https://albot-be.alamaby.com/api/recovery/run`; pastikan deployment terbaru sudah ter-deploy.
+2. Pastikan `JOB_PROCESSOR_SECRET` di GitHub Environment `recovery-production` sama dengan yang di Vercel Production.
 3. Cek Vercel function logs: `recovery.failed` berisi detail.
 4. Run manual: `workflow_dispatch` dengan URL yang sama.
 

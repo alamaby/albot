@@ -8,13 +8,21 @@ Post-M7 iterasi: Command Expansion (**CLOSED 2026-08-26**), content-policy refus
 
 ## In Progress
 
-**Pivot manual deploy** (2026-08-31) — plan: `plans/2026-08-31-nexjs16-vercel-adapter-and-manual-deploy-pivot.md`; memory: `.memory/2026-08-31/153144-manual-deploy-pivot.md`; runbook: `docs/runbooks/manual-deploy.md`
+**Hapus bot dev + auto prod chain (T7a)** (2026-09-02) — plan: `plans/2026-09-02-bot-dev-removal-and-auto-prod-plan.md`; runbook: `docs/runbooks/manual-deploy.md`
+
+- [x] Hapus workflows: `recovery-development.yml` + `deploy-development.yml.disabled` + snapshot `.env.preview`/`.env.vercel*` preview (commit ini)
+- [x] Refactor `migrate-production.yml` Opsi C: auto on `push main`, hapus `development_run_id` gate + Verify attestation, keep `EXPECTED_REF=pcexxtckvwmiquseznaz`, tambah `db:types:check`
+- [x] Baru `deploy-production.yml` T7a: `workflow_run` setelah `migrate-production` success → `vercel build` + `vercel deploy --prod` (disable Vercel Git Integration untuk schema-before-code)
+- [x] Docs: `docs/architecture.md`, `README.md`, `docs/environment-variables.md`, `.env.example`, `docs/retention.md`, `docs/runbooks/milestone-6-incident-response.md`
+- [ ] **USER ACTION**: hapus `TELEGRAM_*`/`JOB_*` dev dari GitHub Environment `development`, delete env `recovery-development`, hapus Preview env vars + `albot-dev.vercel.app` alias dari Vercel, `BotFather /deletebot @albot_dev`, disable Vercel Git Integration auto-deploy
+- [ ] Verifikasi push main → `migrate-production` auto → `deploy-production` auto → health prod `status:ok`
+- [ ] Observasi prod build log (deploy-production chain) — pastikan tidak race schema
+
+**Pivot manual deploy** (2026-08-31) — superseded oleh T7a (CI deploy-production menggantikan manual CLI)
 
 - [x] Fix Next.js 16 build: `@next-community/adapter-vercel@0.0.1-beta.29` + `@vercel/build-utils@13.6.2` + `@vercel/routing-utils@5.2.1` di `dependencies`; `adapterPath` di `next.config.ts` (`bb4c885`, `f150b01`)
-- [x] Disable `deploy-development.yml` CI workflow — rename ke `.yml.disabled` (`43b32cb`)
-- [x] Tulis runbook `docs/runbooks/manual-deploy.md` (`a5dcbb0`)
-- [ ] **USER ACTION**: verifikasi manual deploy dengan `npx vercel@47 deploy --yes` di lokal (Linux/Mac/WSL) — confirm health `status:ok` + smoke E2E
-- [ ] Observasi prod build log (Vercel Git integration) — pastikan adapter config tidak konflik
+- [x] Disable `deploy-development.yml` — dihapus bersama bot dev (rinci di atas)
+- [x] Tulis runbook `docs/runbooks/manual-deploy.md` — diperbarui untuk T7a (sekarang CI auto, manual darurat saja)
 
 ### Closed thread: Repo analysis remediation 2026-08-30 (superseded by manual deploy pivot)
 

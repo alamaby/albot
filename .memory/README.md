@@ -1,13 +1,13 @@
 # Project Memory
 
-Last updated: 2026-08-31 15:35 (pivot manual deploy: Next.js 16 Vercel adapter + disable deploy-development CI; runbook `docs/runbooks/manual-deploy.md`; commits bb4c885..a5dcbb0)
+Last updated: 2026-09-03 13:56 (Aichixia image provider + reasoning model picker diimplementasi; detail di `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md`)
 
 ## Current State
 
 - Repository: `albot` (Next.js 16.3.0, TypeScript strict, vitest)
 - Status: semua milestone M0–M7 CLOSED; pasca-M7 berjalan iterasi fitur/fix: command expansion (26 Ags), content-policy refusal fix + regenerate-after-failure (27 Ags), Bynara providers + timeout clamp + `SUPABASE_SECRET_KEY` rename (28 Ags), OpenRouter free models + `round_robin` + `prompt_audit` audit 180d + CI auto-pipeline (29–30 Ags). Backfill memory untuk 27–30 Ags dilakukan 30 Ags.
-- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (39 migrations di repo, dev ikut migrate-development otomatis), prod `pcexxtckvwmiquseznaz` (**39 migrations — migrate-production run `33345671587` sukses 2026-08-31 di `0a83769`**; selaras dengan kode prod yang auto-deploy)
-- Production topology: Vercel `albot-be.alamaby.com`, webhook `@albot_ai_bot`, allowlist `83540732`, provider: Cloudflare gpt-oss-120b (0) → Pollinations gpt-oss (150) → OpenRouter free ×5 (200–230, round_robin); image: Bynara a20f/a21f/nbn (picker; grok & sdxl dihapus dari picker 28 Ags), Pollinations flux (151). Kunci provider terenkripsi AES-256-GCM via `upsert-provider-key.mjs`.
+- Supabase projects: dev `ceqcitzbosqzxpbtlpfn` (**46 migrations** — 43 repo lama + 3 Aichixia/reasoning-pref 03 Sep; dev mengikuti versi file 1:1, `migration list` no pending), prod `pcexxtckvwmiquseznaz` (**39 migrations — migrate-production run `33345671587` sukses 2026-08-31 di `0a83769`**; prod BELUM dapat migrasi 43–46, harus migrate-production sebelum push fitur berschema)
+- Production topology: Vercel `albot-be.alamaby.com`, webhook `@albot_ai_bot`, allowlist `83540732`, provider reasoning: Cloudflare gpt-oss-120b (0) → Pollinations gpt-oss (150) → OpenRouter free ×5 (200–230, round_robin); image: Pixazo 0/5 → **Aichixia flux2/lucid/phoenix/gemini (110–113, baru 03 Sep — key belum di-provision ke dev)** → Pollinations flux (151) → Bynara 160-180 → picker 200-203. Picker Telegram: 8 model image + 8 model reasoning (per-sesi + default per-user). Kunci provider terenkripsi AES-256-GCM via `upsert-provider-key.mjs`.
 - **Prod auto-deploy dari main via Vercel Git integration** (terbukti dari E2E prod 27 Ags tanpa deploy manual) — push main = kode prod baru; DB prod harus selalu mendahului.
 - Health endpoint: readiness probe — HTTP 200 `status:ok` saat DB reachable, 503 `status:degraded` sebaliknya, `Cache-Control: no-store`
 - CI: `validate` (PR+push), `migrate-development` + `deploy-development` (auto on push main — pipeline baru 29 Ags), `migrate-production` (manual attestation-gated), `recovery-*` cron */20 (dev & prod hijau; deploy-development menunggu user ganti `VERCEL_TOKEN` — lihat Open Blockers)
@@ -22,11 +22,13 @@ Last updated: 2026-08-31 15:35 (pivot manual deploy: Next.js 16 Vercel adapter +
 - Retry bounded: classify error, backoff full-jitter (base 60s, cap 8m, max 4 attempts); `increment_provider_key_failure` cooldown eksponensial cap 60m
 - RLS: enable+force semua tabel, nol policy, hanya `service_role`; semua RPC security definer + fixed search_path + EXECUTE service_role only
 - CI deploy-development: link Vercel via penulisan `.vercel/project.json` langsung dari secrets (CLI 47 drop `--project-id`) — fix `361d10e`
-- Migration: Database as Code, forward-fix only, `EXPECTED_MIGRATIONS` wajib sinkron (39 entri), immutability gate di CI
+- Migration: Database as Code, forward-fix only, `EXPECTED_MIGRATIONS` wajib sinkron (**46 entri** sejak 03 Sep), immutability gate di CI. **Pelajaran MCP (03 Sep)**: `apply_migration` MCP merekam versi UTC apply-time (bukan timestamp file) → file migration di-rename agar nama=versi dev + isi idempotent; jangan andalkan MCP untuk versioning, pakai `supabase db push` via CLI/workflow.
 - Node runtime: `engines.node: "22.x"` (pinned `08ad863`); `actions/setup-node@22` di validate + migrate workflows; **Vercel dashboard Node.js Version tetap 22.x** (konsistensi dengan prod Git-integration builds); deploy ke Vercel via **manual CLI** (`npx vercel@47`, runbook `docs/runbooks/manual-deploy.md`), bukan via `deploy-development.yml` (disabled `43b32cb`)
 - Next.js 16 deployment: `adapterPath: "@next-community/adapter-vercel"` di `next.config.ts` (`f150b01`); adapter + build-utils + routing-utils di `dependencies` (bukan devDeps — `vercel build` strip devDeps)
 
 ## Open Blockers
+
+- **Pooled image provider (ai.pooled.dev) — PARKED 2026-09-03, menunggu pihak pooled**: endpoint `/v1/images/generations` 404 (route tidak ada), `/v1/models` hanya LLM chat. Key `POOLED_API_KEY` valid tapi chat-only di `.env` lokal. Blueprint reaktivasi ada di `2026-09-03/093100-pooled-image-provider-cancelled.md`.
 
 - **deploy-development**: **CLOSED via pivot 2026-08-31**. Workflow `deploy-development.yml` di-rename ke `.yml.disabled` (commit `43b32cb`). Deploy manual via Vercel CLI (`npx vercel@47 deploy --yes`); runbook `docs/runbooks/manual-deploy.md`. Root cause build trace failure: Next.js 16 pakai adapter API baru; fixed via `@next-community/adapter-vercel@0.0.1-beta.29` + `adapterPath` di `next.config.ts` (`bb4c885` + `f150b01`).
 - ~~recovery-production 500~~ **CLOSED 2026-08-31 01:00 UTC**: migrate-production run `33345671587` sukses (prod 26→39 migrations); cron run `33346233290` → success.
@@ -36,6 +38,8 @@ Last updated: 2026-08-31 15:35 (pivot manual deploy: Next.js 16 Vercel adapter +
 
 ## Recent Entries
 
+- `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md` — Aichixia image (4 model, priority 110–113) + picker reasoning enhance/revise (8 model, per-sesi+default); lesson MCP versioning; unit 329 + contract 107 + hosted 142/142; key belum di-provision
+- `2026-09-03/093100-pooled-image-provider-cancelled.md` — Pooled ai.pooled.dev dibatalkan: `/v1/images/generations` 404, `/v1/models` hanya LLM chat; key valid (chat-only); rantai failover image tidak berubah
 - `2026-08-31/153144-manual-deploy-pivot.md` — Next.js 16 Vercel adapter + disable deploy-development CI; manual deploy via `vercel` CLI
 - `2026-08-31/105212-fix-deploy-development-node-22.md` — Repo guardrail `engines.node: "22.x"` push `6a961ea`; superseded oleh pivot manual deploy
 - `2026-08-30/213000-repo-analysis-remediation.md` — Remediasi F1–F8 selesai (selector per-config strategy, rate-limit /enhance-prompt, clamp 55s, env attribution, cast, docs, hygiene); unit 297 + hosted 126/126 lokal; CI thread: project.json + ID hardcode, hosted flaky 1× (rerun)
@@ -55,13 +59,11 @@ Last updated: 2026-08-31 15:35 (pivot manual deploy: Next.js 16 Vercel adapter +
 - `2026-08-21/083000-pixazo-pixelforge-plan.md` — Pixazo PixelForge v2 plan (type/size/seed, hybrid selection, user_image_preferences).
 - `2026-08-20/163000-migration-cleanup-and-status-message.md` — M5/M6 follow-up: cleanup mock configs, status message persisted, guardrail check-migrations.
 - `2026-08-13/140000-milestone-4-implementation.md` — M4 CLOSED: enhancement/confirmation/revision E2E verified.
-- `2026-08-11/100000-milestone-3-pr1-code-cleanup.md` — M3 PR#1 cleanup + runbook bootstrap.
-- `2026-08-10/161500-milestone-3-implementation.md` — M3 webhook intake + durable jobs (218 tests).
-- `2026-08-10/141000-milestone-2-review-followup.md` — M2 review follow-up (http.ts, https-only, fail-fast).
-- `2026-08-10/111200-milestone-2-closure.md` — M2 closure.
 
 ## Related Plans
 
+- `plans/2026-09-03-aichixia-image-provider-and-reasoning-picker-plan.md` — Aichixia image + reasoning picker (implementasi selesai, open items: provisioning key + commit)
+- `plans/2026-09-02-bot-dev-removal-and-auto-prod-plan.md` — T7a: hapus bot dev, auto prod chain (T8/T9 open)
 - `plans/2026-08-31-fix-deploy-development-node-22.md` — **CLOSED** (superseded): engines.node 22.x pinned (`08ad863`), tapi tidak cukup untuk build trace — butuh adapter
 - `plans/2026-08-31-nexjs16-vercel-adapter-and-manual-deploy-pivot.md` — **CLOSED**: Next.js 16 adapter + disable CI + manual deploy runbook
 - `plans/2026-08-30-repo-analysis-remediation-plan.md` — **CLOSED** via manual deploy pivot (Phase 4 final user action tidak lagi applicable)
