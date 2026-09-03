@@ -677,4 +677,56 @@ describe("CallbackStateMachine - reasoning picker", () => {
     expect(outcome.status).toBe("rejected_state");
     expect(acks.some((a) => a.text?.includes("tidak valid"))).toBe(true);
   });
+
+  it("allows model_picker and reasoning_picker from generating; reasoning_picked saves without cancel", async () => {
+    withEnv();
+    const setPreferredReasoningProvider = vi.fn(async () => undefined);
+    const providerConfigRepository = {
+      listActive: vi.fn(async () => [
+        { id: "cfg-by", adapterType: "bynara", priority: 160, isActive: true },
+      ]),
+      getById: vi.fn(async (id: string) => ({ id, adapterType: "bynara" })),
+    } as unknown as CallbackStateMachineDeps["providerConfigRepository"];
+
+    const { machine, acks } = buildMachine({
+      sessionRepository: {
+        setPreferredImageProvider: vi.fn(async () => undefined),
+        setPreferredReasoningProvider,
+      } as unknown as CallbackStateMachineDeps["sessionRepository"],
+      providerConfigRepository,
+    });
+
+    const picker = await machine.handle({
+      action: "model_picker",
+      sessionId: "session-1",
+      session: session({ status: "generating" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-gen-mp-1",
+      origin: "https://test.origin",
+    });
+    expect(picker.status).toBe("accepted");
+
+    const rpicker = await machine.handle({
+      action: "reasoning_picker",
+      sessionId: "session-1",
+      session: session({ status: "generating" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-gen-rp-1",
+      origin: "https://test.origin",
+    });
+    expect(rpicker.status).toBe("accepted");
+
+    const picked = await machine.handle({
+      action: "reasoning_picked",
+      sessionId: "session-1",
+      session: session({ status: "generating" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-gen-rp-2",
+      origin: "https://test.origin",
+      rawData: "reasoning_picked:session-1:byn",
+    });
+    expect(picked.status).toBe("accepted");
+    expect(setPreferredReasoningProvider).toHaveBeenCalledWith("session-1", "cfg-by");
+    expect(acks.some((a) => a.text?.includes("untuk revise berikutnya"))).toBe(true);
+  });
 });

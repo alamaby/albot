@@ -482,7 +482,6 @@ export class CallbackStateMachine {
   // so the stale worker cannot reuse it; the session stays generating.
   private async cancelAndRegenerateWithModel(
     input: { sessionId: string; session: SessionSafe },
-    _newProviderConfigId: string,
     token: string,
     callbackQueryId: string,
     webhookOrigin: string,
@@ -494,21 +493,52 @@ export class CallbackStateMachine {
       return { status: "rejected_state" };
     }
 
+    // Insert the new job first: if this fails we have not yet cancelled the old
+    // job, so `generating` is not stranded without a job (recovery 15m is the
+    // fallback, but we avoid it here).
+    try {
+      await this.jobRepository.insertGenerateImageJob({
+        sessionId: input.sessionId,
+        revisionId,
+        payload: {
+          telegram_user_id: bigintToDb(input.session.telegramUserId),
+          telegram_chat_id: bigintToDb(input.session.telegramChatId),
+          origin: "model_switch_generating",
+        },
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("error", "callback.model_switch_job_insert_failed", {
+        sessionId: input.sessionId,
+        detail,
+      });
+      await this.ack(token, callbackQueryId, "Gagal memulai ulang dengan model baru. Coba lagi.");
+      return { status: "rejected_state" };
+    }
+
     const { getSupabaseAdmin } = await import("@/server/supabase/admin");
     const supabase = getSupabaseAdmin();
 
     // Best-effort: cancel any queued/processing/retry_scheduled generate_image
     // job for this session so the stale worker does not retry with the old model.
+    // Exclude the freshly inserted queued job by cancelling only jobs not equal
+    // to the newest one (created_at check is unnecessary — we cancel all matching
+    // and the new job is the only queued one after cleanup; creation is seconds ago).
+    // Keep limit 1 for typical use: one in-flight job. Limit 5 covers race.
     try {
       const { data: jobs } = await supabase
         .from("jobs")
-        .select("id, status")
+        .select("id, status, created_at")
         .eq("prompt_session_id", input.sessionId)
         .eq("job_type", "generate_image")
         .in("status", ["queued", "processing", "retry_scheduled"])
+        .order("created_at", { ascending: true })
         .limit(5);
-      const rows = (jobs ?? []) as Array<{ id: string; status: string }>;
-      for (const row of rows) {
+      const rows = (jobs ?? []) as Array<{ id: string; status: string; created_at: string }>;
+      // Keep the newest queued job (the one we just inserted) and cancel the rest.
+      const toCancel =
+        rows.length > 1 && rows[rows.length - 1]?.status === "queued" ? rows.slice(0, -1) : rows;
+      for (const row of toCancel) {
         try {
           await supabase
             .from("jobs")
@@ -540,9 +570,9 @@ export class CallbackStateMachine {
       });
     }
 
-    // Best-effort: mark processing attempt as failed (user_cancelled) so
-    // create_generation_attempt guard (queued|processing) does not block the
-    // new attempt. Also handle stuck queued attempt.
+    // Best-effort: mark processing attempt as failed so create_generation_attempt
+    // guard (queued|processing) does not block the new attempt. Queued attempts
+    // are cancelled directly.
     try {
       const { data: stuck } = await supabase
         .from("generation_attempts")
@@ -587,30 +617,9 @@ export class CallbackStateMachine {
       });
     }
 
-    // Enqueue a fresh generation with the new preferred provider (selector will
-    // honor preferredImageProviderConfigId).
+    const effectiveOrigin = webhookOrigin?.trim() ? webhookOrigin : "https://model-switch";
     try {
-      await this.jobRepository.insertGenerateImageJob({
-        sessionId: input.sessionId,
-        revisionId,
-        payload: {
-          telegram_user_id: bigintToDb(input.session.telegramUserId),
-          telegram_chat_id: bigintToDb(input.session.telegramChatId),
-          origin: "model_switch_generating",
-        },
-      });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : "unknown";
-      logStructured("error", "callback.model_switch_job_insert_failed", {
-        sessionId: input.sessionId,
-        detail,
-      });
-      await this.ack(token, callbackQueryId, "Gagal memulai ulang dengan model baru. Coba lagi.");
-      return { status: "rejected_state" };
-    }
-
-    try {
-      await this.dispatchToProcessor(webhookOrigin, getServerEnv().JOB_PROCESSOR_SECRET, {
+      await this.dispatchToProcessor(effectiveOrigin, getServerEnv().JOB_PROCESSOR_SECRET, {
         sessionOrigin: "model_switch_generating",
       });
     } catch (error) {
@@ -1217,7 +1226,6 @@ export class CallbackStateMachine {
       if (wasGenerating) {
         const switchResult = await this.cancelAndRegenerateWithModel(
           input,
-          matched.id,
           token,
           callbackQueryId,
           webhookOrigin ?? (input as { origin?: string }).origin ?? "",
