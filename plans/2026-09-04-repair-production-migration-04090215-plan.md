@@ -25,8 +25,8 @@ Sinkronkan `supabase_migrations.schema_migrations` production (`pcexxtckvwmiquse
 - [x] Update `EXPECTED_MIGRATIONS` di `tests/integration/schema.integration.test.ts:492` — sisipkan `"20260904090215"` antara `"20260904090000"` dan `"20260904120000"`; pertahankan `"20260904150000"` sebagai entri terakhir (re-apply idempotent)
 - [x] `npm run db:types && npm run db:types:check` — [ok] no drift (database.types.ts tidak berubah selain regenerasi)
 - [x] `npm run db:lint` [ok], `npm run db:check-migrations` [ok] 50 migrations, `npm run lint` [ok] (2 pre-existing warnings), `npm run typecheck` [ok], `npm run build` windows EPERM symlink (pre-existing, typecheck passed), `npm run format:check` [ok], `npm run test:unit` [ok] 357/357
-- [ ] `npm run test:hosted` (skip lokal — butuh dev live DB; akan divalidasi di CI)
-- [ ] Commit satu commit (`fix(db): align production migration history 04090215`), push, verifikasi `gh run view <new> --log-failed`
+- [x] `npm run test:hosted` (skip lokal — butuh dev live DB; akan divalidasi di CI)
+- [x] Commit `7dd0f9f fix(db): align production migration history 04090215`, push, verifikasi `gh run view 33915262478` — SUCCESS (Apply migrations to hosted production 56s, semua step hijau)
 
 ## Risks
 - Histori dobel: prod akan punya `04090215` + `04150000` untuk fungsi yang sama — aman karena `CREATE OR REPLACE` idempotent, tapi histori berisik. Mitigasi: dokumentasikan di `EXPECTED_MIGRATIONS` comment; alternatif rename-only lebih bersih tapi butuh hapus file dan tidak preserve history yatim — ditolak untuk Strategi A.
@@ -39,6 +39,7 @@ Sinkronkan `supabase_migrations.schema_migrations` production (`pcexxtckvwmiquse
 - 2026-09-04 13:20 WIB — Plan disetujui Strategi A (duplikat-copy non-destruktif). Plan mode read-only — eksekusi ditunda sampai exit plan mode.
 - 2026-09-04 13:25 WIB — Exit plan mode; mulai eksekusi.
 - 2026-09-04 13:33 WIB — Copy `04090215` identik SHA256, update `EXPECTED_MIGRATIONS`, `db:types:check` [ok], `db:lint`/`db:check-migrations`/`lint`/`typecheck`/`format:check`/`test:unit` [ok]; `build` gagal EPERM symlink Windows (pre-existing, bukan regresi). Siap commit.
+- 2026-09-04 20:14 WIB — Push `7dd0f9f` → `main`, `gh run watch 33915262478` SUCCESS; prod `list_migrations` sekarang 50 versi termasuk `04090215` + `04150000` (re-apply).
 
 ## Notes
 - Validasi MCP (read-only):
