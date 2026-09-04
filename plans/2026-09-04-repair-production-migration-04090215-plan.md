@@ -40,6 +40,7 @@ Sinkronkan `supabase_migrations.schema_migrations` production (`pcexxtckvwmiquse
 - 2026-09-04 13:25 WIB — Exit plan mode; mulai eksekusi.
 - 2026-09-04 13:33 WIB — Copy `04090215` identik SHA256, update `EXPECTED_MIGRATIONS`, `db:types:check` [ok], `db:lint`/`db:check-migrations`/`lint`/`typecheck`/`format:check`/`test:unit` [ok]; `build` gagal EPERM symlink Windows (pre-existing, bukan regresi). Siap commit.
 - 2026-09-04 20:14 WIB — Push `7dd0f9f` → `main`, `gh run watch 33915262478` SUCCESS; prod `list_migrations` sekarang 50 versi termasuk `04090215` + `04150000` (re-apply).
+- 2026-09-04 21:13 WIB — Manual deploy via `vercel --prod`: build Next.js 16.3.0 11 halaman sukses, deploy `https://albot-s2iuf1ayp-alam-aby-bashits-projects.vercel.app` alias ke `albot-be.alamaby.com`, health check `{"status":"ok","environment":"production","database":"reachable"}`.
 
 ## Notes
 - Validasi MCP (read-only):
