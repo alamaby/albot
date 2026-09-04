@@ -297,7 +297,6 @@ export function buildBotMessage(
     case "callback_complete_failed":
     case "callback_model_failed":
     case "callback_reasoning_failed":
-    case "retrying":
     case "session_busy":
     case "model_invalid":
     case "model_unavailable":
@@ -323,6 +322,8 @@ export function buildBotMessage(
     case "content_policy_declined":
       return withFailure(msg(kind), options?.failure);
     case "enhance_only_failed":
+      return withFailure(msg(kind), options?.failure);
+    case "retrying":
       return withFailure(msg(kind), options?.failure);
     case "dispatch_failed":
       return msg(kind);

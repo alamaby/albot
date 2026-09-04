@@ -29,6 +29,9 @@ export type GenerateImageHandlerDeps = {
   // Edits the persisted generation status message to a terminal outcome
   // (failed / expired). Best-effort; injected for tests.
   editStatusMessage?: (input: { session: SessionSafe; text: string }) => Promise<void>;
+  // Sends a fresh message (new bubble) for retry feedback — best-effort,
+  // injected for tests; default is Telegram sendMessage.
+  sendTelegramMessage?: (token: string, chatId: bigint, text: string) => Promise<unknown>;
 };
 
 export class GenerateImageHandler {
@@ -40,6 +43,11 @@ export class GenerateImageHandler {
     session: SessionSafe;
     text: string;
   }) => Promise<void>;
+  private readonly sendTelegramMessage: (
+    token: string,
+    chatId: bigint,
+    text: string,
+  ) => Promise<unknown>;
 
   constructor(deps: GenerateImageHandlerDeps = {}) {
     this.generateImage = deps.generateImage ?? new GenerateImageUseCase();
@@ -58,6 +66,12 @@ export class GenerateImageHandler {
           input.session.telegramStatusMessageId,
           input.text,
         );
+      });
+    this.sendTelegramMessage =
+      deps.sendTelegramMessage ??
+      (async (token, chatId, text) => {
+        const { sendMessage } = await import("@/server/telegram/client");
+        return sendMessage(token, chatId, text);
       });
   }
 
@@ -112,6 +126,28 @@ export class GenerateImageHandler {
         workerId,
         providerError,
       );
+
+      if (retried && sessionId) {
+        // Retry scheduled: tell the user with a fresh bubble (separate message,
+        // not an edit of the `Sedang membuat gambar...` status). Best-effort;
+        // the status message stays as `generating` until the final outcome.
+        const failure = failureContextFromError(providerError);
+        const retryText = await getBotMessage("retrying", { failure });
+        try {
+          const session = await this.sessionRepository.getById(sessionId);
+          if (session) {
+            const env = (await import("@/env")).getServerEnv();
+            await this.sendTelegramMessage(
+              env.TELEGRAM_BOT_TOKEN,
+              session.telegramChatId,
+              retryText,
+            );
+          }
+        } catch (notifyError) {
+          const detail = notifyError instanceof Error ? notifyError.message : "unknown";
+          logStructured("warn", "generate.retry_notify_failed", { sessionId, detail });
+        }
+      }
 
       if (!retried && sessionId) {
         // Terminal failure: give the user a retry path by moving the session
