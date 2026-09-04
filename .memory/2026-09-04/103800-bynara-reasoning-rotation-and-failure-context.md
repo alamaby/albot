@@ -55,7 +55,8 @@
 - Deploy prod manual `vercel --prod` oleh user: sukses, `https://albot-be.alamaby.com/api/health` → `status ok, production, database reachable`.
 - Seed prod: `seed-prod-bynara.mjs` full-run GAGAL di `laguna-s-2.1` (DELETE key diblokir FK `provider_requests_key_fkey` — key berhistori tidak bisa di-rotasi via upsert). Solusi: upsert per-row hanya 5 config baru — sukses semua (fingerprint identik = key sama). Verifikasi query: 6/6 config Bynara punya 1 active key (termasuk nemotron yang nonaktif).
 - Pelajaran: `upsert-provider-key.mjs` hanya aman untuk config tanpa histori; rotasi key berhistori butuh `add-provider-key.mjs` (insert tanpa delete) atau hapus referensi dulu.
-- Terbuka: secrets env development (migrate + seed dev), `VERCEL_TOKEN` prod, uji prompt per model.
+- 2026-09-04: user memutuskan SKIP pengisian secrets env development + `VERCEL_TOKEN` prod. Dev tetap tanpa migration `20260904090000`; deploy prod manual.
+- Terbuka (user-driven): uji prompt per model via @albot_ai_bot, lalu cek `provider_requests`.
 
 ## Verification
 

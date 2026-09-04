@@ -33,10 +33,10 @@ Created: 2026-09-04 09:00:00
 - [x] Workstream A: pesan gagal berkonteks semua jalur
 - [x] Unit (346/346) + lint/typecheck/format/db checks hijau; hosted 141/142 (1 fail = migration belum di dev, expected pre-push)
 - [x] Commit `f476fdd` + push; gitleaks fix `c886f4a` + push; `validate` SUCCESS; `migrate-production` SUCCESS (prod 162–166 aktif, nemotron off)
-- [x] Seed keys dev + prod (5 model baru) — butuh `BYNARA_REASONING_API_KEY` via seed scripts
+- [x] Seed keys prod 5 model baru (dev dilewati — lihat bawah)
 - [x] Deploy prod manual `vercel --prod` oleh user (sukses, aliased albot-be.alamaby.com, health ok)
-- [ ] Fix secrets env development (migrate-development gagal pre-existing: SUPABASE_* kosong) + VERCEL_TOKEN prod
-- [ ] Seed dev + uji 1 prompt per model, verifikasi `provider_requests.http_status` 200
+- [~] Fix secrets env development + VERCEL_TOKEN prod — DILEWATI per user 2026-09-04 (dev tetap tanpa 5 model baru sampai secrets diperbaiki di lain waktu)
+- [ ] Uji 1 prompt per model di prod (user-driven via @albot_ai_bot), verifikasi `provider_requests.http_status` 200
 
 ## Risks
 

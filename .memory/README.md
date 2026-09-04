@@ -30,7 +30,8 @@ Last updated: 2026-09-04 10:40 (Bynara reasoning rotation: nemotron-3-ultra 400/
 
 ## Open Blockers
 
-- **`VERCEL_TOKEN` GitHub environment `production` kosong** (terungkap 2026-09-03 saat push pertama auto-prod): `deploy-production` run 33733536728 gagal di `Pull Vercel project settings` (probe HTTP 403, `No existing credentials`). Konsekuensi: kode prod belum dapat deploy Aichixia/picker + T7a (DB prod sudah schema 46 + key Aichixia — additive, aman). Fix: Settings → Environments → production → isi `VERCEL_TOKEN` (team-scoped, org `team_7caBsxNQrtdtkzQGbPBAFYKe`), lalu re-run `deploy-production` via workflow_dispatch. (Pelajaran lama terkonfirmasi: environment auto-created = KOSONG tanpa secret.)
+- **`VERCEL_TOKEN` GitHub environment `production` kosong** — DILEWATI per user 2026-09-04 (deploy prod via manual `vercel --prod`; workflow `deploy-production` tetap merah sampai secret diisi + re-run).
+- **Secrets GitHub environment `development` kosong** (`SUPABASE_ACCESS_TOKEN`/`PROJECT_REF`/`DB_PASSWORD`) — DILEWATI per user 2026-09-04. Dampak: `migrate-development` merah, dev tertinggal migration `20260904090000` (tanpa 5 model Bynara baru); prod tidak terdampak (sudah migrate + seed + deploy manual).
 - **Commit `777ce23` (fix prettier `seed-prod-aichixia.mjs`) belum di-push** — `validate` run 33733416521 gagal di step `Format check`.
 
 - **Pooled image provider (ai.pooled.dev) — PARKED 2026-09-03, menunggu pihak pooled**: endpoint `/v1/images/generations` 404 (route tidak ada), `/v1/models` hanya LLM chat. Key `POOLED_API_KEY` valid tapi chat-only di `.env` lokal. Blueprint reaktivasi ada di `2026-09-03/093100-pooled-image-provider-cancelled.md`.
