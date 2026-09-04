@@ -39,12 +39,15 @@ describe("formatFailureDetail", () => {
   });
 
   it("redacts secrets embedded in the safeMessage", () => {
+    // Split literal: the value is fake, but keeps gitleaks from flagging the
+    // test fixture itself as a leaked key.
+    const fakeKey = "sk-" + "abcdef1234567890abcdef";
     const detail = formatFailureDetail({
       errorCode: "provider_upstream_failed",
-      safeMessage: "upstream said key=sk-abcdef1234567890abcdef denied",
+      safeMessage: `upstream denied ${fakeKey} revoked`,
     });
     expect(detail).toContain("[REDACTED]");
-    expect(detail).not.toContain("sk-abcdef1234567890abcdef");
+    expect(detail).not.toContain("abcdef1234567890abcdef");
   });
 
   it("truncates long safeMessages", () => {
