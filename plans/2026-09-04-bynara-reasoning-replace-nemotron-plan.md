@@ -32,7 +32,9 @@ Created: 2026-09-04 09:00:00
 - [x] Seed scripts update (allowlist + prod rows)
 - [x] Workstream A: pesan gagal berkonteks semua jalur
 - [x] Unit (346/346) + lint/typecheck/format/db checks hijau; hosted 141/142 (1 fail = migration belum di dev, expected pre-push)
-- [ ] Memory entry + commit + push + migrate/seed dev & prod
+- [x] Commit `f476fdd` + push; gitleaks fix `c886f4a` + push; `validate` SUCCESS; `migrate-production` SUCCESS (prod 162–166 aktif, nemotron off)
+- [ ] Seed keys dev + prod (5 model baru) — butuh `BYNARA_REASONING_API_KEY` via seed scripts
+- [ ] Fix secrets env development (migrate-development gagal pre-existing: SUPABASE_* kosong) + VERCEL_TOKEN prod
 - [ ] Uji 1 prompt per model di dev, verifikasi `provider_requests.http_status` 200
 
 ## Risks
@@ -47,6 +49,7 @@ Created: 2026-09-04 09:00:00
 
 - 2026-09-04 09:00:00 — plan dibuat; RCA read-only prod selesai; jawaban user dicatat (semua Bynara router, ID eksak, deactivate nemotron, 162-166 + key sama).
 - 2026-09-04 09:10:00 — build mode aktif; eksekusi dimulai.
+- 2026-09-04 11:05:00 — gitleaks fix c886f4a + push; validate SUCCESS; migrate-production SUCCESS (prod 162–166 aktif, nemotron off); migrate-development FAILURE pre-existing (secrets env development kosong); deploy-production FAILURE (blocker lama VERCEL_TOKEN kosong).
 
 ## Notes
 

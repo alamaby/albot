@@ -41,6 +41,15 @@
 - `npm run build` lokal: compile + TS + pages sukses; tahap akhir adapter Vercel gagal `EPERM symlink` (keterbatasan Windows, bukan kode). Verifikasi build final di CI Linux.
 - Rollout menunggu: push tunggal -> migrate-development -> seed dev keys -> uji -> migrate-production (manual) -> seed prod -> uji prod. Blocker lama masih berlaku: `VERCEL_TOKEN` env production kosong (deploy-production gagal), tapi push main tetap deploy via Vercel Git integration.
 
+## CI outcomes (2026-09-04 ~11:00 WIB)
+
+- Commits: `f476fdd` (fitur) + `c886f4a` (fix gitleaks fixture `key=sk-...` -> split-literal).
+- `validate` @ `c886f4a`: SUCCESS (secret scan + static checks + tests hijau).
+- `migrate-production` @ `c886f4a`: SUCCESS — prod terverifikasi via query: 5 rows 162–166 aktif `round_robin`, nemotron `is_active=false`.
+- `migrate-development`: FAILURE pre-existing, bukan akibat change ini (gagal juga di `0a84c08`): secrets env development kosong (`SUPABASE_ACCESS_TOKEN`/`SUPABASE_PROJECT_REF`/`SUPABASE_DB_PASSWORD` empty di log). Butuh user isi ulang secrets environment development.
+- `deploy-production`: FAILURE (blocker lama `VERCEL_TOKEN` kosong).
+- Next: seed keys 5 model baru di prod (`seed-prod-bynara.mjs` sudah update) + dev (setelah secrets dev diperbaiki), lalu uji 1 prompt per model.
+
 ## Verification
 
 - `db:lint` ok, `db:check-migrations` ok (47), `db:types:check` ok (data-only, tanpa regen), `test:unit` 346/346, `lint` ok (2 warning pre-existing di e2e script), `typecheck` ok, `format:check` ok (prettier --write 4 file).
