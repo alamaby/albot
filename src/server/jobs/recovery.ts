@@ -12,7 +12,7 @@ import { RecoveryRepository } from "@/server/repositories/recovery.repository";
 import { JobEventRepository } from "@/server/repositories/job-event.repository";
 import { getServerEnv } from "@/env";
 import { sendMessage } from "@/server/telegram/client";
-import { buildBotMessage, buildGenerationStatusMessage } from "@/server/telegram/messages";
+import { getBotMessage, getGenerationStatusMessage } from "@/server/telegram/messages";
 import { logStructured } from "@/server/observability/logger";
 import { getCorrelationId } from "@/server/observability/correlation";
 
@@ -98,7 +98,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     try {
       const chatId = BigInt(session.telegram_chat_id);
       const msgId = session.telegram_status_message_id as unknown as number | null;
-      const text = buildGenerationStatusMessage("failed");
+      const text = await getGenerationStatusMessage("failed");
       if (msgId !== null && msgId !== undefined) {
         await editTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, Number(msgId), text);
       } else {
@@ -149,7 +149,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
       await sendTelegramMessage(
         env.TELEGRAM_BOT_TOKEN,
         BigInt(session.telegram_chat_id),
-        buildBotMessage("session_expired"),
+        await getBotMessage("session_expired"),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";

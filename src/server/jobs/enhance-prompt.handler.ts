@@ -16,7 +16,7 @@ import { JobRepository, type JobSafe } from "@/server/repositories/job.repositor
 import { EnhancementJobRetry } from "./retry";
 import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
-import { buildBotMessage, failureContextFromError } from "@/server/telegram/messages";
+import { getBotMessage, failureContextFromError } from "@/server/telegram/messages";
 import type { FailureContext } from "@/server/telegram/messages";
 
 export type EnhancePromptHandlerDeps = {
@@ -59,14 +59,20 @@ export class EnhancePromptHandler {
       (async (input) => {
         const env = (await import("@/env")).getServerEnv();
         const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
-        const { retryKeyboard } = await import("@/server/telegram/keyboards");
+        const { retryKeyboard, getKeyboardLabels } = await import("@/server/telegram/keyboards");
         await sendMessageWithKeyboard(
           env.TELEGRAM_BOT_TOKEN,
           input.session.telegramChatId,
-          buildBotMessage(input.contentPolicy ? "content_policy_declined" : "enhancement_failed", {
-            failure: input.failure ?? null,
+          await getBotMessage(
+            input.contentPolicy ? "content_policy_declined" : "enhancement_failed",
+            {
+              failure: input.failure ?? null,
+            },
+          ),
+          retryKeyboard(input.session.id, {
+            showNewPrompt: input.contentPolicy,
+            labels: await getKeyboardLabels().catch(() => undefined),
           }),
-          retryKeyboard(input.session.id, { showNewPrompt: input.contentPolicy }),
         );
       });
   }

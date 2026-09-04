@@ -12,7 +12,7 @@ import { SessionRepository, type SessionSafe } from "@/server/repositories/sessi
 import { JobRepository } from "@/server/repositories/job.repository";
 import { isSessionExpired } from "./session-expiry-check";
 import { logStructured } from "@/server/observability/logger";
-import { buildGenerationStatusMessage } from "@/server/telegram/messages";
+import { getBotMessage, getGenerationStatusMessage } from "@/server/telegram/messages";
 import {
   ADAPTER_TO_MODEL_CODE,
   MODEL_CODE_TO_ADAPTER,
@@ -169,7 +169,7 @@ export class CallbackStateMachine {
       await this.ack(
         env.TELEGRAM_BOT_TOKEN,
         callbackQueryId,
-        "Sesi telah berakhir. Kirim prompt baru.",
+        await getBotMessage("session_expired_short"),
       );
       return { status: "rejected_expired" };
     }
@@ -272,13 +272,13 @@ export class CallbackStateMachine {
     webhookOrigin: string,
   ): Promise<CallbackOutcome> {
     if (input.session.status !== expectedStatus) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
     const revisionId = input.session.activeRevisionId;
     if (!revisionId) {
-      await this.ack(token, callbackQueryId, "Belum ada revisi aktif.");
+      await this.ack(token, callbackQueryId, await getBotMessage("no_active_revision"));
       return { status: "rejected_state" };
     }
 
@@ -293,7 +293,7 @@ export class CallbackStateMachine {
       .maybeSingle();
     if (error) throw new Error(`session transition failed: ${error.message}`);
     if (!data) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
@@ -335,7 +335,7 @@ export class CallbackStateMachine {
           detail: rbDetail,
         });
       }
-      await this.ack(token, callbackQueryId, "Gagal mengirim permintaan. Coba lagi.");
+      await this.ack(token, callbackQueryId, await getBotMessage("callback_send_failed"));
       return { status: "rejected_state" };
     }
 
@@ -357,7 +357,7 @@ export class CallbackStateMachine {
       const result = await this.sendTelegramMessage(
         token,
         input.session.telegramChatId,
-        buildGenerationStatusMessage("generating"),
+        await getGenerationStatusMessage("generating"),
       );
       const messageId = extractMessageId(result);
       if (messageId !== null) {
@@ -389,7 +389,7 @@ export class CallbackStateMachine {
       input.session.status !== "awaiting_confirmation" &&
       input.session.status !== "generation_failed"
     ) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
     if (input.session.status === "generation_failed") {
@@ -399,7 +399,7 @@ export class CallbackStateMachine {
       input,
       expectedStatus,
       "callback_generate",
-      "Mulai membuat gambar...",
+      await getBotMessage("generate_starting"),
       token,
       callbackQueryId,
       webhookOrigin,
@@ -418,7 +418,7 @@ export class CallbackStateMachine {
     // blocked: only a model switch may restart a running generation (decision
     // 2026-09-04: "hanya model switch yang boleh restart").
     if (input.session.status !== "result_ready" && input.session.status !== "generation_failed") {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
     // Best-effort: clean stuck `processing` attempt that blocks
@@ -434,7 +434,7 @@ export class CallbackStateMachine {
       input,
       expectedStatus as "result_ready" | "generation_failed",
       "callback_regenerate",
-      "Mulai membuat gambar lagi...",
+      await getBotMessage("generate_restarting"),
       token,
       callbackQueryId,
       webhookOrigin,
@@ -491,7 +491,7 @@ export class CallbackStateMachine {
   ): Promise<CallbackOutcome> {
     const revisionId = input.session.activeRevisionId;
     if (!revisionId) {
-      await this.ack(token, callbackQueryId, "Belum ada revisi aktif.");
+      await this.ack(token, callbackQueryId, await getBotMessage("no_active_revision"));
       return { status: "rejected_state" };
     }
 
@@ -516,7 +516,7 @@ export class CallbackStateMachine {
         sessionId: input.sessionId,
         detail,
       });
-      await this.ack(token, callbackQueryId, "Gagal memulai ulang dengan model baru. Coba lagi.");
+      await this.ack(token, callbackQueryId, await getBotMessage("callback_regenerate_failed"));
       return { status: "rejected_state" };
     }
 
@@ -676,7 +676,7 @@ export class CallbackStateMachine {
       input.session.status !== "result_ready" &&
       input.session.status !== "generation_failed"
     ) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
@@ -691,16 +691,16 @@ export class CallbackStateMachine {
       .maybeSingle();
     if (error) throw new Error(`session transition failed: ${error.message}`);
     if (!data) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
-    await this.ack(token, callbackQueryId, "Silakan kirim instruksi revisi.");
+    await this.ack(token, callbackQueryId, await getBotMessage("revise_hint"));
     try {
       await this.sendTelegramMessage(
         token,
         input.session.telegramChatId,
-        "Kirim instruksi revisi Anda. Contoh: buat lebih terang, tambah awan, ubah warna.",
+        await getBotMessage("revise_instructions"),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
@@ -727,7 +727,7 @@ export class CallbackStateMachine {
       input.session.status === "enhancement_failed" ||
       input.session.status === "generation_failed";
     if (!allowed) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
@@ -742,16 +742,16 @@ export class CallbackStateMachine {
       .maybeSingle();
     if (error) throw new Error(`session transition failed: ${error.message}`);
     if (!data) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
-    await this.ack(token, callbackQueryId, "Sesi dibatalkan.");
+    await this.ack(token, callbackQueryId, await getBotMessage("session_cancelled"));
     try {
       await this.sendTelegramMessage(
         token,
         input.session.telegramChatId,
-        "Sesi dibatalkan. Kirim prompt baru untuk membuat gambar.",
+        await getBotMessage("session_cancelled_new"),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
@@ -771,7 +771,7 @@ export class CallbackStateMachine {
     // Complete is allowed from result_ready (normal) and generation_failed
     // (user decision #1 — close session without image).
     if (input.session.status !== "result_ready" && input.session.status !== "generation_failed") {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
@@ -789,15 +789,15 @@ export class CallbackStateMachine {
         .maybeSingle();
       if (error) throw new Error(`session transition failed: ${error.message}`);
       if (!data) {
-        await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+        await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
         return { status: "rejected_state" };
       }
-      await this.ack(token, callbackQueryId, "Sesi selesai.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_done"));
       try {
         await this.sendTelegramMessage(
           token,
           input.session.telegramChatId,
-          "Sesi selesai. Terima kasih sudah menggunakan bot ini!",
+          await getBotMessage("session_done_thanks"),
         );
       } catch (error) {
         const detail = error instanceof Error ? error.message : "unknown";
@@ -814,16 +814,16 @@ export class CallbackStateMachine {
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
       logStructured("error", "callback.complete_failed", { sessionId: input.sessionId, detail });
-      await this.ack(token, callbackQueryId, "Gagal menyelesaikan sesi. Coba lagi.");
+      await this.ack(token, callbackQueryId, await getBotMessage("callback_complete_failed"));
       return { status: "rejected_state" };
     }
 
-    await this.ack(token, callbackQueryId, "Sesi selesai.");
+    await this.ack(token, callbackQueryId, await getBotMessage("session_done"));
     try {
       await this.sendTelegramMessage(
         token,
         input.session.telegramChatId,
-        "Sesi selesai. Terima kasih sudah menggunakan bot ini!",
+        await getBotMessage("session_done_thanks"),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
@@ -846,13 +846,13 @@ export class CallbackStateMachine {
     origin: string,
   ): Promise<CallbackOutcome> {
     if (input.session.status !== "enhancement_failed") {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
     const revisionId = input.session.activeRevisionId;
     if (!revisionId) {
-      await this.ack(token, callbackQueryId, "Belum ada revisi aktif.");
+      await this.ack(token, callbackQueryId, await getBotMessage("no_active_revision"));
       return { status: "rejected_state" };
     }
 
@@ -876,11 +876,7 @@ export class CallbackStateMachine {
         .neq("id", input.sessionId);
       if (activeError) throw new Error(`active session check failed: ${activeError.message}`);
       if ((count ?? 0) > 0) {
-        await this.ack(
-          token,
-          callbackQueryId,
-          "Masih ada sesi aktif. Selesaikan atau batalkan sesi baru terlebih dahulu.",
-        );
+        await this.ack(token, callbackQueryId, await getBotMessage("active_session_exists_new"));
         return { status: "rejected_state" };
       }
     }
@@ -894,7 +890,7 @@ export class CallbackStateMachine {
       .maybeSingle();
     if (error) throw new Error(`session transition failed: ${error.message}`);
     if (!data) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
 
@@ -936,7 +932,7 @@ export class CallbackStateMachine {
           detail: rbDetail,
         });
       }
-      await this.ack(token, callbackQueryId, "Gagal mengirim permintaan. Coba lagi.");
+      await this.ack(token, callbackQueryId, await getBotMessage("callback_send_failed"));
       return { status: "rejected_state" };
     }
 
@@ -957,7 +953,7 @@ export class CallbackStateMachine {
       await this.sendTelegramMessage(
         token,
         input.session.telegramChatId,
-        "Sedang memproses ulang prompt, mohon tunggu...",
+        await getBotMessage("revision_reprocessing"),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
@@ -967,7 +963,7 @@ export class CallbackStateMachine {
       });
     }
 
-    await this.ack(token, callbackQueryId, "Mencoba lagi...");
+    await this.ack(token, callbackQueryId, await getBotMessage("retrying"));
     return { status: "accepted" };
   }
 
@@ -1024,20 +1020,25 @@ export class CallbackStateMachine {
       input.session.status !== "generation_failed" &&
       input.session.status !== "generating"
     ) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
     const selected = await this.resolveSelectedCode(input.session);
     try {
-      const { modelPickerKeyboard } = await import("@/server/telegram/keyboards");
-      const { buildModelPickerMessage } = await import("@/server/telegram/messages");
+      const { modelPickerKeyboard, getKeyboardLabels } =
+        await import("@/server/telegram/keyboards");
+      const { getModelPickerMessage } = await import("@/server/telegram/messages");
       const label = selected ? MODEL_CODE_LABEL[selected] : null;
-      const keyboard = modelPickerKeyboard(input.session.id, selected);
+      const keyboard = modelPickerKeyboard(
+        input.session.id,
+        selected,
+        await getKeyboardLabels().catch(() => undefined),
+      );
       if (this.sendMessageWithKeyboard) {
         await this.sendMessageWithKeyboard(
           token,
           input.session.telegramChatId,
-          buildModelPickerMessage(label),
+          await getModelPickerMessage(label),
           keyboard,
         );
       } else {
@@ -1045,7 +1046,7 @@ export class CallbackStateMachine {
         await sendMessageWithKeyboard(
           token,
           input.session.telegramChatId,
-          buildModelPickerMessage(label),
+          await getModelPickerMessage(label),
           keyboard,
         );
       }
@@ -1056,7 +1057,7 @@ export class CallbackStateMachine {
         detail,
       });
     }
-    await this.ack(token, callbackQueryId, "Pilih model");
+    await this.ack(token, callbackQueryId, await getBotMessage("ack_pick_model"));
     return { status: "accepted" };
   }
 
@@ -1065,7 +1066,12 @@ export class CallbackStateMachine {
     token: string,
     callbackQueryId: string,
   ): Promise<CallbackOutcome> {
-    return this.reshowContextWithPickers(input, token, callbackQueryId, "Kembali");
+    return this.reshowContextWithPickers(
+      input,
+      token,
+      callbackQueryId,
+      await getBotMessage("ack_back"),
+    );
   }
 
   // Re-show the confirmation or result context with BOTH picker rows (image +
@@ -1079,9 +1085,10 @@ export class CallbackStateMachine {
     const selected = await this.resolveSelectedCode(input.session);
     const reasoningCode = await this.resolveSelectedReasoningCode(input.session);
     try {
-      const { confirmationKeyboardWithModel, resultKeyboardWithModel } =
+      const { confirmationKeyboardWithModel, resultKeyboardWithModel, getKeyboardLabels } =
         await import("@/server/telegram/keyboards");
-      const { buildEnhancedPromptMessage } = await import("@/server/telegram/messages");
+      const { getEnhancedPromptMessage, getBotTemplate } =
+        await import("@/server/telegram/messages");
       const { EnhancementRepository } =
         await import("@/server/repositories/enhancement.repository");
       const repo = new EnhancementRepository();
@@ -1089,20 +1096,26 @@ export class CallbackStateMachine {
         ? await repo.getRevisionById(input.session.activeRevisionId)
         : null;
       const label = selected ? MODEL_CODE_LABEL[selected] : null;
+      const keyboardLabels = await getKeyboardLabels().catch(() => undefined);
       const text = rev?.enhancedPrompt
-        ? buildEnhancedPromptMessage({
+        ? await getEnhancedPromptMessage({
             enhancedPrompt: rev.enhancedPrompt,
             revisionNumber: rev.revisionNumber ?? 1,
             sourcePrompt: rev.sourcePrompt ?? "",
             selectedModelLabel: label,
           })
         : label
-          ? `Model terpilih: ${label} ✓`
-          : "Pilih aksi untuk melanjutkan.";
+          ? await getBotTemplate("reshow_model_selected", { label })
+          : await getBotTemplate("reshow_fallback");
       const keyboard =
         input.session.status === "result_ready"
-          ? resultKeyboardWithModel(input.session.id, selected, reasoningCode)
-          : confirmationKeyboardWithModel(input.session.id, selected, reasoningCode);
+          ? resultKeyboardWithModel(input.session.id, selected, reasoningCode, keyboardLabels)
+          : confirmationKeyboardWithModel(
+              input.session.id,
+              selected,
+              reasoningCode,
+              keyboardLabels,
+            );
       if (this.sendMessageWithKeyboard) {
         await this.sendMessageWithKeyboard(token, input.session.telegramChatId, text, keyboard);
       } else {
@@ -1141,11 +1154,11 @@ export class CallbackStateMachine {
       input.session.status !== "generation_failed" &&
       !wasGenerating
     ) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
     if (!code) {
-      await this.ack(token, callbackQueryId, "Model tidak valid.");
+      await this.ack(token, callbackQueryId, await getBotMessage("model_invalid"));
       return { status: "rejected_state" };
     }
     const adapterType = MODEL_CODE_TO_ADAPTER[code];
@@ -1159,7 +1172,7 @@ export class CallbackStateMachine {
       const configs = await cfgRepo.listActive("image_generation");
       const matched = configs.find((c) => c.adapterType === adapterType && c.isActive);
       if (!matched) {
-        await this.ack(token, callbackQueryId, "Model tidak tersedia. Pilih lain.");
+        await this.ack(token, callbackQueryId, await getBotMessage("model_unavailable"));
         return { status: "rejected_state" };
       }
       // Validate key eligibility (at least one eligible key)
@@ -1183,7 +1196,7 @@ export class CallbackStateMachine {
         eligible = true;
       }
       if (!eligible) {
-        await this.ack(token, callbackQueryId, "Model sedang cooldown, pilih lain.");
+        await this.ack(token, callbackQueryId, await getBotMessage("model_cooldown"));
         return { status: "rejected_state" };
       }
 
@@ -1208,12 +1221,12 @@ export class CallbackStateMachine {
       }
 
       const label = MODEL_CODE_LABEL[code];
-      const { buildModelSelectedMessage } = await import("@/server/telegram/messages");
+      const { getModelSelectedMessage } = await import("@/server/telegram/messages");
       try {
         await this.sendTelegramMessage(
           token,
           input.session.telegramChatId,
-          buildModelSelectedMessage(label, asDefault),
+          await getModelSelectedMessage(label, asDefault),
         );
       } catch (error) {
         const detail = error instanceof Error ? error.message : "unknown";
@@ -1242,7 +1255,7 @@ export class CallbackStateMachine {
         sessionId: input.session.id,
         detail,
       });
-      await this.ack(token, callbackQueryId, "Gagal mengatur model. Coba lagi.");
+      await this.ack(token, callbackQueryId, await getBotMessage("callback_model_failed"));
       return { status: "rejected_state" };
     }
   }
@@ -1305,20 +1318,25 @@ export class CallbackStateMachine {
       input.session.status !== "enhancement_failed" &&
       input.session.status !== "generating"
     ) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
     const selected = await this.resolveSelectedReasoningCode(input.session);
     try {
-      const { reasoningPickerKeyboard } = await import("@/server/telegram/keyboards");
-      const { buildReasoningPickerMessage } = await import("@/server/telegram/messages");
+      const { reasoningPickerKeyboard, getKeyboardLabels } =
+        await import("@/server/telegram/keyboards");
+      const { getReasoningPickerMessage } = await import("@/server/telegram/messages");
       const label = selected ? REASONING_CODE_LABEL[selected] : null;
-      const keyboard = reasoningPickerKeyboard(input.session.id, selected);
+      const keyboard = reasoningPickerKeyboard(
+        input.session.id,
+        selected,
+        await getKeyboardLabels().catch(() => undefined),
+      );
       if (this.sendMessageWithKeyboard) {
         await this.sendMessageWithKeyboard(
           token,
           input.session.telegramChatId,
-          buildReasoningPickerMessage(label),
+          await getReasoningPickerMessage(label),
           keyboard,
         );
       } else {
@@ -1326,7 +1344,7 @@ export class CallbackStateMachine {
         await sendMessageWithKeyboard(
           token,
           input.session.telegramChatId,
-          buildReasoningPickerMessage(label),
+          await getReasoningPickerMessage(label),
           keyboard,
         );
       }
@@ -1337,7 +1355,7 @@ export class CallbackStateMachine {
         detail,
       });
     }
-    await this.ack(token, callbackQueryId, "Pilih model reasoning");
+    await this.ack(token, callbackQueryId, await getBotMessage("ack_pick_reasoning"));
     return { status: "accepted" };
   }
 
@@ -1347,7 +1365,12 @@ export class CallbackStateMachine {
     callbackQueryId: string,
   ): Promise<CallbackOutcome> {
     // Same context re-show as the image picker back (both picker rows visible).
-    return this.reshowContextWithPickers(input, token, callbackQueryId, "Kembali");
+    return this.reshowContextWithPickers(
+      input,
+      token,
+      callbackQueryId,
+      await getBotMessage("ack_back"),
+    );
   }
 
   private async handleReasoningPicked(
@@ -1365,11 +1388,11 @@ export class CallbackStateMachine {
       input.session.status !== "enhancement_failed" &&
       !wasGenerating
     ) {
-      await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
+      await this.ack(token, callbackQueryId, await getBotMessage("session_busy"));
       return { status: "rejected_state" };
     }
     if (!code) {
-      await this.ack(token, callbackQueryId, "Model tidak valid.");
+      await this.ack(token, callbackQueryId, await getBotMessage("model_invalid"));
       return { status: "rejected_state" };
     }
     const adapterType = REASONING_CODE_TO_ADAPTER[code];
@@ -1393,7 +1416,7 @@ export class CallbackStateMachine {
         .filter((c) => c.adapterType === adapterType && c.isActive)
         .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))[0];
       if (!matched) {
-        await this.ack(token, callbackQueryId, "Model tidak tersedia. Pilih lain.");
+        await this.ack(token, callbackQueryId, await getBotMessage("model_unavailable"));
         return { status: "rejected_state" };
       }
       // Validate key eligibility (at least one eligible key)
@@ -1417,7 +1440,7 @@ export class CallbackStateMachine {
         eligible = true;
       }
       if (!eligible) {
-        await this.ack(token, callbackQueryId, "Model sedang cooldown, pilih lain.");
+        await this.ack(token, callbackQueryId, await getBotMessage("model_cooldown"));
         return { status: "rejected_state" };
       }
 
@@ -1441,12 +1464,12 @@ export class CallbackStateMachine {
       }
 
       const label = REASONING_CODE_LABEL[code];
-      const { buildReasoningSelectedMessage } = await import("@/server/telegram/messages");
+      const { getReasoningSelectedMessage } = await import("@/server/telegram/messages");
       try {
         await this.sendTelegramMessage(
           token,
           input.session.telegramChatId,
-          buildReasoningSelectedMessage(label, asDefault),
+          await getReasoningSelectedMessage(label, asDefault),
         );
       } catch (error) {
         const detail = error instanceof Error ? error.message : "unknown";
@@ -1469,7 +1492,7 @@ export class CallbackStateMachine {
         sessionId: input.session.id,
         detail,
       });
-      await this.ack(token, callbackQueryId, "Gagal mengatur model reasoning. Coba lagi.");
+      await this.ack(token, callbackQueryId, await getBotMessage("callback_reasoning_failed"));
       return { status: "rejected_state" };
     }
   }

@@ -134,13 +134,14 @@ CPU script tidak mencetak plaintext key (hanya fingerprint prefix). Lihat
 `scripts/add-provider-key.mjs`, `scripts/upsert-provider-key.mjs`, dan
 `scripts/seed-provider-config.mjs` untuk arg lengkap.
 
-## Prompt Configs (DB-driven persona)
+## Prompt Configs (DB-driven)
 
 System prompt enhancement di-split: persona (editable via DB) + shape JSON immutable di code (`ENHANCEMENT_SYSTEM_PROMPT_SHAPE`). Update persona **tidak perlu deploy**, cukup update tabel `prompt_configs`.
 
 - **Tabel:** `prompt_configs(key, body, version, is_active, created_by, ...)` — satu `is_active` per `key` (`prompt_configs_one_active_idx`). `prompt_configs_audit` menyimpan `create/activate/deactivate/rollback` dengan `actor`.
-- **Key saat ini:** `enhancement_system_persona` (seed v1 di migration `20260902120000`). `get_active_prompt_config(p_key)` dipakai use-case `enhanceOnly`/`execute` dengan cache TTL 60s per instance (single-flight).
-- **Strict-error:** jika tidak ada active row atau DB error, enhancement gagal loud `provider_configuration_invalid` (terminal) / `provider_unknown_error` (retryable) — tidak fallback ke const lama.
+- **Key saat ini (6):** `enhancement_system_persona` (seed `20260902120000`) + `reasoning_revision_helper`, `reasoning_sampling`, `bot_messages`, `bot_keyboards`, `bot_templates` (seed `20260904120000`). `get_active_prompt_config(p_key)` dengan cache TTL 60s per instance (single-flight).
+- **Strict-error:** `enhancement_system_persona` + `reasoning_*` gagal loud `provider_configuration_invalid` / `provider_unknown_error` — tidak fallback. `bot_*` fallback ke hardcoded `DEFAULT_*` dengan `warn` log agar bot tidak bisu saat DB down.
+- **Negative prompt:** tidak ada default global (per user choice). LLM field `negative_prompt` di-plumb `revision.negativePrompt` → setiap image adapter. Pixazo native `negative_prompt`; Aichixia difusi native, `gemini-3-pro-image` omit; Pollinations/Bynara inject `"Avoid: {negative}"`; kosong = omit semua adapter.
 
 ### Update via Admin API (tanpa deploy)
 

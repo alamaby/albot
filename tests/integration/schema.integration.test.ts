@@ -538,6 +538,8 @@ const EXPECTED_MIGRATIONS = [
   "20260903060043",
   // Bynara reasoning rotation: 5 new models (162-166) + deactivate nemotron.
   "20260904090000",
+  // Bot-text prompt configs: reasoning helper/sampling + bot messages/keyboards/templates seeds.
+  "20260904120000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

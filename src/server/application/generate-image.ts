@@ -33,7 +33,7 @@ import { SessionRepository, type SessionSafe } from "@/server/repositories/sessi
 import type { JobSafe } from "@/server/repositories/job.repository";
 import { PromptAuditRepository } from "@/server/repositories/prompt-audit.repository";
 import { isSessionExpired } from "./session-expiry-check";
-import { buildGenerationStatusMessage } from "@/server/telegram/messages";
+import { getGenerationStatusMessage } from "@/server/telegram/messages";
 
 export type GenerateImageOutcome =
   | { status: "completed"; session: SessionSafe; attempt: GenerationAttemptSafe }
@@ -131,7 +131,7 @@ export class GenerateImageUseCase {
   }): Promise<{ messageId: number }> {
     const env = getServerEnv();
     const { ADAPTER_TO_MODEL_CODE } = await import("@/server/telegram/keyboards");
-    const { buildResultCaption } = await import("@/server/telegram/messages");
+    const { getResultCaption } = await import("@/server/telegram/messages");
 
     // Resolve selected code for result keyboard (show Ganti Model with check)
     let selectedCode: import("@/server/telegram/keyboards").ModelShortCode | null = null;
@@ -201,15 +201,21 @@ export class GenerateImageUseCase {
       }
     }
 
-    const caption = buildResultCaption({
+    const caption = await getResultCaption({
       attemptNumber: input.attempt.attemptNumber,
       revisionNumber: input.revision.revisionNumber,
       reasoningProviderLabel,
       reasoningModel,
       imageModelLabel,
     });
-    const { resultKeyboardWithModel } = await import("@/server/telegram/keyboards");
-    const replyMarkup = resultKeyboardWithModel(input.session.id, selectedCode, reasoningCode);
+    const { resultKeyboardWithModel, getKeyboardLabels } =
+      await import("@/server/telegram/keyboards");
+    const replyMarkup = resultKeyboardWithModel(
+      input.session.id,
+      selectedCode,
+      reasoningCode,
+      await getKeyboardLabels().catch(() => undefined),
+    );
 
     if (input.imageBytes) {
       const { sendPhotoByBytes } = await import("@/server/telegram/client");
@@ -291,7 +297,7 @@ export class GenerateImageUseCase {
       try {
         await this.editStatusMessage({
           session,
-          text: buildGenerationStatusMessage("succeeded_generic"),
+          text: await getGenerationStatusMessage("succeeded_generic"),
         });
       } catch (editError) {
         const detail = editError instanceof Error ? editError.message : "unknown";
@@ -438,7 +444,7 @@ export class GenerateImageUseCase {
           }
           await this.editStatusMessage({
             session,
-            text: buildGenerationStatusMessage("succeeded", {
+            text: await getGenerationStatusMessage("succeeded", {
               attemptNumber: attempt.attemptNumber,
               revisionNumber: revision.revisionNumber,
               reasoningProviderLabel: rsLabel,

@@ -117,14 +117,30 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
   }
 
   protected buildRequestBody(input: EnhancePromptInput): Record<string, unknown> {
+    // DB-driven instruction keys (prompt_configs): callers may override the
+    // revision helper text and sampling params via input.options. Defaults
+    // preserve the historical hardcoded behavior.
+    const revisionHelper =
+      typeof input.options["revision_helper"] === "string" &&
+      (input.options["revision_helper"] as string).trim().length > 0
+        ? (input.options["revision_helper"] as string)
+        : "This is a revision of a previous prompt. Apply the user's instruction while preserving the original structure and style unless explicitly asked to change them.";
+    const temperature =
+      typeof input.options["temperature"] === "number" &&
+      Number.isFinite(input.options["temperature"])
+        ? (input.options["temperature"] as number)
+        : 0.7;
+    const maxTokens =
+      typeof input.options["max_tokens"] === "number" &&
+      Number.isInteger(input.options["max_tokens"]) &&
+      (input.options["max_tokens"] as number) > 0
+        ? (input.options["max_tokens"] as number)
+        : 1024;
+
     const messages: Record<string, string>[] = [{ role: "system", content: input.systemPrompt }];
 
     if (input.previousPrompt) {
-      messages.push({
-        role: "system",
-        content:
-          "This is a revision of a previous prompt. Apply the user's instruction while preserving the original structure and style unless explicitly asked to change them.",
-      });
+      messages.push({ role: "system", content: revisionHelper });
       messages.push({ role: "user", content: `Previous prompt: ${input.previousPrompt}` });
     }
     if (input.revisionInstruction) {
@@ -135,14 +151,18 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
     }
     messages.push({ role: "user", content: input.sourcePrompt });
 
+    // revision_helper is internal-only: strip it so it never leaks into the
+    // provider request body via the options spread below.
+    const { revision_helper: _internalHelper, ...providerOptions } = input.options;
+    void _internalHelper;
     return {
       model: this.model,
       messages,
-      temperature: 0.7,
-      max_tokens: 1024,
+      temperature,
+      max_tokens: maxTokens,
       // Caller-provided options win over defaults. response_format may be passed
       // here to request JSON mode from OpenAI-compatible providers.
-      ...input.options,
+      ...providerOptions,
     };
   }
 

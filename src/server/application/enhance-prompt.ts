@@ -35,6 +35,7 @@ import {
   PromptConfigRepository,
   PROMPT_CONFIG_KEY_ENHANCEMENT_PERSONA,
 } from "@/server/repositories/prompt-config.repository";
+import { BotTextRepository } from "@/server/repositories/bot-text.repository";
 import { redactJson, redactSensitive } from "@/server/observability/redact";
 import { OpenAICompatibleReasoningAdapter } from "@/server/providers/reasoning/openai-compatible.adapter";
 import { isSessionExpired } from "./session-expiry-check";
@@ -156,8 +157,9 @@ export class EnhancePromptUseCase {
       ADAPTER_TO_MODEL_CODE,
       MODEL_CODE_LABEL,
       REASONING_ADAPTER_TO_CODE,
+      getKeyboardLabels,
     } = await import("@/server/telegram/keyboards");
-    const { buildEnhancedPromptMessage } = await import("@/server/telegram/messages");
+    const { getEnhancedPromptMessage } = await import("@/server/telegram/messages");
 
     // Resolve reasoning provider/model label (priority: passed-in selected, then revision FK lookup)
     let reasoningProviderLabel = input.reasoningProviderLabel ?? null;
@@ -215,10 +217,11 @@ export class EnhancePromptUseCase {
     }
 
     try {
+      const keyboardLabels = await getKeyboardLabels().catch(() => undefined);
       await sendMessageWithKeyboard(
         env.TELEGRAM_BOT_TOKEN,
         input.session.telegramChatId,
-        buildEnhancedPromptMessage({
+        await getEnhancedPromptMessage({
           enhancedPrompt: input.prompt.prompt,
           revisionNumber: input.revision.revisionNumber,
           sourcePrompt: input.revision.sourcePrompt,
@@ -227,7 +230,12 @@ export class EnhancePromptUseCase {
           imageModelLabel: selectedLabel,
           selectedModelLabel: selectedLabel,
         }),
-        confirmationKeyboardWithModel(input.session.id, selectedCode, reasoningCode),
+        confirmationKeyboardWithModel(
+          input.session.id,
+          selectedCode,
+          reasoningCode,
+          keyboardLabels,
+        ),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
@@ -245,6 +253,21 @@ export class EnhancePromptUseCase {
     return buildEnhancementSystemPrompt(persona);
   }
 
+  // DB-driven reasoning instruction keys (strict-error like the persona):
+  // revision helper text + sampling params from prompt_configs.
+  private async resolveReasoningOptions(): Promise<Record<string, unknown>> {
+    const botText = new BotTextRepository(this.promptConfigRepository);
+    const [revisionHelper, sampling] = await Promise.all([
+      botText.getRevisionHelper(),
+      botText.getSampling(),
+    ]);
+    return {
+      revision_helper: revisionHelper,
+      temperature: sampling.temperature,
+      max_tokens: sampling.max_tokens,
+    };
+  }
+
   // Session-less enhancement for /enhance-prompt: provider select, audit row,
   // adapter call, structured validation. No session/revision writes — the
   // caller owns the job lifecycle and user messaging. Throws ProviderError on
@@ -258,6 +281,7 @@ export class EnhancePromptUseCase {
     telegramUserId?: bigint;
   }): Promise<EnhanceOnlyOutcome> {
     const systemPrompt = await this.resolveSystemPrompt();
+    const reasoningOptions = await this.resolveReasoningOptions();
     const { selected, startedAt } = await this.selectProvider(input.jobId, {
       preferredConfigId: input.preferredConfigId ?? null,
       telegramUserId: input.telegramUserId,
@@ -277,6 +301,7 @@ export class EnhancePromptUseCase {
         sourcePrompt: input.sourcePrompt,
         systemPrompt,
         options: {
+          ...reasoningOptions,
           ...(selected.config.settings["response_format"] !== undefined
             ? { response_format: selected.config.settings["response_format"] }
             : {}),
@@ -365,6 +390,7 @@ export class EnhancePromptUseCase {
     await this.enhancementRepository.markRevisionProcessing(revision.id);
 
     const systemPrompt = await this.resolveSystemPrompt();
+    const reasoningOptions = await this.resolveReasoningOptions();
     const { selected, startedAt } = await this.selectProvider(session.id, {
       preferredConfigId: session.preferredReasoningProviderConfigId,
       telegramUserId: session.telegramUserId,
@@ -382,7 +408,7 @@ export class EnhancePromptUseCase {
               previousPrompt: revision.previousPrompt ?? undefined,
               revisionInstruction: revision.revisionInstruction ?? undefined,
               systemPrompt,
-              options: {},
+              options: { ...reasoningOptions },
             }),
           )
         : undefined;
@@ -422,6 +448,7 @@ export class EnhancePromptUseCase {
         revisionInstruction: revision.revisionInstruction ?? undefined,
         systemPrompt,
         options: {
+          ...reasoningOptions,
           ...(selected.config.settings["response_format"] !== undefined
             ? { response_format: selected.config.settings["response_format"] }
             : {}),

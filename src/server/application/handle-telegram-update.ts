@@ -7,7 +7,7 @@
 
 import { getServerEnv, type ServerEnv } from "@/env";
 import { sendMessage, answerCallbackQuery } from "@/server/telegram/client";
-import { buildBotMessage, buildGenerationStatusMessage } from "@/server/telegram/messages";
+import { getBotMessage, getGenerationStatusMessage } from "@/server/telegram/messages";
 import {
   parseCallbackAction,
   parseSlashCommand,
@@ -283,7 +283,7 @@ async function handlePrivateTextMessage(
   // 2. Allowlist check by numeric Telegram user id.
   const user = await deps.botUserRepository.findByTelegramUserId(message.userId);
   if (!user || !user.isAllowed) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("access_denied"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("access_denied"));
     return;
   }
 
@@ -291,14 +291,14 @@ async function handlePrivateTextMessage(
   //    create a session or spend provider credit: the text "/start" is not a
   //    prompt.
   if (isStartCommand(message.text)) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("welcome"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("welcome"));
     return;
   }
 
   // 3b. Slash /help — command reference. Static text, no side effects.
   const command = parseSlashCommand(message.text);
   if (command?.name === "help") {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("help"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("help"));
     return;
   }
 
@@ -323,7 +323,7 @@ async function handlePrivateTextMessage(
   if (isCancelCommand(message.text)) {
     const activeToCancel = await deps.sessionRepository.findActiveByUserId(message.userId);
     if (!activeToCancel) {
-      await trySendMessage(env, deps, message.chatId, buildBotMessage("no_active_session"));
+      await trySendMessage(env, deps, message.chatId, await getBotMessage("no_active_session"));
       return;
     }
     try {
@@ -332,22 +332,17 @@ async function handlePrivateTextMessage(
         activeToCancel.status,
       );
       if (!cancelled) {
-        await trySendMessage(
-          env,
-          deps,
-          message.chatId,
-          "Sesi sedang diproses. Coba lagi sebentar.",
-        );
+        await trySendMessage(env, deps, message.chatId, await getBotMessage("cancel_in_progress"));
         return;
       }
-      await trySendMessage(env, deps, message.chatId, buildBotMessage("session_cancelled"));
+      await trySendMessage(env, deps, message.chatId, await getBotMessage("session_cancelled"));
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
       logStructured("error", "webhook.cancel_failed", {
         sessionId: activeToCancel.id,
         detail,
       });
-      await trySendMessage(env, deps, message.chatId, "Gagal membatalkan sesi. Coba lagi.");
+      await trySendMessage(env, deps, message.chatId, await getBotMessage("cancel_failed"));
     }
     return;
   }
@@ -358,13 +353,13 @@ async function handlePrivateTextMessage(
   if (activeSession && activeSession.status === "awaiting_revision_input") {
     const outcome = await deps.revisionInput.handle(activeSession, message.text, origin);
     if (outcome.status === "expired") {
-      await trySendMessage(env, deps, message.chatId, buildBotMessage("session_expired"));
+      await trySendMessage(env, deps, message.chatId, await getBotMessage("session_expired"));
     } else if (outcome.status === "too_long") {
       await trySendMessage(
         env,
         deps,
         message.chatId,
-        buildBotMessage("revision_instruction_too_long", {
+        await getBotMessage("revision_instruction_too_long", {
           maxPromptLength: ACCESS_CONTROLS.maxPromptLength,
         }),
       );
@@ -376,7 +371,7 @@ async function handlePrivateTextMessage(
 
   // 6. Prompt length limit.
   if (message.text.length > ACCESS_CONTROLS.maxPromptLength) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("prompt_too_long"));
     return;
   }
 
@@ -387,12 +382,12 @@ async function handlePrivateTextMessage(
   });
 
   if (policy.recentSubmissionCount >= ACCESS_CONTROLS.rateLimitMaxSubmissions) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("rate_limited"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("rate_limited"));
     return;
   }
 
   if (policy.activeSessionCount > 0) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("active_session_exists"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("active_session_exists"));
     return;
   }
 
@@ -413,18 +408,13 @@ async function handlePrivateTextMessage(
     sessionOrigin: "webhook",
   });
   if (dispatchResult.ok) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_received"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("prompt_received"));
   } else {
     logStructured("error", "webhook.dispatcher_returned_error", {
       status: dispatchResult.status ?? null,
       error: dispatchResult.error,
     });
-    await trySendMessage(
-      env,
-      deps,
-      message.chatId,
-      "Gagal memulai pemrosesan. Silakan coba lagi sebentar.",
-    );
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("dispatch_failed"));
   }
 }
 
@@ -438,7 +428,7 @@ async function checkPromptCommandGuards(
   prompt: string,
 ): Promise<boolean> {
   if (prompt.length > ACCESS_CONTROLS.maxPromptLength) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("prompt_too_long"));
     return false;
   }
 
@@ -447,11 +437,11 @@ async function checkPromptCommandGuards(
     rateLimitMaxSubmissions: ACCESS_CONTROLS.rateLimitMaxSubmissions,
   });
   if (policy.recentSubmissionCount >= ACCESS_CONTROLS.rateLimitMaxSubmissions) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("rate_limited"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("rate_limited"));
     return false;
   }
   if (policy.activeSessionCount > 0) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("active_session_exists"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("active_session_exists"));
     return false;
   }
   return true;
@@ -469,7 +459,7 @@ async function handleDirectGenerateCommand(
   origin: string,
 ): Promise<void> {
   if (args.length === 0) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("generate_usage"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("generate_usage"));
     return;
   }
 
@@ -494,7 +484,7 @@ async function handleDirectGenerateCommand(
       error: dispatchResult.error,
     });
     // Durable job row remains; the recovery sweep claims it.
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("dispatch_failed"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("dispatch_failed"));
     return;
   }
 
@@ -504,7 +494,7 @@ async function handleDirectGenerateCommand(
     const result = await deps.sendTelegramMessage(
       env.TELEGRAM_BOT_TOKEN,
       message.chatId,
-      buildGenerationStatusMessage("generating"),
+      await getGenerationStatusMessage("generating"),
     );
     const messageId = extractMessageId(result);
     if (messageId !== null) {
@@ -532,12 +522,12 @@ async function handleEnhanceOnlyCommand(
   origin: string,
 ): Promise<void> {
   if (args.length === 0) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("enhance_usage"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("enhance_usage"));
     return;
   }
 
   if (args.length > ACCESS_CONTROLS.maxPromptLength) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("prompt_too_long"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("prompt_too_long"));
     return;
   }
 
@@ -547,7 +537,7 @@ async function handleEnhanceOnlyCommand(
     ACCESS_CONTROLS.rateLimitWindowMinutes,
   );
   if (recentEnhanceOnly >= ACCESS_CONTROLS.rateLimitMaxSubmissions) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("rate_limited"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("rate_limited"));
     return;
   }
 
@@ -576,12 +566,12 @@ async function handleEnhanceOnlyCommand(
     sessionOrigin: "webhook",
   });
   if (dispatchResult.ok) {
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("enhance_only_received"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("enhance_only_received"));
   } else {
     logStructured("error", "webhook.enhance_only_dispatch_error", {
       status: dispatchResult.status ?? null,
       error: dispatchResult.error,
     });
-    await trySendMessage(env, deps, message.chatId, buildBotMessage("dispatch_failed"));
+    await trySendMessage(env, deps, message.chatId, await getBotMessage("dispatch_failed"));
   }
 }

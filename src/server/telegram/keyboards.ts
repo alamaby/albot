@@ -2,6 +2,52 @@
 // Callback data is `action:sessionId` (session ids are UUIDs, well under the
 // 64-byte callback data limit). The parser is strict: data that does not match
 // a known action is rejected so the webhook never acts on foreign data.
+//
+// DB-driven labels: button texts come from DEFAULT_KEYBOARD_LABELS; pass
+// `labels` (merged DB overrides from the bot_keyboards prompt config) to
+// render customized text. The sync builders default to the hardcoded labels
+// so unit tests stay pure; use getKeyboardLabels() for the DB-driven map.
+
+export type KeyboardLabels = Record<string, string>;
+
+export const DEFAULT_KEYBOARD_LABELS: KeyboardLabels = {
+  generate: "Generate",
+  revise: "Revise Lagi",
+  cancel: "Batal",
+  pick_model: "Pilih Model",
+  pick_reasoning: "Pilih Reasoning",
+  change_model: "Ganti Model",
+  change_reasoning: "Ganti Reasoning",
+  regenerate: "Regenerate",
+  revise_prompt: "Revise Prompt",
+  done: "Selesai",
+  back: "Kembali",
+  retry: "Coba Lagi",
+  new_prompt: "Prompt Baru",
+  model_picked: "Model: {label} ✓",
+  reasoning_picked: "Reasoning: {label} ✓",
+};
+
+function label(labels: KeyboardLabels | undefined, key: string): string {
+  const v = labels?.[key];
+  return typeof v === "string" && v.length > 0 ? v : (DEFAULT_KEYBOARD_LABELS[key] ?? key);
+}
+
+function renderLabel(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
+    vars[key] !== undefined ? vars[key] : match,
+  );
+}
+
+export async function getKeyboardLabels(
+  explicit?: KeyboardLabels,
+): Promise<KeyboardLabels | undefined> {
+  if (explicit) return explicit;
+  const { BotTextRepository } = await import("@/server/repositories/bot-text.repository");
+  const repo = new BotTextRepository();
+  const overrides = await repo.getKeyboardLabels();
+  return Object.keys(overrides).length > 0 ? overrides : undefined;
+}
 
 export const CONFIRMATION_ACTIONS = ["generate", "revise", "cancel"] as const;
 export type ConfirmationAction = (typeof CONFIRMATION_ACTIONS)[number];
@@ -226,19 +272,27 @@ export function confirmationKeyboardWithModel(
   sessionId: string,
   selectedCode: ModelShortCode | null,
   reasoningCode: ReasoningShortCode | null = null,
+  labels?: KeyboardLabels,
 ): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
   const modelLabel = selectedCode ? MODEL_CODE_LABEL[selectedCode] : null;
-  const pickerText = modelLabel ? `Model: ${modelLabel} ✓` : "Pilih Model";
+  const pickerText = modelLabel
+    ? renderLabel(label(labels, "model_picked"), { label: modelLabel })
+    : label(labels, "pick_model");
   const reasoningLabel = reasoningCode ? REASONING_CODE_LABEL[reasoningCode] : null;
-  const reasoningPickerText = reasoningLabel ? `Reasoning: ${reasoningLabel} ✓` : "Pilih Reasoning";
+  const reasoningPickerText = reasoningLabel
+    ? renderLabel(label(labels, "reasoning_picked"), { label: reasoningLabel })
+    : label(labels, "pick_reasoning");
   return {
     inline_keyboard: [
       [
-        { text: "Generate", callback_data: buildCallbackData("generate", sessionId) },
-        { text: "Revise Lagi", callback_data: buildCallbackData("revise", sessionId) },
-        { text: "Batal", callback_data: buildCallbackData("cancel", sessionId) },
+        {
+          text: label(labels, "generate"),
+          callback_data: buildCallbackData("generate", sessionId),
+        },
+        { text: label(labels, "revise"), callback_data: buildCallbackData("revise", sessionId) },
+        { text: label(labels, "cancel"), callback_data: buildCallbackData("cancel", sessionId) },
       ],
       [{ text: pickerText, callback_data: buildModelPickerCallback(sessionId) }],
       [{ text: reasoningPickerText, callback_data: buildReasoningPickerCallback(sessionId) }],
@@ -249,6 +303,7 @@ export function confirmationKeyboardWithModel(
 export function modelPickerKeyboard(
   sessionId: string,
   selectedCode: ModelShortCode | null,
+  labels?: KeyboardLabels,
 ): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
@@ -271,7 +326,7 @@ export function modelPickerKeyboard(
     inline_keyboard: [
       ...rows,
       ...defaultRows,
-      [{ text: "Kembali", callback_data: `model_picker_back:${sessionId}` }],
+      [{ text: label(labels, "back"), callback_data: `model_picker_back:${sessionId}` }],
     ],
   };
 }
@@ -281,6 +336,7 @@ export function modelPickerKeyboard(
 export function reasoningPickerKeyboard(
   sessionId: string,
   selectedCode: ReasoningShortCode | null,
+  labels?: KeyboardLabels,
 ): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
@@ -303,7 +359,7 @@ export function reasoningPickerKeyboard(
     inline_keyboard: [
       ...rows,
       ...defaultRows,
-      [{ text: "Kembali", callback_data: `reasoning_picker_back:${sessionId}` }],
+      [{ text: label(labels, "back"), callback_data: `reasoning_picker_back:${sessionId}` }],
     ],
   };
 }
@@ -329,19 +385,30 @@ export function resultKeyboardWithModel(
   sessionId: string,
   selectedCode: ModelShortCode | null,
   reasoningCode: ReasoningShortCode | null = null,
+  labels?: KeyboardLabels,
 ): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
   const modelLabel = selectedCode ? MODEL_CODE_LABEL[selectedCode] : null;
-  const pickerText = modelLabel ? `Model: ${modelLabel} ✓` : "Ganti Model";
+  const pickerText = modelLabel
+    ? renderLabel(label(labels, "model_picked"), { label: modelLabel })
+    : label(labels, "change_model");
   const reasoningLabel = reasoningCode ? REASONING_CODE_LABEL[reasoningCode] : null;
-  const reasoningPickerText = reasoningLabel ? `Reasoning: ${reasoningLabel} ✓` : "Ganti Reasoning";
+  const reasoningPickerText = reasoningLabel
+    ? renderLabel(label(labels, "reasoning_picked"), { label: reasoningLabel })
+    : label(labels, "change_reasoning");
   return {
     inline_keyboard: [
       [
-        { text: "Regenerate", callback_data: buildCallbackData("regenerate", sessionId) },
-        { text: "Revise Prompt", callback_data: buildCallbackData("revise", sessionId) },
-        { text: "Selesai", callback_data: buildCallbackData("complete", sessionId) },
+        {
+          text: label(labels, "regenerate"),
+          callback_data: buildCallbackData("regenerate", sessionId),
+        },
+        {
+          text: label(labels, "revise_prompt"),
+          callback_data: buildCallbackData("revise", sessionId),
+        },
+        { text: label(labels, "done"), callback_data: buildCallbackData("complete", sessionId) },
       ],
       [{ text: pickerText, callback_data: buildModelPickerCallback(sessionId) }],
       [{ text: reasoningPickerText, callback_data: buildReasoningPickerCallback(sessionId) }],
@@ -417,13 +484,19 @@ export function parseReasoningPickerData(
 // content-policy refusal, which retrying the same input cannot resolve.
 export function retryKeyboard(
   sessionId: string,
-  options?: { showNewPrompt?: boolean },
+  options?: { showNewPrompt?: boolean; labels?: KeyboardLabels },
 ): {
   inline_keyboard: { text: string; callback_data: string }[][];
 } {
-  const row = [{ text: "Coba Lagi", callback_data: buildCallbackData("retry", sessionId) }];
+  const labels = options?.labels;
+  const row = [
+    { text: label(labels, "retry"), callback_data: buildCallbackData("retry", sessionId) },
+  ];
   if (options?.showNewPrompt) {
-    row.push({ text: "Prompt Baru", callback_data: buildCallbackData("cancel", sessionId) });
+    row.push({
+      text: label(labels, "new_prompt"),
+      callback_data: buildCallbackData("cancel", sessionId),
+    });
   }
   return { inline_keyboard: [row] };
 }

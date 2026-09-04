@@ -135,10 +135,11 @@ export class RevisionInputUseCase {
 
     const env = getServerEnv();
     try {
+      const { getBotMessage } = await import("@/server/telegram/messages");
       await this.sendTelegramMessage(
         env.TELEGRAM_BOT_TOKEN,
         session.telegramChatId,
-        "Sedang memproses revisi...",
+        await getBotMessage("revision_processing"),
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";

@@ -119,7 +119,11 @@ function buildUseCase(selector: ProviderSelector, configs: ProviderConfigSafe[])
     selector: selector as never,
     promptAuditRepository: { insert: vi.fn(async () => {}) } as never,
     promptConfigRepository: {
-      getActivePersona: vi.fn(async () => "persona"),
+      getActivePersona: vi.fn(async (key: string) => {
+        if (key === "reasoning_sampling") return '{"temperature":0.7,"max_tokens":1024}';
+        if (key === "reasoning_revision_helper") return "helper";
+        return "persona";
+      }),
     } as never,
     sendConfirmation: vi.fn(async () => {}),
     now: () => new Date("2026-01-01T00:00:00Z"),
@@ -259,7 +263,13 @@ describe("EnhancePromptUseCase.selectProvider (hybrid)", () => {
       sessionRepository: { getById: vi.fn(async () => null) } as never,
       selector: selector as never,
       promptAuditRepository: { insert: vi.fn(async () => {}) } as never,
-      promptConfigRepository: { getActivePersona: vi.fn(async () => "persona") } as never,
+      promptConfigRepository: {
+        getActivePersona: vi.fn(async (key: string) => {
+          if (key === "reasoning_sampling") return '{"temperature":0.7,"max_tokens":1024}';
+          if (key === "reasoning_revision_helper") return "helper";
+          return "persona";
+        }),
+      } as never,
       sendConfirmation: vi.fn(async () => {}),
       now: () => new Date("2026-01-01T00:00:00Z"),
     });

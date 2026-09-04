@@ -16,8 +16,8 @@ import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
 import type { SessionSafe } from "@/server/repositories/session.repository";
 import {
-  buildBotMessage,
-  buildGenerationStatusMessage,
+  getBotMessage,
+  getGenerationStatusMessage,
   failureContextFromError,
 } from "@/server/telegram/messages";
 
@@ -96,7 +96,7 @@ export class GenerateImageHandler {
           errorCode: "session_expired",
           errorMessageRedacted: "session expired before generation",
         });
-        await this.editStatusTo(sessionId, buildGenerationStatusMessage("expired"));
+        await this.editStatusTo(sessionId, await getGenerationStatusMessage("expired"));
         return;
       }
 
@@ -132,8 +132,8 @@ export class GenerateImageHandler {
         const failure = failureContextFromError(providerError);
         const text =
           providerError.code === "provider_content_rejected"
-            ? buildBotMessage("content_policy_declined", { failure })
-            : buildGenerationStatusMessage("failed", { failure });
+            ? await getBotMessage("content_policy_declined", { failure })
+            : await getGenerationStatusMessage("failed", { failure });
         await this.editStatusTo(sessionId, text);
       }
     }

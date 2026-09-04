@@ -15,8 +15,8 @@ import { EnhancementJobRetry } from "./retry";
 import { getServerEnv } from "@/env";
 import { sendMessage } from "@/server/telegram/client";
 import {
-  buildBotMessage,
-  buildEnhanceOnlyMessage,
+  getBotMessage,
+  getEnhanceOnlyMessage,
   failureContextFromError,
 } from "@/server/telegram/messages";
 import { logStructured } from "@/server/observability/logger";
@@ -139,7 +139,7 @@ export class EnhancePromptOnlyHandler {
         await this.sendMessage(
           env.TELEGRAM_BOT_TOKEN,
           payload.telegramChatId,
-          buildEnhanceOnlyMessage(outcome.prompt, reasoningLine),
+          await getEnhanceOnlyMessage(outcome.prompt, reasoningLine),
         );
       } catch (error) {
         // Delivery failed after a successful provider call: the job is done
@@ -168,7 +168,7 @@ export class EnhancePromptOnlyHandler {
           await this.sendMessage(
             env.TELEGRAM_BOT_TOKEN,
             payload.telegramChatId,
-            buildBotMessage(
+            await getBotMessage(
               providerError.code === "provider_content_rejected"
                 ? "content_policy_declined"
                 : "enhance_only_failed",
