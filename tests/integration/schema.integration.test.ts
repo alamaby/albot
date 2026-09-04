@@ -543,6 +543,11 @@ const EXPECTED_MIGRATIONS = [
   "20260903060043",
   // Bynara reasoning rotation: 5 new models (162-166) + deactivate nemotron.
   "20260904090000",
+  // Orphan production migration 04090215 (recover_stuck_received_sessions) — production has it
+  // as 04090215 (MCP apply_migration UTC timestamp) while the repo canonical is 04150000.
+  // DDL identical (CREATE OR REPLACE recover_stuck_received_sessions); keep both for
+  // history alignment: 04090215 satisfies the remote history, 04150000 is the idempotent re-apply.
+  "20260904090215",
   // Bot-text prompt configs: reasoning helper/sampling + bot messages/keyboards/templates seeds.
   "20260904120000",
   // Stuck received guard: queued 0 enhance stuck >2m -> enhancement_failed (recovery self-heal for dispatch/after black hole).
