@@ -53,6 +53,29 @@ registry.registerReasoning("bynara", (config, apiKey) => {
   );
 });
 
+// Bynara reasoning rotation (nemotron-3-ultra replacement, 2026-09-04). One
+// adapter_type per model so the Telegram reasoning picker resolves each entry
+// individually. All reuse the OpenAI-compatible adapter on the Bynara router.
+const BYNARA_REASONING_MODELS: Array<{ adapterType: string; model: string }> = [
+  { adapterType: "bynara_ag25", model: "agnes-2.5-flash" },
+  { adapterType: "bynara_mm3f", model: "minimax-m3-free" },
+  { adapterType: "bynara_mm35", model: "mistral-medium-3-5" },
+  { adapterType: "bynara_ms12", model: "muse-spark-1.2-contributor-free" },
+  { adapterType: "bynara_qw38", model: "qwen3.8-27b" },
+];
+for (const { adapterType, model } of BYNARA_REASONING_MODELS) {
+  registry.registerReasoning(adapterType, (config, apiKey) => {
+    return new OpenAICompatibleReasoningAdapter(
+      {
+        baseUrl: (config["base_url"] as string) ?? "https://router.bynara.id/v1",
+        model: (config["model"] as string) ?? model,
+        timeoutMs: (config["timeout_ms"] as number) ?? REASONING_TIMEOUT_MS,
+      },
+      apiKey,
+    );
+  });
+}
+
 // OpenRouter free models. Each is a distinct adapter_type so the
 // provider_configs row carries the exact model id and the
 // round_robin strategy spreads load across them. Timeout is tight

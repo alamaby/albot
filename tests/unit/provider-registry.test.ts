@@ -62,6 +62,26 @@ describe("ProviderRegistry", () => {
     }
   });
 
+  it("resolves bynara reasoning rotation adapters (5 nemotron replacements)", () => {
+    const registry = getProviderRegistry();
+    for (const [type, model] of [
+      ["bynara_ag25", "agnes-2.5-flash"],
+      ["bynara_mm3f", "minimax-m3-free"],
+      ["bynara_mm35", "mistral-medium-3-5"],
+      ["bynara_ms12", "muse-spark-1.2-contributor-free"],
+      ["bynara_qw38", "qwen3.8-27b"],
+    ] as const) {
+      const provider = registry.createReasoningProvider(
+        type,
+        { base_url: "https://router.bynara.id/v1", model },
+        "test-api-key",
+      );
+      expect(provider).toBeDefined();
+      expect(typeof provider.enhancePrompt).toBe("function");
+      expect(registry.getCapability(type)).toBe("reasoning");
+    }
+  });
+
   it("throws for unknown adapter type", () => {
     const registry = getProviderRegistry();
     expect(() => registry.createReasoningProvider("unknown_adapter", {}, "key")).toThrow(

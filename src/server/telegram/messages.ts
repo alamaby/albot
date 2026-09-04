@@ -1,10 +1,70 @@
 // User-facing Telegram message builders (Indonesian).
-// Messages must never embed secrets, raw provider errors, or raw DB errors.
+// Failure messages may name the provider + model + error code + HTTP status +
+// a redacted safeMessage snippet (see FailureContext). They must never embed
+// secrets, raw upstream bodies, or raw DB errors — safeMessage is passed
+// through redactSensitive and truncated before display.
 // Dynamic content is escaped for MarkdownV2 when sent as Markdown; the bot
 // currently sends plain text so no escaping is required, but builders are the
 // single place to change that later.
 
 import type { EnhancedPromptStructured } from "@/server/providers/prompt-structure";
+import { redactSensitive } from "@/server/observability/redact";
+import type { ProviderErrorShape } from "@/server/providers/errors";
+
+// Display-safe failure attribution for user-facing error messages. Every field
+// is optional: builders render only what is present, so callers without
+// provider info (recovery sweeps, dispatch failures) keep the generic text.
+export type FailureContext = {
+  providerLabel?: string | null;
+  model?: string | null;
+  errorCode?: string | null;
+  httpStatus?: number | null;
+  safeMessage?: string | null;
+};
+
+// Max safeMessage characters embedded in a user-facing message. Upstream
+// messages can echo user content; truncate so failures stay a short caption.
+const FAILURE_MESSAGE_MAX = 200;
+
+// Renders the provider + error detail lines appended below a generic failure
+// sentence, or null when there is nothing safe to show. Pure logic, no I/O.
+export function formatFailureDetail(ctx?: FailureContext | null): string | null {
+  if (!ctx) return null;
+  const lines: string[] = [];
+  const p = ctx.providerLabel?.trim() ?? "";
+  const m = ctx.model?.trim() ?? "";
+  if (p || m) {
+    lines.push(p && m && p !== m && !p.includes(m) ? `${p} · ${m}` : p || m);
+  }
+  const code = ctx.errorCode?.trim() ?? "";
+  const status = ctx.httpStatus ?? null;
+  const msg =
+    ctx.safeMessage != null
+      ? redactSensitive(ctx.safeMessage).trim().slice(0, FAILURE_MESSAGE_MAX)
+      : "";
+  const head = [code, status !== null ? `HTTP ${status}` : ""].filter(Boolean).join(" ");
+  if (head || msg) {
+    lines.push(msg ? (head ? `${head} — ${msg}` : msg) : head);
+  }
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+function withFailure(base: string, failure?: FailureContext | null): string {
+  const detail = formatFailureDetail(failure);
+  return detail ? `${base}\n${detail}` : base;
+}
+
+// Builds a FailureContext from a normalized provider error. Providers without
+// attribution (unknown fallbacks) yield a code-only context.
+export function failureContextFromError(error: ProviderErrorShape): FailureContext {
+  return {
+    providerLabel: error.providerLabel ?? null,
+    model: error.providerModel ?? null,
+    errorCode: error.code,
+    httpStatus: error.httpStatus ?? null,
+    safeMessage: error.safeMessage,
+  };
+}
 
 export type BotMessage =
   | "access_denied"
@@ -30,7 +90,12 @@ export type BotMessage =
 
 export function buildBotMessage(
   kind: BotMessage,
-  options?: { maxPromptLength?: number; rateLimitWindowMinutes?: number; rateLimitMax?: number },
+  options?: {
+    maxPromptLength?: number;
+    rateLimitWindowMinutes?: number;
+    rateLimitMax?: number;
+    failure?: FailureContext | null;
+  },
 ): string {
   const maxPromptLength = options?.maxPromptLength ?? 4000;
   const rateLimitWindowMinutes = options?.rateLimitWindowMinutes ?? 10;
@@ -54,11 +119,17 @@ export function buildBotMessage(
     case "session_expired":
       return "Sesi telah berakhir. Kirim prompt baru untuk memulai sesi baru.";
     case "enhancement_failed":
-      return "Gagal memproses prompt. Silakan coba lagi.";
+      return withFailure("Gagal memproses prompt. Silakan coba lagi.", options?.failure);
     case "generation_failed":
-      return "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.";
+      return withFailure(
+        "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.",
+        options?.failure,
+      );
     case "content_policy_declined":
-      return "Prompt ditolak karena kebijakan konten provider. Ubah prompt dan coba lagi.";
+      return withFailure(
+        "Prompt ditolak karena kebijakan konten provider. Ubah prompt dan coba lagi.",
+        options?.failure,
+      );
     case "session_cancelled":
       return "Sesi dibatalkan.";
     case "no_active_session":
@@ -86,7 +157,7 @@ export function buildBotMessage(
     case "enhance_only_received":
       return "Sedang menyempurnakan prompt, mohon tunggu...";
     case "enhance_only_failed":
-      return "Gagal menyempurnakan prompt. Silakan coba lagi.";
+      return withFailure("Gagal menyempurnakan prompt. Silakan coba lagi.", options?.failure);
     case "dispatch_failed":
       return "Gagal memulai pemrosesan. Silakan coba lagi sebentar.";
   }
@@ -222,11 +293,12 @@ export type GenerationStatusKind =
 export function buildGenerationStatusMessage(
   kind: GenerationStatusKind,
   input?: {
-    attemptNumber: number;
-    revisionNumber: number;
+    attemptNumber?: number;
+    revisionNumber?: number;
     reasoningProviderLabel?: string | null;
     reasoningModel?: string | null;
     imageModelLabel?: string | null;
+    failure?: FailureContext | null;
   },
 ): string {
   switch (kind) {
@@ -251,7 +323,10 @@ export function buildGenerationStatusMessage(
       return "Gambar berhasil dibuat.";
     }
     case "failed":
-      return "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.";
+      return withFailure(
+        "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.",
+        input?.failure,
+      );
     case "expired":
       return "Sesi telah berakhir. Kirim prompt baru untuk memulai sesi baru.";
   }

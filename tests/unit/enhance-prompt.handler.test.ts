@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EnhancePromptHandler } from "@/server/jobs/enhance-prompt.handler";
 import type { JobRow } from "@/server/jobs/processor";
-import { makeRetryable, makeNonRetryable } from "@/server/providers/errors";
+import { makeRetryable, makeNonRetryable, withProviderContext } from "@/server/providers/errors";
 import { resetServerEnvCache } from "@/env";
 
 const rpcMock = vi.hoisted(() => ({
@@ -235,6 +235,38 @@ describe("EnhancePromptHandler", () => {
       expect.objectContaining({
         session: expect.objectContaining({ id: "session-1" }),
         contentPolicy: true,
+      }),
+    );
+  });
+
+  it("forwards provider attribution to the retry message for diagnostics", async () => {
+    withEnv();
+    const attributed = withProviderContext(
+      makeNonRetryable("provider_request_invalid", "openai-compatible provider returned 400", {
+        httpStatus: 400,
+      }),
+      { label: "Bynara Agnes 2.5 Flash", model: "agnes-2.5-flash" },
+    );
+    rpcMock.transition = { id: "session-1" };
+
+    const { handler, enhancePrompt, sendRetryMessage } = buildHandler({
+      error: attributed,
+      retryResult: false,
+    });
+    enhancePrompt.execute.mockRejectedValue(attributed);
+
+    await handler.handle(jobRow(), "processor-abc");
+
+    expect(sendRetryMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session: expect.objectContaining({ id: "session-1" }),
+        contentPolicy: false,
+        failure: expect.objectContaining({
+          providerLabel: "Bynara Agnes 2.5 Flash",
+          model: "agnes-2.5-flash",
+          errorCode: "provider_request_invalid",
+          httpStatus: 400,
+        }),
       }),
     );
   });

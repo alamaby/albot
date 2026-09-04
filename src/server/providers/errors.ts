@@ -27,6 +27,11 @@ export type ProviderErrorShape = {
   httpStatus?: number;
   safeMessage: string;
   cause?: unknown;
+  // Display-safe provider attribution, attached by the use case that owns the
+  // provider selection (adapters never know the DB config name). Used to
+  // render failure messages that name the provider + model. Never a secret.
+  providerLabel?: string;
+  providerModel?: string;
 };
 
 export class ProviderError extends Error implements ProviderErrorShape {
@@ -36,6 +41,8 @@ export class ProviderError extends Error implements ProviderErrorShape {
   readonly httpStatus?: number;
   readonly safeMessage: string;
   readonly cause?: unknown;
+  readonly providerLabel?: string;
+  readonly providerModel?: string;
 
   constructor(options: {
     code: ProviderErrorCode;
@@ -44,6 +51,8 @@ export class ProviderError extends Error implements ProviderErrorShape {
     httpStatus?: number;
     message: string;
     cause?: unknown;
+    providerLabel?: string;
+    providerModel?: string;
   }) {
     super(options.message);
     this.name = "ProviderError";
@@ -53,6 +62,8 @@ export class ProviderError extends Error implements ProviderErrorShape {
     this.httpStatus = options.httpStatus;
     this.safeMessage = options.message;
     this.cause = options.cause;
+    this.providerLabel = options.providerLabel;
+    this.providerModel = options.providerModel;
   }
 
   toJSON(): Record<string, unknown> {
@@ -62,8 +73,30 @@ export class ProviderError extends Error implements ProviderErrorShape {
       ...(this.providerRequestId ? { providerRequestId: this.providerRequestId } : {}),
       ...(this.httpStatus ? { httpStatus: this.httpStatus } : {}),
       safeMessage: this.safeMessage,
+      ...(this.providerLabel ? { providerLabel: this.providerLabel } : {}),
+      ...(this.providerModel ? { providerModel: this.providerModel } : {}),
     };
   }
+}
+
+// Attaches display-safe provider attribution (config name + model) to a
+// normalized error. Returns a new ProviderError so the retry taxonomy
+// (code/retryable/httpStatus) is preserved exactly; the original error is kept
+// as `cause`. Callers are use cases that own the provider selection.
+export function withProviderContext(
+  error: ProviderErrorShape,
+  input: { label: string; model?: string | null },
+): ProviderError {
+  return new ProviderError({
+    code: error.code,
+    retryable: error.retryable,
+    ...(error.providerRequestId ? { providerRequestId: error.providerRequestId } : {}),
+    ...(error.httpStatus !== undefined ? { httpStatus: error.httpStatus } : {}),
+    message: error.safeMessage,
+    cause: error.cause ?? error,
+    providerLabel: input.label,
+    ...(input.model ? { providerModel: input.model } : {}),
+  });
 }
 
 // Classification helpers.

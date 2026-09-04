@@ -74,8 +74,17 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
       if (!response.ok) {
         // Log the upstream error detail (truncated, never the key) so runtime
         // failures like Cloudflare/OpenRouter 401s are diagnosable from logs.
+        // The message carries a truncated snippet too (parity with the Bynara
+        // image adapter) so terminal failures name the upstream cause in audit
+        // rows and user-facing diagnostics; secrets are stripped at display
+        // time via redactSensitive.
+        let errorBody = "";
         try {
-          const errorBody = (await response.text()).slice(0, 500);
+          errorBody = (await response.text()).slice(0, 500);
+        } catch {
+          errorBody = "unable to read body";
+        }
+        try {
           logStructured("warn", "reasoning.upstream_error", {
             httpStatus: response.status,
             detail: errorBody,
@@ -85,7 +94,7 @@ export class OpenAICompatibleReasoningAdapter implements ReasoningProvider {
         }
         throw makeErrorFromHttpStatus(
           response.status,
-          `openai-compatible provider returned ${response.status}`,
+          `openai-compatible provider returned ${response.status}: ${errorBody.slice(0, 200)}`,
           { providerRequestId: readProviderRequestId(response) },
         );
       }

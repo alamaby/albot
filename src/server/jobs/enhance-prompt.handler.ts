@@ -16,7 +16,8 @@ import { JobRepository, type JobSafe } from "@/server/repositories/job.repositor
 import { EnhancementJobRetry } from "./retry";
 import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
-import { buildBotMessage } from "@/server/telegram/messages";
+import { buildBotMessage, failureContextFromError } from "@/server/telegram/messages";
+import type { FailureContext } from "@/server/telegram/messages";
 
 export type EnhancePromptHandlerDeps = {
   enhancePrompt?: EnhancePromptUseCase;
@@ -28,7 +29,11 @@ export type EnhancePromptHandlerDeps = {
   // enhancement failure. When contentPolicy is true, adds a "Prompt Baru"
   // button and a content-policy message (retrying the same input cannot
   // resolve a refusal). Best-effort; injected for tests.
-  sendRetryMessage?: (input: { session: SessionSafe; contentPolicy?: boolean }) => Promise<void>;
+  sendRetryMessage?: (input: {
+    session: SessionSafe;
+    contentPolicy?: boolean;
+    failure?: FailureContext | null;
+  }) => Promise<void>;
 };
 
 export class EnhancePromptHandler {
@@ -40,6 +45,7 @@ export class EnhancePromptHandler {
   private readonly sendRetryMessage: (input: {
     session: SessionSafe;
     contentPolicy?: boolean;
+    failure?: FailureContext | null;
   }) => Promise<void>;
 
   constructor(deps: EnhancePromptHandlerDeps = {}) {
@@ -57,7 +63,9 @@ export class EnhancePromptHandler {
         await sendMessageWithKeyboard(
           env.TELEGRAM_BOT_TOKEN,
           input.session.telegramChatId,
-          buildBotMessage(input.contentPolicy ? "content_policy_declined" : "enhancement_failed"),
+          buildBotMessage(input.contentPolicy ? "content_policy_declined" : "enhancement_failed", {
+            failure: input.failure ?? null,
+          }),
           retryKeyboard(input.session.id, { showNewPrompt: input.contentPolicy }),
         );
       });
@@ -141,8 +149,13 @@ export class EnhancePromptHandler {
         }
         // Tell the user the outcome with a retry keyboard. Best-effort.
         // A content-policy refusal is terminal for the same input, so surface
-        // a "Prompt Baru" button instead of a pointless retry.
-        await this.sendRetryTo(sessionId, providerError.code === "provider_content_rejected");
+        // a "Prompt Baru" button instead of a pointless retry. The message
+        // names the provider + error (redacted) for diagnostics.
+        await this.sendRetryTo(
+          sessionId,
+          providerError.code === "provider_content_rejected",
+          failureContextFromError(providerError),
+        );
       }
     }
   }
@@ -169,11 +182,15 @@ export class EnhancePromptHandler {
 
   // Best-effort retry message. Loads the session fresh so it can never act on
   // stale ids.
-  private async sendRetryTo(sessionId: string, contentPolicy = false): Promise<void> {
+  private async sendRetryTo(
+    sessionId: string,
+    contentPolicy = false,
+    failure: FailureContext | null = null,
+  ): Promise<void> {
     try {
       const session = await this.sessionRepository.getById(sessionId);
       if (!session) return;
-      await this.sendRetryMessage({ session, contentPolicy });
+      await this.sendRetryMessage({ session, contentPolicy, failure });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "unknown";
       logStructured("error", "enhance.retry_message_failed", { sessionId, detail });

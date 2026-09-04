@@ -15,7 +15,11 @@ import { GenerationJobRetry } from "./generation-retry";
 import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
 import type { SessionSafe } from "@/server/repositories/session.repository";
-import { buildBotMessage, buildGenerationStatusMessage } from "@/server/telegram/messages";
+import {
+  buildBotMessage,
+  buildGenerationStatusMessage,
+  failureContextFromError,
+} from "@/server/telegram/messages";
 
 export type GenerateImageHandlerDeps = {
   generateImage?: GenerateImageUseCase;
@@ -123,11 +127,13 @@ export class GenerateImageHandler {
         }
         // Tell the user the outcome on the same status message. Best-effort.
         // A content-policy refusal gets a distinct message so the user knows
-        // the prompt was declined (not a transient generation failure).
+        // the prompt was declined (not a transient generation failure). Both
+        // name the provider + error (redacted) for diagnostics.
+        const failure = failureContextFromError(providerError);
         const text =
           providerError.code === "provider_content_rejected"
-            ? buildBotMessage("content_policy_declined")
-            : buildGenerationStatusMessage("failed");
+            ? buildBotMessage("content_policy_declined", { failure })
+            : buildGenerationStatusMessage("failed", { failure });
         await this.editStatusTo(sessionId, text);
       }
     }

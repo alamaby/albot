@@ -14,7 +14,11 @@ import { JobRepository } from "@/server/repositories/job.repository";
 import { EnhancementJobRetry } from "./retry";
 import { getServerEnv } from "@/env";
 import { sendMessage } from "@/server/telegram/client";
-import { buildBotMessage, buildEnhanceOnlyMessage } from "@/server/telegram/messages";
+import {
+  buildBotMessage,
+  buildEnhanceOnlyMessage,
+  failureContextFromError,
+} from "@/server/telegram/messages";
 import { logStructured } from "@/server/observability/logger";
 import type { ProviderErrorShape } from "@/server/providers/errors";
 
@@ -157,7 +161,8 @@ export class EnhancePromptOnlyHandler {
       if (!retried) {
         // Terminal failure: tell the user best-effort. Distinguish a
         // content-policy refusal (which the same input cannot resolve) so the
-        // user knows the prompt was declined rather than "failed".
+        // user knows the prompt was declined rather than "failed". The message
+        // names the provider + error (redacted) for diagnostics.
         try {
           const env = getServerEnv();
           await this.sendMessage(
@@ -167,6 +172,7 @@ export class EnhancePromptOnlyHandler {
               providerError.code === "provider_content_rejected"
                 ? "content_policy_declined"
                 : "enhance_only_failed",
+              { failure: failureContextFromError(providerError) },
             ),
           );
         } catch (sendError) {

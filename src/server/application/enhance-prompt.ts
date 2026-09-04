@@ -14,7 +14,7 @@ import "@/server/providers/index";
 import { getProviderRegistry } from "@/server/providers/registry";
 import { ProviderSelector, type SelectedProvider } from "@/server/providers/selector";
 import { logStructured } from "@/server/observability/logger";
-import { ProviderError } from "@/server/providers/errors";
+import { ProviderError, withProviderContext } from "@/server/providers/errors";
 import {
   parseEnhancedPromptContent,
   StructuredPromptError,
@@ -299,7 +299,10 @@ export class EnhancePromptUseCase {
 
       return { prompt: structured, providerConfigId: selected.config.id };
     } catch (error) {
-      const providerError = normalizeEnhancementError(error);
+      const providerError = withProviderContext(normalizeEnhancementError(error), {
+        label: selected.config.name,
+        model: selected.config.model,
+      });
       await this.enhancementRepository.markProviderRequestFailed({
         requestId,
         errorCode: providerError.code,
@@ -479,7 +482,10 @@ export class EnhancePromptUseCase {
 
       return { status: "completed", session: finalSession, revision, prompt: structured };
     } catch (error) {
-      const providerError = normalizeEnhancementError(error);
+      const providerError = withProviderContext(normalizeEnhancementError(error), {
+        label: selected.config.name,
+        model: selected.config.model,
+      });
       await this.enhancementRepository.markProviderRequestFailed({
         requestId,
         errorCode: providerError.code,

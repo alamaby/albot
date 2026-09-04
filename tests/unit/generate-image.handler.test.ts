@@ -203,7 +203,7 @@ describe("GenerateImageHandler", () => {
     });
     expect(editStatusMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.",
+        text: "Gagal membuat gambar. Silakan coba Regenerate atau kirim prompt baru.\nprovider_authentication_failed — bad key",
       }),
     );
   });
@@ -228,7 +228,7 @@ describe("GenerateImageHandler", () => {
     );
     expect(editStatusMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "Prompt ditolak karena kebijakan konten provider. Ubah prompt dan coba lagi.",
+        text: "Prompt ditolak karena kebijakan konten provider. Ubah prompt dan coba lagi.\nprovider_content_rejected — content policy",
       }),
     );
   });

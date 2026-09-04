@@ -536,6 +536,8 @@ const EXPECTED_MIGRATIONS = [
   "20260903052207",
   "20260903052614",
   "20260903060043",
+  // Bynara reasoning rotation: 5 new models (162-166) + deactivate nemotron.
+  "20260904090000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

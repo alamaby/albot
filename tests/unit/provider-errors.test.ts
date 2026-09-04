@@ -3,6 +3,7 @@ import {
   ProviderError,
   classificationFromHttpStatus,
   makeErrorFromHttpStatus,
+  withProviderContext,
 } from "@/server/providers/errors";
 
 describe("ProviderError", () => {
@@ -31,6 +32,38 @@ describe("ProviderError", () => {
       httpStatus: 408,
       safeMessage: "request timed out",
     });
+  });
+});
+
+describe("withProviderContext", () => {
+  it("preserves the retry taxonomy while attaching provider attribution", () => {
+    const inner = makeErrorFromHttpStatus(400, "openai-compatible provider returned 400");
+    const wrapped = withProviderContext(inner, {
+      label: "Bynara Agnes 2.5 Flash",
+      model: "agnes-2.5-flash",
+    });
+    expect(wrapped.code).toBe("provider_request_invalid");
+    expect(wrapped.retryable).toBe(false);
+    expect(wrapped.httpStatus).toBe(400);
+    expect(wrapped.safeMessage).toBe("openai-compatible provider returned 400");
+    expect(wrapped.providerLabel).toBe("Bynara Agnes 2.5 Flash");
+    expect(wrapped.providerModel).toBe("agnes-2.5-flash");
+    expect(wrapped.toJSON()).toMatchObject({
+      code: "provider_request_invalid",
+      providerLabel: "Bynara Agnes 2.5 Flash",
+      providerModel: "agnes-2.5-flash",
+    });
+    // The original error is kept as cause for server-side logs.
+    expect(wrapped.cause).toBe(inner);
+  });
+
+  it("works without a model", () => {
+    const wrapped = withProviderContext(makeErrorFromHttpStatus(429, "slow down"), {
+      label: "Pollinations gpt-oss",
+    });
+    expect(wrapped.providerLabel).toBe("Pollinations gpt-oss");
+    expect(wrapped.providerModel).toBeUndefined();
+    expect(wrapped.retryable).toBe(true);
   });
 });
 

@@ -3,8 +3,8 @@
 // Reads all secrets (SUPABASE_URL_PROD, SUPABASE_SECRET_KEY_PROD,
 // PROVIDER_KEY_ENCRYPTION_KEY, BYNARA_API_KEY, BYNARA_REASONING_API_KEY)
 // from .env via Node — never via shell echo or grep — and invokes
-// scripts/upsert-provider-key.mjs six times to provision 6 Bynara rows
-// (2 reasoning, 4 image picker) against the production database.
+// scripts/upsert-provider-key.mjs ten times to provision 10 Bynara rows
+// (6 reasoning, 4 image picker) against the production database.
 //
 // All secret values stay inside the Node process env. They are passed
 // to the child process as env overrides; nothing is ever written to
@@ -26,7 +26,11 @@ const PROD_HOST = `https://${PROD_PROJECT_REF}.supabase.co`;
 
 const REASONING_ROWS = [
   { adapterType: "bynara", model: "laguna-s-2.1" },
-  { adapterType: "bynara", model: "nemotron-3-ultra" },
+  { adapterType: "bynara_ag25", model: "agnes-2.5-flash" },
+  { adapterType: "bynara_mm3f", model: "minimax-m3-free" },
+  { adapterType: "bynara_mm35", model: "mistral-medium-3-5" },
+  { adapterType: "bynara_ms12", model: "muse-spark-1.2-contributor-free" },
+  { adapterType: "bynara_qw38", model: "qwen3.8-27b" },
 ];
 
 const IMAGE_ROWS = [

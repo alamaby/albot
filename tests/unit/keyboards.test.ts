@@ -180,6 +180,11 @@ describe("reasoning model picker (enhance/revise)", () => {
       "cf0",
       "poll",
       "byn",
+      "ag25",
+      "mm3f",
+      "mm35",
+      "ms12",
+      "qw38",
       "orF",
       "orIn",
       "orLa",
@@ -189,11 +194,19 @@ describe("reasoning model picker (enhance/revise)", () => {
     expect(REASONING_CODE_TO_ADAPTER["cf0"]).toBe("openai_compatible");
     expect(REASONING_CODE_TO_ADAPTER["poll"]).toBe("pollinations");
     expect(REASONING_CODE_TO_ADAPTER["byn"]).toBe("bynara");
+    expect(REASONING_CODE_TO_ADAPTER["ag25"]).toBe("bynara_ag25");
+    expect(REASONING_CODE_TO_ADAPTER["mm3f"]).toBe("bynara_mm3f");
+    expect(REASONING_CODE_TO_ADAPTER["mm35"]).toBe("bynara_mm35");
+    expect(REASONING_CODE_TO_ADAPTER["ms12"]).toBe("bynara_ms12");
+    expect(REASONING_CODE_TO_ADAPTER["qw38"]).toBe("bynara_qw38");
     expect(REASONING_CODE_TO_ADAPTER["orF"]).toBe("openrouter_free");
     expect(REASONING_CODE_TO_ADAPTER["orM3"]).toBe("openrouter_m3");
     expect(REASONING_ADAPTER_TO_CODE["openrouter_laguna"]).toBe("orLa");
+    expect(REASONING_ADAPTER_TO_CODE["bynara_ag25"]).toBe("ag25");
     expect(REASONING_CODE_LABEL["cf0"]).toContain("Cloudflare");
     expect(REASONING_CODE_LABEL["orM3"]).toContain("MiniMax M3");
+    expect(REASONING_CODE_LABEL["ag25"]).toContain("Agnes 2.5");
+    expect(REASONING_CODE_LABEL["qw38"]).toContain("Qwen");
   });
 
   it("callback data stays under the 64-byte Telegram limit", () => {

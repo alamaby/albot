@@ -14,7 +14,7 @@ import { getServerEnv } from "@/env";
 import "@/server/providers/index";
 import { getProviderRegistry } from "@/server/providers/registry";
 import { ProviderSelector, type SelectedProvider } from "@/server/providers/selector";
-import { ProviderError } from "@/server/providers/errors";
+import { ProviderError, withProviderContext } from "@/server/providers/errors";
 import { isHttpsUrl } from "@/server/providers/http";
 import { logStructured } from "@/server/observability/logger";
 import { ProviderConfigRepository } from "@/server/repositories/provider-config.repository";
@@ -504,7 +504,12 @@ export class GenerateImageUseCase {
 
       return { status: "completed", session: finalSession, attempt: finalAttempt };
     } catch (error) {
-      const providerError = normalizeGenerationError(error);
+      const providerError = selected
+        ? withProviderContext(normalizeGenerationError(error), {
+            label: selected.config.name,
+            model: selected.config.model,
+          })
+        : normalizeGenerationError(error);
 
       // Audit the image-generation failure (best-effort).
       if (selected) {

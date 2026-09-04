@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-09-03 16:40 (Aichixia: prod ter-keyed + insiden CI — `VERCEL_TOKEN` production kosong blokir deploy; detail di `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md`)
+Last updated: 2026-09-04 10:40 (Bynara reasoning rotation: nemotron-3-ultra 400/inactive diganti 5 model 162–166 + pesan gagal berkonteks provider; uncommitted, tunggu push tunggal — detail di `2026-09-04/103800-bynara-reasoning-rotation-and-failure-context.md`)
 
 ## Current State
 
@@ -10,6 +10,7 @@ Last updated: 2026-09-03 16:40 (Aichixia: prod ter-keyed + insiden CI — `VERCE
 - Production topology: Vercel `albot-be.alamaby.com`, webhook `@albot_ai_bot`, allowlist `83540732`, provider reasoning: Cloudflare gpt-oss-120b (0) → Pollinations gpt-oss (150) → OpenRouter free ×5 (200–230, round_robin); image: Pixazo 0/5 → **Aichixia flux2/lucid/phoenix/gemini (110–113; dev & prod ter-keyed 03 Sep — fingerprint 43658ea80bdf...)** → Pollinations flux (151) → Bynara 160-180 → picker 200-203. Picker Telegram: 8 model image + 8 model reasoning (per-sesi + default per-user). Kunci provider terenkripsi AES-256-GCM via `upsert-provider-key.mjs`.
 - **Prod DB 46 migrations (03 Sep, migrate-production run 33733416461 sukses); kode prod masih versi lama** — `deploy-production` run 33733536728 GAGAL: `VERCEL_TOKEN` kosong di environment `production` (auto-created tanpa secret). Tunggu user isi secret + re-run deploy. `validate` run 33733416521 gagal prettier (fix commit `777ce23`, tunggu push).
 - **Prod auto-deploy dari main via Vercel Git integration** (terbukti dari E2E prod 27 Ags tanpa deploy manual) — push main = kode prod baru; DB prod harus selalu mendahului.
+- **Uncommitted 2026-09-04 (siap 1 commit)**: migration `20260904090000` (5 reasoning Bynara 162–166 + deactivate nemotron-3-ultra) + registrasi adapter + picker 8→13 + `FailureContext` di semua pesan gagal (provider + code + HTTP + safeMessage redacted). Unit 346/346, hosted 141/142 (1 fail = migration belum di dev, expected pre-push). RCA: sesi prod `81844d25` gagal 400 di nemotron (model removed dari router).
 - Health endpoint: readiness probe — HTTP 200 `status:ok` saat DB reachable, 503 `status:degraded` sebaliknya, `Cache-Control: no-store`
 - CI: `validate` (PR+push), `migrate-development` + `deploy-development` (auto on push main — pipeline baru 29 Ags), `migrate-production` (manual attestation-gated), `recovery-*` cron */20 (dev & prod hijau; deploy-development menunggu user ganti `VERCEL_TOKEN` — lihat Open Blockers)
 
@@ -42,6 +43,7 @@ Last updated: 2026-09-03 16:40 (Aichixia: prod ter-keyed + insiden CI — `VERCE
 
 ## Recent Entries
 
+- `2026-09-04/103800-bynara-reasoning-rotation-and-failure-context.md` — 5 reasoning Bynara pengganti nemotron (400) + pesan gagal berkonteks provider; unit 346/346, hosted 141/142; **uncommitted, tunggu push tunggal + migrate/seed dev & prod**
 - `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md` — Aichixia image (4 model, priority 110–113) + picker reasoning enhance/revise (8 model, per-sesi+default); lesson MCP versioning; unit 329 + contract 107 + hosted 142/142; **dev & prod ter-keyed** (prod via `scripts/seed-prod-aichixia.mjs` post migrate-production 33733416461); open: `VERCEL_TOKEN` prod kosong → deploy-production gagal 33733536728 + prettier fix `777ce23`
 - `2026-09-03/093100-pooled-image-provider-cancelled.md` — Pooled ai.pooled.dev dibatalkan: `/v1/images/generations` 404, `/v1/models` hanya LLM chat; key valid (chat-only); rantai failover image tidak berubah
 - `2026-08-31/153144-manual-deploy-pivot.md` — Next.js 16 Vercel adapter + disable deploy-development CI; manual deploy via `vercel` CLI
@@ -61,8 +63,6 @@ Last updated: 2026-09-03 16:40 (Aichixia: prod ter-keyed + insiden CI — `VERCE
 - `2026-08-22/150920-bot-no-response-dispatcher-swallow.md` — Fix: dispatcher swallow → `DispatchResult` + user feedback; cron ditambahkan lalu dihapus opsi 1.
 - `2026-08-22/000000-pixazo-pixelforge-dev-migrate.md` — Dev migrate 23/23 aman, PF2 config + picker siap.
 - `2026-08-21/083000-pixazo-pixelforge-plan.md` — Pixazo PixelForge v2 plan (type/size/seed, hybrid selection, user_image_preferences).
-- `2026-08-20/163000-migration-cleanup-and-status-message.md` — M5/M6 follow-up: cleanup mock configs, status message persisted, guardrail check-migrations.
-- `2026-08-13/140000-milestone-4-implementation.md` — M4 CLOSED: enhancement/confirmation/revision E2E verified.
 
 ## Related Plans
 
