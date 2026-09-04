@@ -729,4 +729,19 @@ describe("CallbackStateMachine - reasoning picker", () => {
     expect(setPreferredReasoningProvider).toHaveBeenCalledWith("session-1", "cfg-by");
     expect(acks.some((a) => a.text?.includes("untuk revise berikutnya"))).toBe(true);
   });
+
+  it("rejects regenerate from generating (only model switch may restart)", async () => {
+    withEnv();
+    const { machine, acks } = buildMachine();
+    const outcome = await machine.handle({
+      action: "regenerate",
+      sessionId: "session-1",
+      session: session({ status: "generating" }),
+      telegramUserId: 123n,
+      callbackQueryId: "cb-gen-rej-1",
+      origin: "https://test.origin",
+    });
+    expect(outcome.status).toBe("rejected_state");
+    expect(acks.some((a) => a.text?.includes("diproses"))).toBe(true);
+  });
 });

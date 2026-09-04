@@ -412,9 +412,11 @@ export class CallbackStateMachine {
     callbackQueryId: string,
     webhookOrigin: string,
   ): Promise<CallbackOutcome> {
-    // Regenerate is now allowed from both result_ready (normal) and
+    // Regenerate is only allowed from result_ready (normal) and
     // generation_failed (retry after terminal failure) — see plan
-    // 2026-08-27-regenerate-after-failure-toast-fix.
+    // 2026-08-27-regenerate-after-failure-toast-fix. From `generating` it stays
+    // blocked: only a model switch may restart a running generation (decision
+    // 2026-09-04: "hanya model switch yang boleh restart").
     if (input.session.status !== "result_ready" && input.session.status !== "generation_failed") {
       await this.ack(token, callbackQueryId, "Sesi sedang diproses.");
       return { status: "rejected_state" };
@@ -493,11 +495,13 @@ export class CallbackStateMachine {
       return { status: "rejected_state" };
     }
 
-    // Insert the new job first: if this fails we have not yet cancelled the old
-    // job, so `generating` is not stranded without a job (recovery 15m is the
-    // fallback, but we avoid it here).
+    // Insert the new job first and keep its id: if this fails we have not yet
+    // cancelled the old job, so `generating` is not stranded without a job
+    // (recovery 15m is the fallback, but we avoid it here). The id is used to
+    // exclude the new job from the cancellation below.
+    let newJobId: string;
     try {
-      await this.jobRepository.insertGenerateImageJob({
+      newJobId = await this.jobRepository.insertGenerateImageJob({
         sessionId: input.sessionId,
         revisionId,
         payload: {
@@ -520,25 +524,21 @@ export class CallbackStateMachine {
     const supabase = getSupabaseAdmin();
 
     // Best-effort: cancel any queued/processing/retry_scheduled generate_image
-    // job for this session so the stale worker does not retry with the old model.
-    // Exclude the freshly inserted queued job by cancelling only jobs not equal
-    // to the newest one (created_at check is unnecessary — we cancel all matching
-    // and the new job is the only queued one after cleanup; creation is seconds ago).
-    // Keep limit 1 for typical use: one in-flight job. Limit 5 covers race.
+    // job for this session EXCEPT the one just inserted, so the stale worker
+    // does not retry with the old model. Explicit `neq(id)` — the previous
+    // newest-row heuristic cancelled the new job itself when no in-flight job
+    // existed (prod `c26a2216`: single row -> self-cancel, attempt_count 0).
     try {
       const { data: jobs } = await supabase
         .from("jobs")
-        .select("id, status, created_at")
+        .select("id, status")
         .eq("prompt_session_id", input.sessionId)
         .eq("job_type", "generate_image")
         .in("status", ["queued", "processing", "retry_scheduled"])
-        .order("created_at", { ascending: true })
+        .neq("id", newJobId)
         .limit(5);
-      const rows = (jobs ?? []) as Array<{ id: string; status: string; created_at: string }>;
-      // Keep the newest queued job (the one we just inserted) and cancel the rest.
-      const toCancel =
-        rows.length > 1 && rows[rows.length - 1]?.status === "queued" ? rows.slice(0, -1) : rows;
-      for (const row of toCancel) {
+      const rows = (jobs ?? []) as Array<{ id: string; status: string }>;
+      for (const row of rows) {
         try {
           await supabase
             .from("jobs")
