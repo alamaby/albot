@@ -419,6 +419,11 @@ const EXPECTED_FUNCTIONS: [string, string, boolean][] = [
   // [signature, expected search_path, prosecdef]
   ["claim_job(p_worker_id text, p_lease_seconds integer)", "search_path=pg_catalog, public", true],
   [
+    "recover_stuck_received_sessions(p_max_sessions integer, p_stuck_minutes integer)",
+    "search_path=pg_catalog, public",
+    true,
+  ],
+  [
     "transition_prompt_session(p_session_id uuid, p_expected_status text, p_new_status text, p_active_revision_id uuid, p_active_generation_attempt_id uuid)",
     "search_path=pg_catalog, public",
     true,
@@ -540,6 +545,8 @@ const EXPECTED_MIGRATIONS = [
   "20260904090000",
   // Bot-text prompt configs: reasoning helper/sampling + bot messages/keyboards/templates seeds.
   "20260904120000",
+  // Stuck received guard: queued 0 enhance stuck >2m -> enhancement_failed (recovery self-heal for dispatch/after black hole).
+  "20260904150000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];
@@ -660,9 +667,9 @@ describe.skipIf(skip)("schema integration", () => {
               p.prosecdef,
               coalesce(p.proconfig, '{}') as proconfig
          from pg_proc p
-         join pg_namespace n on n.oid = p.pronamespace
-        where n.nspname = 'public'
-          and p.proname in ('claim_job', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'create_generation_attempt', 'mark_generation_attempt_failed', 'mark_generation_attempt_succeeded', 'complete_prompt_session', 'recover_stuck_generating_sessions', 'set_updated_at', 'get_active_prompt_config', 'upsert_prompt_config', 'activate_prompt_config')`,
+          join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public'
+           and p.proname in ('claim_job', 'recover_stuck_received_sessions', 'transition_prompt_session', 'increment_provider_key_failure', 'mark_revision_failed', 'create_revision', 'create_generation_attempt', 'mark_generation_attempt_failed', 'mark_generation_attempt_succeeded', 'complete_prompt_session', 'recover_stuck_generating_sessions', 'set_updated_at', 'get_active_prompt_config', 'upsert_prompt_config', 'activate_prompt_config')`,
     );
     const rows = res.rows.map((r) => ({
       sig: `${r.proname}(${r.args})`,
@@ -700,6 +707,7 @@ describe.skipIf(skip)("schema integration", () => {
   it("grants execute of atomic functions only to service_role", async () => {
     for (const fn of [
       "claim_job(text, integer)",
+      "recover_stuck_received_sessions(integer, integer)",
       "transition_prompt_session(uuid, text, text, uuid, uuid)",
       "increment_provider_key_failure(uuid, uuid, integer)",
       "mark_revision_failed(uuid, text, text)",

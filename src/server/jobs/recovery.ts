@@ -21,6 +21,7 @@ export type RecoveryRunResult = {
   deadJobsMarked: number;
   staleSessionsExpired: number;
   recoveredStuckGenerating: number;
+  recoveredStuckReceived: number;
   purgedRows: number;
   promptAuditPurgedRows: number;
   claimedJobs: number;
@@ -34,6 +35,8 @@ export const RECOVERY_BATCH_SESSIONS = 100;
 export const RECOVERY_BATCH_CLAIM = 3;
 export const RECOVERY_BATCH_STUCK_GENERATING = 25;
 export const RECOVERY_STUCK_MINUTES = 15;
+export const RECOVERY_BATCH_STUCK_RECEIVED = 25;
+export const RECOVERY_STUCK_RECEIVED_MINUTES = 2;
 
 export type RecoveryDeps = {
   recoveryRepository?: RecoveryRepository;
@@ -113,6 +116,42 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     }
   }
 
+  // 1c. Stuck received/enhancing recovery (queued >2m) — moves to enhancement_failed
+  // with retry keyboard so the user gets feedback instead of a silent 24h stuck.
+  // Best-effort Telegram message; sweep is idempotent, so a failed send is retried.
+  let stuckReceived: Awaited<ReturnType<RecoveryRepository["recoverStuckReceivedSessions"]>> = [];
+  try {
+    stuckReceived = await recoveryRepository.recoverStuckReceivedSessions(
+      RECOVERY_BATCH_STUCK_RECEIVED,
+      RECOVERY_STUCK_RECEIVED_MINUTES,
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown";
+    logStructured("warn", "recovery.stuck_received_recover_failed", { detail });
+    stuckReceived = [];
+  }
+  for (const session of stuckReceived) {
+    try {
+      const chatId = BigInt(session.telegram_chat_id);
+      const { retryKeyboard } = await import("@/server/telegram/keyboards");
+      const { sendMessageWithKeyboard } = await import("@/server/telegram/client");
+      const { getKeyboardLabels } = await import("@/server/telegram/keyboards");
+      const labels = await getKeyboardLabels().catch(() => undefined);
+      await sendMessageWithKeyboard(
+        env.TELEGRAM_BOT_TOKEN,
+        chatId,
+        await getBotMessage("enhancement_failed"),
+        retryKeyboard(session.id, { labels }),
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown";
+      logStructured("warn", "recovery.notify_stuck_received_failed", {
+        sessionId: session.id,
+        detail,
+      });
+    }
+  }
+
   // 1b. Claim due queued/retry_scheduled jobs (Opsi A, cron 20m batch 3).
   // Bounded to RECOVERY_BATCH_CLAIM per sweep to keep the cron light (<5s).
   let claimedJobs = 0;
@@ -171,6 +210,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     deadJobsMarked: deadJobs.length,
     staleSessionsExpired: staleSessions.length,
     recoveredStuckGenerating: stuckGenerating.length,
+    recoveredStuckReceived: stuckReceived.length,
     purgedRows: purge.purgedRows,
     promptAuditPurgedRows: promptAuditPurge.purgedRows,
     claimedJobs,
@@ -181,6 +221,7 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
     deadJobsMarked: result.deadJobsMarked,
     staleSessionsExpired: result.staleSessionsExpired,
     recoveredStuckGenerating: result.recoveredStuckGenerating,
+    recoveredStuckReceived: result.recoveredStuckReceived,
     purgedRows: result.purgedRows,
     promptAuditPurgedRows: result.promptAuditPurgedRows,
     claimedJobs: result.claimedJobs,

@@ -1188,6 +1188,30 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      recover_stuck_received_sessions: {
+        Args: { p_max_sessions?: number; p_stuck_minutes?: number }
+        Returns: {
+          active_generation_attempt_id: string | null
+          active_revision_id: string | null
+          completed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          preferred_image_provider_config_id: string | null
+          preferred_reasoning_provider_config_id: string | null
+          status: string
+          telegram_chat_id: number
+          telegram_status_message_id: number | null
+          telegram_user_id: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "prompt_sessions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       transition_prompt_session: {
         Args: {
           p_active_generation_attempt_id?: string

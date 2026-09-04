@@ -67,6 +67,31 @@ export class RecoveryRepository {
     return (data as SessionRow[] | null) ?? [];
   }
 
+  // Recovers received/enhancing sessions stuck with a queued enhancement job
+  // older than p_stuck_minutes (default 2m). Moves them to enhancement_failed
+  // with a stuck_received_timeout code so the user gets a retry path without
+  // waiting for expires_at (24h). Mirrors recoverStuckGeneratingSessions for
+  // the enhancement lane.
+  async recoverStuckReceivedSessions(maxSessions = 25, stuckMinutes = 2): Promise<SessionRow[]> {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .rpc("recover_stuck_received_sessions", {
+        p_max_sessions: maxSessions,
+        p_stuck_minutes: stuckMinutes,
+      })
+      .select("*");
+    if (error) {
+      if (
+        error.message.includes("does not exist") ||
+        error.message.includes("recover_stuck_received_sessions")
+      ) {
+        return [];
+      }
+      throw new Error(`recover stuck received failed: ${error.message}`);
+    }
+    return (data as SessionRow[] | null) ?? [];
+  }
+
   // Deletes terminal metadata older than the retention window.
   async purgeExpiredMetadata(retentionDays = 30, maxRows = 1000): Promise<PurgeResult> {
     const supabase = getSupabaseAdmin();

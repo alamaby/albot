@@ -73,6 +73,8 @@ describe("runRecovery", () => {
           return { select: vi.fn(() => Promise.resolve({ data: [jobRow()], error: null })) };
         case "recover_stuck_generating_sessions":
           return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stuck_received_sessions":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
         case "mark_dead_jobs":
           return {
             select: vi.fn(() =>
@@ -113,6 +115,7 @@ describe("runRecovery", () => {
       deadJobsMarked: 1,
       staleSessionsExpired: 1,
       recoveredStuckGenerating: 0,
+      recoveredStuckReceived: 0,
       purgedRows: 7,
       promptAuditPurgedRows: 3,
       claimedJobs: 0,
@@ -146,6 +149,8 @@ describe("runRecovery", () => {
         case "expire_job_leases":
           return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
         case "recover_stuck_generating_sessions":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stuck_received_sessions":
           return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
         case "mark_dead_jobs":
           return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
