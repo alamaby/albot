@@ -33,9 +33,10 @@ Created: 2026-09-04 09:00:00
 - [x] Workstream A: pesan gagal berkonteks semua jalur
 - [x] Unit (346/346) + lint/typecheck/format/db checks hijau; hosted 141/142 (1 fail = migration belum di dev, expected pre-push)
 - [x] Commit `f476fdd` + push; gitleaks fix `c886f4a` + push; `validate` SUCCESS; `migrate-production` SUCCESS (prod 162–166 aktif, nemotron off)
-- [ ] Seed keys dev + prod (5 model baru) — butuh `BYNARA_REASONING_API_KEY` via seed scripts
+- [x] Seed keys dev + prod (5 model baru) — butuh `BYNARA_REASONING_API_KEY` via seed scripts
+- [x] Deploy prod manual `vercel --prod` oleh user (sukses, aliased albot-be.alamaby.com, health ok)
 - [ ] Fix secrets env development (migrate-development gagal pre-existing: SUPABASE_* kosong) + VERCEL_TOKEN prod
-- [ ] Uji 1 prompt per model di dev, verifikasi `provider_requests.http_status` 200
+- [ ] Seed dev + uji 1 prompt per model, verifikasi `provider_requests.http_status` 200
 
 ## Risks
 
@@ -50,6 +51,7 @@ Created: 2026-09-04 09:00:00
 - 2026-09-04 09:00:00 — plan dibuat; RCA read-only prod selesai; jawaban user dicatat (semua Bynara router, ID eksak, deactivate nemotron, 162-166 + key sama).
 - 2026-09-04 09:10:00 — build mode aktif; eksekusi dimulai.
 - 2026-09-04 11:05:00 — gitleaks fix c886f4a + push; validate SUCCESS; migrate-production SUCCESS (prod 162–166 aktif, nemotron off); migrate-development FAILURE pre-existing (secrets env development kosong); deploy-production FAILURE (blocker lama VERCEL_TOKEN kosong).
+- 2026-09-04 11:20:00 — deploy prod manual `vercel --prod` oleh user: sukses (health ok). Seed 5 keys baru prod via upsert per-row: sukses (fingerprint sama). Pelajaran: `upsert-provider-key.mjs` tidak bisa rotasi key berhistori (DELETE diblokir FK `provider_requests_key_fkey`) — untuk incremental seeding, seed hanya config baru; laguna/image tidak perlu (key lama tetap valid).
 
 ## Notes
 

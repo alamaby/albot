@@ -50,6 +50,13 @@
 - `deploy-production`: FAILURE (blocker lama `VERCEL_TOKEN` kosong).
 - Next: seed keys 5 model baru di prod (`seed-prod-bynara.mjs` sudah update) + dev (setelah secrets dev diperbaiki), lalu uji 1 prompt per model.
 
+## Deploy + seed outcomes (2026-09-04 ~11:20 WIB)
+
+- Deploy prod manual `vercel --prod` oleh user: sukses, `https://albot-be.alamaby.com/api/health` → `status ok, production, database reachable`.
+- Seed prod: `seed-prod-bynara.mjs` full-run GAGAL di `laguna-s-2.1` (DELETE key diblokir FK `provider_requests_key_fkey` — key berhistori tidak bisa di-rotasi via upsert). Solusi: upsert per-row hanya 5 config baru — sukses semua (fingerprint identik = key sama). Verifikasi query: 6/6 config Bynara punya 1 active key (termasuk nemotron yang nonaktif).
+- Pelajaran: `upsert-provider-key.mjs` hanya aman untuk config tanpa histori; rotasi key berhistori butuh `add-provider-key.mjs` (insert tanpa delete) atau hapus referensi dulu.
+- Terbuka: secrets env development (migrate + seed dev), `VERCEL_TOKEN` prod, uji prompt per model.
+
 ## Verification
 
 - `db:lint` ok, `db:check-migrations` ok (47), `db:types:check` ok (data-only, tanpa regen), `test:unit` 346/346, `lint` ok (2 warning pre-existing di e2e script), `typecheck` ok, `format:check` ok (prettier --write 4 file).
