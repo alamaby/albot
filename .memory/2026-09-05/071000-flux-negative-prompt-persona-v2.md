@@ -47,10 +47,13 @@ User pilih opsi A (persona LLM-driven), opsi B (hard-default adapter) ditunda.
 
 ## Blockers / unresolved
 
-- Belum push; belum migrate dev/prod. `db:types:check` tidak perlu (no DDL)
-  tapi wajib `test:hosted` hijau sebelum migrate prod.
+- Commit gabungan `206e62b` pushed (persona v2 + hapus migrate-development).
+  `migrate-production` auto on push akan apply `20260905120000` ke prod —
+  verifikasi persona aktif v2 setelah workflow hijau.
 - `provider_requests` image kosong di prod — payload aktual Pixazo belum
   terverifikasi; perlu `query_logs` / audit saat uji A/B.
+- Dev dibiarkan drift (versi MCP lama); `test:hosted` lokal vs dev tetap 141/142
+  pre-existing — tidak lagi relevan karena workflow dev dihapus.
 
 ## Verification
 
@@ -64,7 +67,7 @@ User pilih opsi A (persona LLM-driven), opsi B (hard-default adapter) ditunda.
 
 ## Conventional commit
 
-`feat(db): flux anatomy guards in enhancement persona v2`
+`feat(prompts): flux anatomy guards in enhancement persona v2 and remove dev migration workflow` (`206e62b`, pushed)
 
 ## Related
 

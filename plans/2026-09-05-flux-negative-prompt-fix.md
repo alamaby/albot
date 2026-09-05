@@ -27,10 +27,9 @@ anatomical anchoring + negative anatomy guards untuk figur manusia.
 - [x] Update `EXPECTED_MIGRATIONS` (`20260905120000`)
 - [x] Sinkronkan fallback persona di `enhance-prompt.ts`
 - [x] Verifikasi lokal: `db:lint`, `check-migrations`, unit 357/357, lint, typecheck, prettier
-- [ ] Push + workflow `migrate-development` apply ke dev
-- [ ] `npm run db:types:check` (no DDL — harus tetap OK)
-- [ ] `npm run test:hosted` melawan dev live
-- [ ] Migrate prod (manual attestation), verifikasi persona aktif v2
+- [x] Hapus `migrate-development.yml` per user (secrets dev kosong, dev drift MCP) + update docs (README, architecture, AGENTS)
+- [x] Commit gabungan + push tunggal (`206e62b`)
+- [ ] `migrate-production` auto on push apply `20260905120000` ke prod → verifikasi persona aktif v2
 - [ ] Uji `/enhance-prompt` sampel manusia → assert `negative_prompt` mengandung `extra head|extra limbs`
 - [ ] Bandingkan generate Pixazo `flux-1-schnell` sebelum/sesudah (curl A/B bila perlu)
 
@@ -50,6 +49,14 @@ anatomical anchoring + negative anatomy guards untuk figur manusia.
 - 2026-09-05 07:10:00 — Migration v2 + fallback + EXPECTED_MIGRATIONS selesai;
   unit 357/357, lint (2 pre-existing warnings), typecheck OK, prettier OK.
   Menunggu push + migrate dev.
+- 2026-09-05 09:40:00 — User putuskan hapus `migrate-development.yml`
+  (secrets env development kosong + dev drift versi MCP lama `04065812/04065924/04091004`
+  vs repo; `test:hosted` 141/142 pre-existing). Workflow dihapus + docs
+  (README/architecture/AGENTS) disesuaikan; pipeline kini
+  `validate → migrate-production → deploy-production`. Commit gabungan
+  `206e62b` pushed. Build lokal gagal di symlink EPERM Windows (pre-existing,
+  compile+TS lolos). `db:types:check` OK (blob HEAD identik generate; diff lokal
+  hanya CRLF worktree).
 
 ## Notes
 
