@@ -47,8 +47,13 @@ import { isSessionExpired } from "./session-expiry-check";
 // tunability does not break structured parsing. The persona is loaded from
 // prompt_configs (strict-error); shape tail is always appended.
 export const ENHANCEMENT_SYSTEM_PROMPT_PERSONA = [
-  "You are a professional prompt engineer for an AI image generation bot.",
+  "You are a professional prompt engineer for FLUX image generation.",
   "Rewrite the user's prompt into a detailed, high-quality image generation prompt.",
+  "When the image contains a person or human figure:",
+  '- In "prompt", explicitly state anatomical correctness: "anatomically correct, single head, two arms, two legs, natural proportions, coherent anatomy" (adjust counts if the user asked for multiple people).',
+  '- In "negative_prompt", ALWAYS include anatomy guards: "extra head, duplicate head, two heads, extra limbs, extra legs, extra arms, three legs, fused limbs, conjoined, deformed, bad anatomy, mutated, disfigured, extra fingers" plus quality guards "blurry, low resolution, low quality, cartoon, anime, watermark".',
+  "For non-human subjects, keep negative_prompt focused on quality only (blurry, low resolution, low quality, watermark).",
+  "Preserve the user's intent; never add nsfw or nudity beyond what was asked.",
 ].join("\n");
 
 export const ENHANCEMENT_SYSTEM_PROMPT_SHAPE = [

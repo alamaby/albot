@@ -552,6 +552,8 @@ const EXPECTED_MIGRATIONS = [
   "20260904120000",
   // Stuck received guard: queued 0 enhance stuck >2m -> enhancement_failed (recovery self-heal for dispatch/after black hole).
   "20260904150000",
+  // Enhancement persona v2: FLUX anatomy guards (option A, LLM-driven; no DDL).
+  "20260905120000",
 ];
 
 const API_ROLES = ["anon", "authenticated", "public"];

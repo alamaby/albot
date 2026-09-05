@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-09-04 21:15 (migration history 04090215 repair + manual production deploy via vercel CLI)
+Last updated: 2026-09-05 07:10 (flux persona v2 uncommitted — persona anatomy guards option A)
 
 ## Current State
 
@@ -45,6 +45,7 @@ Last updated: 2026-09-04 21:15 (migration history 04090215 repair + manual produ
 
 ## Recent Entries
 
+- `2026-09-05/071000-flux-negative-prompt-persona-v2.md` — Opsi A: persona v2 anatomy guards (positive anchoring + negative extra-head/limb) via migration DDL-free `20260905120000` + fallback sync; unit 357/357; **uncommitted, menunggu push + migrate dev**
 - `2026-09-04/120000-universal-prompt-configurability.md` — DB-driven prompt keys 1→6 + bot text/keyboard (45/28/15 keys) + reasoning helper/sampling strict-error; negative prompt per-model (no global default); seed migration `20260904120000` seeded dev via MCP; unit 357/357, contract 107/107; **uncommitted follow-up commitable (waiting prod migrate)**
 - `2026-09-04/103800-bynara-reasoning-rotation-and-failure-context.md` — 5 reasoning Bynara pengganti nemotron (400) + pesan gagal berkonteks provider; unit 346/346, hosted 141/142; **folded into next push (same batch)**
 - `2026-09-03/135635-aichixia-image-provider-and-reasoning-picker.md` — Aichixia image (4 model, priority 110–113) + picker reasoning enhance/revise (8 model, per-sesi+default); lesson MCP versioning; unit 329 + contract 107 + hosted 142/142; **dev & prod ter-keyed** (prod via `scripts/seed-prod-aichixia.mjs` post migrate-production 33733416461); open: `VERCEL_TOKEN` prod kosong → deploy-production gagal 33733536728 + prettier fix `777ce23`

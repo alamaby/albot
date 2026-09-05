@@ -40,7 +40,7 @@ npm run db:lint && npm run db:check-migrations && npm run db:types:check \
  && npm run test:unit && npm run lint && npm run typecheck && npm run build && npm run format:check
 
 # 2. Push main → trigger otomatis:
-#    validate.yml → migrate-development (staging, parallel) → migrate-production (prod pcexxtckvwmiquseznaz, auto) → deploy-production (vercel --prod, needs migrate-production)
+#    validate.yml → migrate-production (prod pcexxtckvwmiquseznaz, auto) → deploy-production (vercel --prod, needs migrate-production)
 git push origin main
 # tunggu Actions → migrate-production → deploy-production → success
 
@@ -53,16 +53,15 @@ curl -s "https://albot-be.alamaby.com/api/health?include=readiness" -H "Authoriz
 # test bot @albot_ai_bot
 ```
 
-> Bot development dihapus (plan `plans/2026-09-02-bot-dev-removal-and-auto-prod-plan.md`): alias `albot-dev.vercel.app`, workflow `recovery-development` & `deploy-development` dihapus; `migrate-development` tetap sebagai staging warning; Vercel Preview env dihapus; Vercel Git Integration dimatikan — deploy prod hanya via `deploy-production.yml`.
+> Bot development dihapus (plan `plans/2026-09-02-bot-dev-removal-and-auto-prod-plan.md`): alias `albot-dev.vercel.app`, workflow `recovery-development` & `deploy-development` dihapus; workflow `migrate-development` dihapus 2026-09-05 (secrets env development kosong, dev drift versi MCP lama); Vercel Preview env dihapus; Vercel Git Integration dimatikan — deploy prod hanya via `deploy-production.yml`.
 
 ## CI/CD Otomatis (push main)
 
 Setiap push ke `main` memicu pipeline otomatis (Opsi C + T7a):
 
 1. **`validate`** — lint/typecheck/test/build + `db:lint`/`db:check-migrations` + secret scan
-2. **`migrate-development`** (`.github/workflows/migrate-development.yml`) — apply migration ke Supabase dev `ceqcitzbosqzxpbtlpfn` + hosted tests (staging, parallel, tidak gate prod)
-3. **`migrate-production`** (`.github/workflows/migrate-production.yml`) — apply migration ke Supabase prod `pcexxtckvwmiquseznaz` (auto on push, standalone `EXPECTED_REF` check)
-4. **`deploy-production`** (`.github/workflows/deploy-production.yml`) — `vercel build` + `vercel deploy --prod` ke `albot-be.alamaby.com`, `needs` via `workflow_run` setelah `migrate-production` success (T7a, `schema before code` terjamin)
+2. **`migrate-production`** (`.github/workflows/migrate-production.yml`) — apply migration ke Supabase prod `pcexxtckvwmiquseznaz` (auto on push, standalone `EXPECTED_REF` check)
+3. **`deploy-production`** (`.github/workflows/deploy-production.yml`) — `vercel build` + `vercel deploy --prod` ke `albot-be.alamaby.com`, `needs` via `workflow_run` setelah `migrate-production` success (T7a, `schema before code` terjamin)
 
 **Secrets GitHub yang dibutuhkan** (Environment `production`):
 

@@ -8,17 +8,17 @@ sebagai staging migration-only (bot dev dihapus, lihat
 
 ## 1. Platform & Tech Stack
 
-| Lapisan       | Teknologi                                                                                                       | Peran                                  |
-| ------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| **Client**    | Telegram (`@albot_ai_bot` — production only)                                                                    | User kirim prompt / klik tombol        |
-| **Edge API**  | Next.js 16 App Router, Node.js runtime di **Vercel**                                                            | Webhook + endpoint internal            |
-| **Domain**    | TypeScript `src/server/application/`                                                                            | Use case, state machine, guards        |
-| **DB**        | **Supabase Postgres** (hosted)                                                                                  | Durable job store + state              |
-| **Auth DB**   | `SUPABASE_SECRET_KEY` (`sb_secret_...`)                                                                         | Service-role bypass RLS, satu client   |
-| **Reasoning** | Bynara `router.bynara.id/v1` (laguna-s-2.1, nemotron-3-ultra)                                                   | Enhance prompt                         |
-| **Image**     | Bynara `api-images.bynara.id/v1` (agnes-2.0/2.1, nano-banana-pro) + Pixazo                                      | Generate gambar (b64_json)             |
-| **Scheduler** | GitHub Actions cron `*/20` (production `recovery-production.yml`)                                               | Recovery sweep prod                    |
-| **CI/CD**     | GitHub Actions `validate` → `migrate-development` (staging) → `migrate-production` (auto) → `deploy-production` | Auto on push main (schema before code) |
+| Lapisan       | Teknologi                                                                     | Peran                                  |
+| ------------- | ----------------------------------------------------------------------------- | -------------------------------------- |
+| **Client**    | Telegram (`@albot_ai_bot` — production only)                                  | User kirim prompt / klik tombol        |
+| **Edge API**  | Next.js 16 App Router, Node.js runtime di **Vercel**                          | Webhook + endpoint internal            |
+| **Domain**    | TypeScript `src/server/application/`                                          | Use case, state machine, guards        |
+| **DB**        | **Supabase Postgres** (hosted)                                                | Durable job store + state              |
+| **Auth DB**   | `SUPABASE_SECRET_KEY` (`sb_secret_...`)                                       | Service-role bypass RLS, satu client   |
+| **Reasoning** | Bynara `router.bynara.id/v1` (laguna-s-2.1, nemotron-3-ultra)                 | Enhance prompt                         |
+| **Image**     | Bynara `api-images.bynara.id/v1` (agnes-2.0/2.1, nano-banana-pro) + Pixazo    | Generate gambar (b64_json)             |
+| **Scheduler** | GitHub Actions cron `*/20` (production `recovery-production.yml`)             | Recovery sweep prod                    |
+| **CI/CD**     | GitHub Actions `validate` → `migrate-production` (auto) → `deploy-production` | Auto on push main (schema before code) |
 
 - **Satu Supabase project per environment**: dev `ceqcitzbosqzxpbtlpfn`, prod
   `pcexxtckvwmiquseznaz`. RLS FORCE, service_role only.
@@ -122,10 +122,9 @@ flowchart TD
 ### 3.5 Deploy & Migration Pipeline (auto push main)
 
 1. `validate.yml` — lint / typecheck / test / build.
-2. `migrate-development.yml` (auto `push`) — `supabase db push` ke dev `ceqcitzbosqzxpbtlpfn` + hosted tests (staging, tidak gate prod).
-3. `migrate-production.yml` (auto `push`) — `supabase db push` ke prod `pcexxtckvwmiquseznaz` (standalone, `EXPECTED_REF` check — Opsi C).
-4. `deploy-production.yml` (auto `workflow_run` setelah `migrate-production` success) — `vercel build` + `vercel deploy --prod` ke `albot-be.alamaby.com`. Vercel Git Integration dimatikan agar urutan `schema before code` terjamin (T7a).
-5. Workflow recovery `*/20` hanya prod (`recovery-production.yml`); dev recovery dihapus bersama bot dev.
+2. `migrate-production.yml` (auto `push`) — `supabase db push` ke prod `pcexxtckvwmiquseznaz` (standalone, `EXPECTED_REF` check — Opsi C). Dev workflow dihapus 2026-09-05.
+3. `deploy-production.yml` (auto `workflow_run` setelah `migrate-production` success) — `vercel build` + `vercel deploy --prod` ke `albot-be.alamaby.com`. Vercel Git Integration dimatikan agar urutan `schema before code` terjamin (T7a).
+4. Workflow recovery `*/20` hanya prod (`recovery-production.yml`); dev recovery dihapus bersama bot dev.
 
 ## 4. Catatan / Trade-off
 
