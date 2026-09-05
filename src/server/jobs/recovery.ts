@@ -181,9 +181,26 @@ export async function runRecovery(deps: RecoveryDeps = {}): Promise<RecoveryRunR
 
   // 3. Stale sessions + best-effort user notification (one message per session;
   // duplicate sessions for the same user are unlikely due to the one-active
-  // index, and the message is idempotent in spirit).
+  // index, and the message is idempotent in spirit). Sessions already in a
+  // terminal-failed state (enhancement_failed / generation_failed) are expired
+  // silently: they received a retry/new-prompt path when they failed, so a
+  // later "Sesi telah berakhir" message is redundant and misleading next to a
+  // newer active session.
+  let staleFailedIds = new Set<string>();
+  try {
+    staleFailedIds = new Set(
+      await recoveryRepository.findStaleFailedSessionIds(RECOVERY_BATCH_SESSIONS),
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown";
+    logStructured("warn", "recovery.stale_failed_lookup_failed", { detail });
+  }
   const staleSessions = await recoveryRepository.recoverStaleSessions(RECOVERY_BATCH_SESSIONS);
   for (const session of staleSessions) {
+    if (staleFailedIds.has(session.id)) {
+      logStructured("info", "recovery.notify_skipped_failed", { sessionId: session.id });
+      continue;
+    }
     try {
       await sendTelegramMessage(
         env.TELEGRAM_BOT_TOKEN,

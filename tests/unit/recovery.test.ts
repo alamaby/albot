@@ -101,7 +101,11 @@ describe("runRecovery", () => {
     const rpc = vi.spyOn(admin, "rpc").mockImplementation(rpcMock as never);
 
     const insert = vi.fn(() => Promise.resolve({ error: null }));
-    vi.spyOn(admin, "from").mockReturnValue({ insert } as never);
+    const limit = vi.fn(() => Promise.resolve({ data: [], error: null }));
+    const lte = vi.fn(() => ({ limit }));
+    const statusIn = vi.fn(() => ({ lte }));
+    const select = vi.fn(() => ({ in: statusIn }));
+    vi.spyOn(admin, "from").mockReturnValue({ insert, select } as never);
 
     const sendMessage = vi.fn(() => Promise.resolve({ ok: true }));
 
@@ -169,11 +173,127 @@ describe("runRecovery", () => {
       }
     };
     vi.spyOn(admin, "rpc").mockImplementation(rpcMock as never);
+    const limit = vi.fn(() => Promise.resolve({ data: [], error: null }));
+    const lte = vi.fn(() => ({ limit }));
+    const statusIn = vi.fn(() => ({ lte }));
     vi.spyOn(admin, "from").mockReturnValue({
       insert: vi.fn(() => Promise.resolve({ error: null })),
+      select: vi.fn(() => ({ in: statusIn })),
     } as never);
 
     const sendMessage = vi.fn(() => Promise.reject(new Error("telegram down")));
+    const result = await runRecovery({
+      sendTelegramMessage: sendMessage as never,
+      processNextJob: vi.fn(async () => ({ status: "idle" as const })),
+    });
+
+    expect(result.staleSessionsExpired).toBe(1);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the expiry notification for already-failed sessions but still expires them", async () => {
+    withEnv();
+    const admin = getSupabaseAdmin();
+    const failedSession = sessionRow({ id: "session-failed", status: "generation_failed" });
+    const hangingSession = sessionRow({ id: "session-hanging", status: "awaiting_confirmation" });
+    const rpcMock: (fn: string, args?: unknown) => unknown = (fn: string) => {
+      switch (fn) {
+        case "expire_job_leases":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stuck_generating_sessions":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stuck_received_sessions":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "mark_dead_jobs":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stale_sessions":
+          return {
+            select: vi.fn(() =>
+              Promise.resolve({ data: [failedSession, hangingSession], error: null }),
+            ),
+          };
+        case "purge_expired_metadata":
+          return {
+            single: vi.fn(() => Promise.resolve({ data: { purged_rows: 0 }, error: null })),
+          };
+        case "purge_prompt_audit":
+          return {
+            single: vi.fn(() => Promise.resolve({ data: { purged_rows: 0 }, error: null })),
+          };
+        default:
+          throw new Error(`unexpected rpc: ${fn}`);
+      }
+    };
+    vi.spyOn(admin, "rpc").mockImplementation(rpcMock as never);
+    // Pre-fetch finds the already-failed session id.
+    const limit = vi.fn(() => Promise.resolve({ data: [{ id: "session-failed" }], error: null }));
+    const lte = vi.fn(() => ({ limit }));
+    const statusIn = vi.fn(() => ({ lte }));
+    vi.spyOn(admin, "from").mockReturnValue({
+      insert: vi.fn(() => Promise.resolve({ error: null })),
+      select: vi.fn(() => ({ in: statusIn })),
+    } as never);
+
+    const sendMessage = vi.fn(() => Promise.resolve({ ok: true }));
+    const result = await runRecovery({
+      sendTelegramMessage: sendMessage as never,
+      processNextJob: vi.fn(async () => ({ status: "idle" as const })),
+    });
+
+    // Sweep still expires both rows; only the hanging session is notified.
+    expect(result.staleSessionsExpired).toBe(2);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      BigInt(123456789),
+      expect.stringContaining("Sesi telah berakhir"),
+    );
+
+    // Pre-fetch filters on the terminal-failed statuses below expires_at.
+    expect(statusIn).toHaveBeenCalledWith(
+      "status",
+      expect.arrayContaining(["enhancement_failed", "generation_failed"]),
+    );
+  });
+
+  it("notifies all stale sessions when the failed-lookup fails (fail-open)", async () => {
+    withEnv();
+    const admin = getSupabaseAdmin();
+    const rpcMock: (fn: string, args?: unknown) => unknown = (fn: string) => {
+      switch (fn) {
+        case "expire_job_leases":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stuck_generating_sessions":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stuck_received_sessions":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "mark_dead_jobs":
+          return { select: vi.fn(() => Promise.resolve({ data: [], error: null })) };
+        case "recover_stale_sessions":
+          return { select: vi.fn(() => Promise.resolve({ data: [sessionRow()], error: null })) };
+        case "purge_expired_metadata":
+          return {
+            single: vi.fn(() => Promise.resolve({ data: { purged_rows: 0 }, error: null })),
+          };
+        case "purge_prompt_audit":
+          return {
+            single: vi.fn(() => Promise.resolve({ data: { purged_rows: 0 }, error: null })),
+          };
+        default:
+          throw new Error(`unexpected rpc: ${fn}`);
+      }
+    };
+    vi.spyOn(admin, "rpc").mockImplementation(rpcMock as never);
+    // Pre-fetch query errors: notify all swept sessions as before.
+    const limit = vi.fn(() => Promise.resolve({ data: null, error: new Error("db down") }));
+    const lte = vi.fn(() => ({ limit }));
+    const statusIn = vi.fn(() => ({ lte }));
+    vi.spyOn(admin, "from").mockReturnValue({
+      insert: vi.fn(() => Promise.resolve({ error: null })),
+      select: vi.fn(() => ({ in: statusIn })),
+    } as never);
+
+    const sendMessage = vi.fn(() => Promise.resolve({ ok: true }));
     const result = await runRecovery({
       sendTelegramMessage: sendMessage as never,
       processNextJob: vi.fn(async () => ({ status: "idle" as const })),

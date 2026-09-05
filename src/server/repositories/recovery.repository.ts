@@ -43,6 +43,24 @@ export class RecoveryRepository {
     return (data as SessionRow[] | null) ?? [];
   }
 
+  // Lists ids of sessions already in a terminal-failed state
+  // (enhancement_failed / generation_failed) whose expires_at passed. The
+  // stale-expiry sweep still expires them, but the caller skips the user
+  // notification — they already received a retry/new-prompt path when they
+  // failed, so a later "Sesi telah berakhir" message is redundant and reads
+  // as if the user's current session ended.
+  async findStaleFailedSessionIds(maxSessions = 100): Promise<string[]> {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("prompt_sessions")
+      .select("id")
+      .in("status", ["enhancement_failed", "generation_failed"])
+      .lte("expires_at", new Date().toISOString())
+      .limit(maxSessions);
+    if (error) throw new Error(`stale failed session lookup failed: ${error.message}`);
+    return ((data as Array<{ id: string }> | null) ?? []).map((row) => row.id);
+  }
+
   // Recovers generating sessions stuck with a processing attempt older than
   // p_stuck_minutes (default 15m). Moves them to generation_failed so the
   // user can Regenerate without manual SQL. Returns the recovered rows.

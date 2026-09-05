@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-09-05 07:10 (flux persona v2 uncommitted — persona anatomy guards option A)
+Last updated: 2026-09-05 15:50 (skip failed-session expiry notification, uncommitted)
 
 ## Current State
 
@@ -45,6 +45,7 @@ Last updated: 2026-09-05 07:10 (flux persona v2 uncommitted — persona anatomy 
 
 ## Recent Entries
 
+- `2026-09-05/155000-skip-failed-session-expiry-notification.md` — Sweep `recover_stale_sessions` expire sesi failed diam-diam (skip notifikasi "Sesi telah berakhir"); unit 359/359; **uncommitted**
 - `2026-09-05/071000-flux-negative-prompt-persona-v2.md` — Opsi A: persona v2 anatomy guards (positive anchoring + negative extra-head/limb) via migration DDL-free `20260905120000` + fallback sync; unit 357/357; **uncommitted, menunggu push + migrate dev**
 - `2026-09-04/120000-universal-prompt-configurability.md` — DB-driven prompt keys 1→6 + bot text/keyboard (45/28/15 keys) + reasoning helper/sampling strict-error; negative prompt per-model (no global default); seed migration `20260904120000` seeded dev via MCP; unit 357/357, contract 107/107; **uncommitted follow-up commitable (waiting prod migrate)**
 - `2026-09-04/103800-bynara-reasoning-rotation-and-failure-context.md` — 5 reasoning Bynara pengganti nemotron (400) + pesan gagal berkonteks provider; unit 346/346, hosted 141/142; **folded into next push (same batch)**
@@ -63,10 +64,6 @@ Last updated: 2026-09-05 07:10 (flux persona v2 uncommitted — persona anatomy 
 - `2026-08-26/155000-command-expansion.md` — Command expansion CLOSED: `/help`, `/generate-image` direct, `/enhance-prompt` enhance-only, 274 unit, hosted 126/126, prod 26/26, E2E OK.
 - `2026-08-25/190644-milestone-7-production-release.md` — M7 CLOSED (accepted @alamaby): prod migrate 0→25 attestation-gated (32807707561), deploy albot-be.alamaby.com + @albot_ai_bot, smoke happy path lulus, runbook handoff.
 - `2026-08-22/214000-pollinations-review-fix.md` — Review-fix: prompt/apiKey/b64 validation, log providerRequestId, errors 402 order, openai parity, 6 edge tests → 89 contract.
-- `2026-08-22/213000-pollinations-provider-implemented.md` — Pollinations fallback IMPLEMENTED: gpt-oss priority 150 + flux 151, 402 handling, migration 20260823100000.
-- `2026-08-22/150920-bot-no-response-dispatcher-swallow.md` — Fix: dispatcher swallow → `DispatchResult` + user feedback; cron ditambahkan lalu dihapus opsi 1.
-- `2026-08-22/000000-pixazo-pixelforge-dev-migrate.md` — Dev migrate 23/23 aman, PF2 config + picker siap.
-- `2026-08-21/083000-pixazo-pixelforge-plan.md` — Pixazo PixelForge v2 plan (type/size/seed, hybrid selection, user_image_preferences).
 
 ## Related Plans
 

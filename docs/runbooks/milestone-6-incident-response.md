@@ -120,7 +120,9 @@ user tidak bisa mulai sesi baru (karena index one-active).
 
 1. Diagnostics `expiringSessions` > 0 → sesi lewat `expires_at` belum di-sweep.
 2. Jalankan recovery → `recover_stale_sessions` mark `expired`, user dapat mulai
-   sesi baru, dan menerima notifikasi "Sesi telah berakhir…".
+   sesi baru. Notifikasi "Sesi telah berakhir..." hanya dikirim untuk sesi yang
+   belum failed; sesi `enhancement_failed`/`generation_failed` di-expire
+   diam-diam (sudah menerima tombol retry/prompt-baru saat gagal).
 3. Jika sesi `generating` (bukan expired) dengan attempt `queued`/`processing`
    macet: cek job terkait; lease-expired sweep akan me-recover job.
 
